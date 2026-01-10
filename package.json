@@ -1,0 +1,14 @@
+{
+  "name": "muse",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "services/*"
+  ],
+  "scripts": {
+    "bootstrap": "# install root deps if needed",
+    "compose:up": "docker-compose up --build",
+    "compose:down": "docker-compose down",
+    "smoke": "bash ./scripts/smoke_test.sh"
+  }
+}

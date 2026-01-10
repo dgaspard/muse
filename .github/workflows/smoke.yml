@@ -1,0 +1,28 @@
+name: Smoke tests
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Start services
+        run: docker compose up -d --build
+
+      - name: Wait for services
+        run: |
+          echo "Waiting for services to settle..."
+          sleep 10
+          docker compose ps
+
+      - name: Run smoke tests
+        run: bash ./scripts/smoke_test.sh
+
+      - name: Tear down
+        if: always()
+        run: docker compose down

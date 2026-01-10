@@ -1,0 +1,15 @@
+# Node
+node_modules
+npm-debug.log
+
+# Build outputs
+**/dist
+**/.next
+
+# Python
+**/__pycache__
+*.py[cod]
+.env
+
+# Docker
+.env.*.local
