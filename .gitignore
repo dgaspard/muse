@@ -13,3 +13,6 @@ npm-debug.log
 
 # Docker
 .env.*.local
+
+# Local runtime storage (databases, MinIO data, etc.)
+/storage/
