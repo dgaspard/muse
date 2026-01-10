@@ -55,11 +55,15 @@ services:
     build:
       context: ./services/api
     env_file: .env
+    environment:
+      - MINIO_ENDPOINT=http://minio:9000
+      - MINIO_BUCKET=muse-uploads
     ports:
       - "${API_PORT:-4000}:4000"
     depends_on:
       - postgres
       - redis
+      - minio
     networks:
       - muse-network
 
