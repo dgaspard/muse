@@ -1,11 +1,11 @@
 import React, { useState } from 'react'
 
-export default function UploadPage() {
-  const [projectId, setProjectId] = useState('demo-project')
+export default function UploadPage(): JSX.Element {
+  const [projectId, setProjectId] = useState<string>('demo-project')
   const [file, setFile] = useState<File | null>(null)
   const [status, setStatus] = useState<string | null>(null)
 
-  const onSubmit = async (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!file) {
       setStatus('Please select a file')
@@ -43,7 +43,7 @@ export default function UploadPage() {
             Project ID
             <input
               value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setProjectId(e.target.value)}
               style={{ marginLeft: 8 }}
             />
           </label>
@@ -54,7 +54,7 @@ export default function UploadPage() {
             <input
               type="file"
               accept=".docx,application/pdf,.txt"
-              onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFile(e.target.files ? e.target.files[0] : null)}
               style={{ marginLeft: 8 }}
             />
           </label>
