@@ -22,9 +22,23 @@ Structure
 - services/pipeline — Python FastAPI service (document conversion placeholder)
 - contracts/, docs/, backlog/, prompts/ — placeholders for future artifacts
 
+Before implementing features, refer to:
+- `/contracts/product-vision.md`
+- `/contracts/user-story-format.md`
+- `/contracts/ai-prompt-format-spec.md`
+- `/contracts/ai-constraints-policy.md`
+- `/architecture/muse-architecture.md`
+- `/examples/muse-end-to-end-example.md`
+
 Guidelines
 
 - Prefer clarity over cleverness; code is intentionally explicit and commented.
 - Keep business logic out of this scaffold; add it to services as needed.
+
+Project constraints (apply to contributors):
+- **Do NOT modify files under `/contracts`** without explicit instruction.
+- **Do NOT modify tests to make failures pass.** Fix code or add tests that reflect intended behavior.
+- **Prefer explicit, readable code** and add `// TODO:` comments instead of guessing behavior.
+- **Assume regulated environments;** favor explicit checks, clear logs, and auditability.
 
 If anything is unclear, open an issue and pick sensible defaults.

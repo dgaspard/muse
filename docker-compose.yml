@@ -7,14 +7,20 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-muse}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - ./storage/postgres:/var/lib/postgresql/data
+    networks:
+      - muse-network
 
   redis:
     image: redis:7
     ports:
       - "6379:6379"
+    volumes:
+      - ./storage/redis:/data
+    networks:
+      - muse-network
 
   minio:
     image: minio/minio:latest
@@ -25,16 +31,23 @@ services:
     ports:
       - "9000:9000"
     volumes:
-      - miniodata:/data
+      - ./storage/minio:/data
+    networks:
+      - muse-network
 
-  web:
-    build:
-      context: ./apps/web
+  createbuckets:
+    image: minio/mc:latest
     env_file: .env
-    ports:
-      - "${WEB_PORT:-3000}:3000"
     depends_on:
-      - api
+      - minio
+    entrypoint: /bin/sh -c
+    command: >
+      "sleep 3 && \
+      mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin} && \
+      for b in $(echo ${MINIO_BUCKETS:-documents,uploads} | tr ',' ' '); do \
+        mc mb --ignore-existing local/$b || true; \
+      done"
+    restart: "no"
     networks:
       - muse-network
 
@@ -50,6 +63,17 @@ services:
     networks:
       - muse-network
 
+  workers:
+    build:
+      context: ./services/workers
+    env_file: .env
+    ports:
+      - "${WORKER_PORT:-4100}:4100"
+    depends_on:
+      - redis
+    networks:
+      - muse-network
+
   pipeline:
     build:
       context: ./services/pipeline
@@ -61,20 +85,16 @@ services:
     networks:
       - muse-network
 
-  worker:
+  web:
     build:
-      context: ./services/workers
+      context: ./apps/web
     env_file: .env
     ports:
-      - "${WORKER_PORT:-4100}:4100"
+      - "${WEB_PORT:-3000}:3000"
     depends_on:
-      - redis
+      - api
     networks:
       - muse-network
-
-volumes:
-  pgdata:
-  miniodata:
 
 networks:
   muse-network:

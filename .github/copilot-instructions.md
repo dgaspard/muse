@@ -57,5 +57,12 @@ Notes for agents
 - This is an explicit, intentionally small prototype — favor clear, minimally invasive changes.
 - Prefer adding README notes or comments in code when introducing non-obvious choices.
 
+Project constraints (for AI agents and human contributors):
+- **Do NOT modify files under `/contracts`** without explicit instruction.
+- **Do NOT modify tests to make failures pass.** Fix code or add tests that reflect intended behavior.
+- **Prefer explicit, readable code** over abstractions; add `// TODO:` comments rather than guessing behavior.
+- **Assume regulated environments:** favor explicit checks, clear logs, and auditability.
+- When uncertain about behavior or requirements, **open an issue** rather than guessing.
+
 Contact/owner
 - This is a prototype scaffold. If unsure, open an issue describing the change and include a suggested implementation.

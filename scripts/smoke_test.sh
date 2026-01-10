@@ -1,10 +1,34 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Project constraints (acknowledged):
+# - Do NOT modify files under /contracts without explicit instruction.
+# - Do NOT modify tests to make failures pass.
+# - Prefer explicit, readable code over abstractions.
+# - Add TODO comments instead of guessing behavior.
+# - Assume this project may be used in regulated environments; keep checks explicit and auditable.
+#
+# NOTE: Smoke tests are strict by design; if a check fails, fix the service or the test (do not mute failures).
+
 # Enhanced smoke test for Muse prototype services.
 # - Expects services to be reachable on localhost using ports defined in .env
 # - Verifies service health endpoints AND backend dependencies (Postgres, Redis, MinIO)
 # - Exits non-zero if any check fails
+
+check_api() {
+  local url="$1"
+  local name="$2"
+  echo "Checking $name at $url"
+  response=$(curl -sS --max-time 5 "$url" || true)
+  # Expect JSON: {"ok": true, "service": "muse-api"}
+  if echo "$response" | grep -qE '"ok"[[:space:]]*:[[:space:]]*true' && echo "$response" | grep -qE '"service"[[:space:]]*:[[:space:]]*"muse-api"'; then
+    echo "OK: $name"
+  else
+    echo "FAIL: $name"
+    echo "Response: $response"
+    exit 1
+  fi
+}
 
 check() {
   local url="$1"
@@ -20,7 +44,7 @@ check() {
   fi
 }
 
-check "http://localhost:4000/health" "api"
+check_api "http://localhost:4000/health" "api"
 check "http://localhost:8000/health" "pipeline"
 check "http://localhost:4100/health" "worker"
 
