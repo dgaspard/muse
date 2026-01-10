@@ -92,7 +92,11 @@ services:
   web:
     build:
       context: ./apps/web
+      args:
+        API_ENDPOINT: http://api:4000
     env_file: .env
+    environment:
+      - API_ENDPOINT=http://api:4000
     ports:
       - "${WEB_PORT:-3000}:3000"
     depends_on:

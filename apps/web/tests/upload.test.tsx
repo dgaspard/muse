@@ -1,7 +1,9 @@
-import './setupTests'
+import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import '@testing-library/jest-dom'
 import UploadPage from '../pages/upload'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 describe('Upload page', () => {
   beforeEach(() => {

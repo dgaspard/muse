@@ -1,0 +1,29 @@
+name: integration
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  e2e-upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Start minimal stack
+        run: |
+          docker compose up -d --build minio api web
+
+      - name: Wait and run e2e upload
+        run: |
+          bash ./scripts/e2e_upload.sh
+
+      - name: Tear down
+        if: always()
+        run: |
+          docker compose down -v
