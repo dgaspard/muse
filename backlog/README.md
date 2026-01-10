@@ -1,3 +1,5 @@
 # Backlog
 
-Epics, tickets, and short-term roadmap for the Muse prototype. This is a placeholder for now.
+Epics, tickets, and the short-term roadmap for the Muse prototype.
+
+This file is a placeholder for now.
