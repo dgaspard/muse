@@ -1,39 +1,51 @@
-import { Client } from 'minio'
+import { S3Client, HeadBucketCommand, CreateBucketCommand, PutObjectCommand } from '@aws-sdk/client-s3'
+import fs from 'fs'
 
-const endpoint = process.env.MINIO_ENDPOINT || 'localhost'
-const port = Number(process.env.MINIO_PORT || 9000)
+const endpoint = process.env.MINIO_ENDPOINT || 'http://localhost:9000'
 const accessKey = process.env.MINIO_ROOT_USER || process.env.MINIO_ACCESS_KEY || 'minioadmin'
 const secretKey = process.env.MINIO_ROOT_PASSWORD || process.env.MINIO_SECRET_KEY || 'minioadmin'
 const bucket = process.env.MINIO_BUCKET || 'muse-uploads'
 
-// Note: keep this helper intentionally small and explicit. In a real
-// project this would live in a service/adapter layer with retries,
-// monitoring, and proper error handling.
-const client = new Client({
-  endPoint: endpoint,
-  port,
-  useSSL: false,
-  accessKey,
-  secretKey,
+// Configure S3-compatible client (works with MinIO in local dev)
+const client = new S3Client({
+  endpoint,
+  region: 'us-east-1',
+  credentials: {
+    accessKeyId: accessKey,
+    secretAccessKey: secretKey,
+  },
+  forcePathStyle: true,
 })
 
 export async function ensureBucket() {
-  const exists = await client.bucketExists(bucket)
-  if (!exists) {
-    await client.makeBucket(bucket)
+  try {
+    await client.send(new HeadBucketCommand({ Bucket: bucket }))
+  } catch (err: any) {
+    // If bucket doesn't exist, create it (prototype behavior)
+    if (err?.$metadata?.httpStatusCode === 404 || err?.name === 'NotFound') {
+      await client.send(new CreateBucketCommand({ Bucket: bucket }))
+    } else {
+      // Re-throw unexpected errors
+      throw err
+    }
   }
 }
 
 export async function uploadObject(objectName: string, filePath: string, contentType?: string) {
-  // Uses the local file path to stream the object into MinIO to avoid
-  // in-memory buffering. Caller is responsible for removing temp file.
   await ensureBucket()
-  return client.fPutObject(bucket, objectName, filePath, {
-    'Content-Type': contentType || 'application/octet-stream',
-  })
+  const stream = fs.createReadStream(filePath)
+  const input = {
+    Bucket: bucket,
+    Key: objectName,
+    Body: stream,
+    ContentType: contentType || 'application/octet-stream',
+  }
+  return client.send(new PutObjectCommand(input))
 }
 
 export function objectUrl(objectName: string) {
-  // Not signed; just a useful pointer for local dev and smoke tests.
-  return `http://${endpoint}:${port}/${bucket}/${encodeURIComponent(objectName)}`
+  // Not signed; local dev pointer only
+  // If MINIO_ENDPOINT is http://localhost:9000, ensure no trailing slash
+  const e = (process.env.MINIO_ENDPOINT || 'http://localhost:9000').replace(/\/$/, '')
+  return `${e}/${bucket}/${encodeURIComponent(objectName)}`
 }
