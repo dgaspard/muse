@@ -1,3 +1,4 @@
+import './setupTests'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import UploadPage from '../pages/upload'
