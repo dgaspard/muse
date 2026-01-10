@@ -1,0 +1,24 @@
+name: Validate Muse Contracts
+
+on:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["main"]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate required contracts exist
+        run: |
+          set -e
+          for f in             contracts/product-vision.md             contracts/primary-users-personas.md             contracts/user-story-format.md             contracts/ai-prompt-format-spec.md             contracts/ai-constraints-policy.md             contracts/repo-structure.md; do
+              test -f "$f" || (echo "Missing $f" && exit 1)
+          done
+
+      - name: Validate TODO.md sync
+        run: |
+          echo "TODO: add generator-based validation"

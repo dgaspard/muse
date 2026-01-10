@@ -1,0 +1,15 @@
+name: PR Guardrails
+
+on:
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  guardrails:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enforce MUSE-XXX reference
+        run: |
+          echo "${{ github.event.pull_request.title }} ${{ github.event.pull_request.body }}" |           grep -E "MUSE-[0-9]{3,}" ||           (echo "PR must reference MUSE-XXX" && exit 1)
