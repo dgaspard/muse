@@ -41,7 +41,8 @@ This means when your PDF was converted to text, the heading structure was not pr
 1. Create or download a PDF with actual text content (not scanned/image)
 2. Make sure it has clear section structure with headings
 3. Example structure:
-   ```
+
+   ```yaml
    # Governance Policy Document
    
    ## Section 1: Overview
@@ -107,8 +108,8 @@ The web UI now displays the full validation error message to help you understand
 ## Document Requirements Summary
 
 | Requirement | Minimum | Notes |
-|-------------|---------|-------|
-| Section Headings | 1 | Must use markdown syntax: `# `, `## `, etc. |
+| ----------- | ------- | ----- |
+| Section Headings | 1 | Must use markdown syntax: `#`, `##`, etc. |
 | Content Length | 500 chars | After text extraction from PDF |
 | Document Type | Text PDF | Not scanned/image, must have searchable text |
 | Formatting | Markdown | Headings must use markdown heading syntax |
