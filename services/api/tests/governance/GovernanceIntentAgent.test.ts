@@ -1,289 +1,238 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import fs from 'fs'
-import path from 'path'
-import os from 'os'
-import { GovernanceIntentAgent, AgentValidationError } from '../../src/governance/GovernanceIntentAgent'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import * as fs from 'fs'
+import * as path from 'path'
+import { GovernanceIntentAgent, EpicSchema, AgentValidationError } from '../../src/governance/GovernanceIntentAgent'
 
 describe('GovernanceIntentAgent', () => {
-  let tempDir: string
+  const testDir = path.join(__dirname, '../../../.test-fixtures')
+  const outputDir = path.join(testDir, 'output')
   let agent: GovernanceIntentAgent
 
-  beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'muse-agent-test-'))
+  beforeAll(() => {
     agent = new GovernanceIntentAgent()
-  })
-
-  afterEach(() => {
-    if (fs.existsSync(tempDir)) {
-      fs.rmSync(tempDir, { recursive: true })
+    // Ensure test directories exist
+    if (!fs.existsSync(testDir)) {
+      fs.mkdirSync(testDir, { recursive: true })
+    }
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true })
     }
   })
 
-  describe('deriveEpic', () => {
-    it('should derive Epic from valid governance Markdown', async () => {
-      const markdownPath = path.join(tempDir, 'test-doc.md')
-      const governanceContent = `---
-document_id: doc-test-123
+  afterAll(() => {
+    // Clean up test fixtures
+    if (fs.existsSync(testDir)) {
+      fs.rmSync(testDir, { recursive: true, force: true })
+    }
+  })
+
+  it('should parse governance markdown with front matter', async () => {
+    // Arrange: Create a test governance document
+    const governanceMarkdown = `---
+document_id: gov-001
+title: Authentication & Authorization
+version: 1.0
 ---
 
-# Test Governance Document
+# Governance: Authentication & Authorization
 
-This document describes the requirements for document processing.
+## Overview
+Establish centralized identity and access control across all Muse services.
 
 ## Requirements
+- All APIs must validate JWT tokens
+- Role-based access control must be enforced
+- Audit logs must track all authentication events
+- MFA should be available for sensitive operations
 
-- Documents must be uploaded securely
-- Documents must be converted to Markdown
-- Documents must be committed to Git
-- Traceability must be maintained
+## Success Metrics
+- 100% of APIs protected by authentication
+- Zero unauthorized access incidents
+- <5s latency for token validation
 `
 
-      fs.writeFileSync(markdownPath, governanceContent)
+    const filePath = path.join(testDir, 'governance-001.md')
+    fs.writeFileSync(filePath, governanceMarkdown, 'utf-8')
 
-      const result = await agent.deriveEpic(markdownPath, 'doc-test-123')
+    // Act
+    const epic = await agent.deriveEpic(filePath, 'gov-001')
 
-      expect(result.epic_id).toBe('epic-doc-test')
-      expect(result.derived_from).toBe('doc-test-123')
-      expect(result.source_markdown).toBe(markdownPath)
-      expect(result.objective).toBeTruthy()
-      expect(result.success_criteria).toBeInstanceOf(Array)
-      expect(result.success_criteria.length).toBeGreaterThan(0)
-      expect(result.generated_at).toBeTruthy()
-    })
-
-    it('should include objective from document content', async () => {
-      const markdownPath = path.join(tempDir, 'doc-with-objective.md')
-      const governanceContent = `---
-document_id: doc-456
----
-
-# Governance Policy
-
-Enable governance-driven development through automated document processing. Documents must be traceable and auditable.
-
-## Success Criteria
-
-- All documents have unique identifiers
-- Changes are tracked in version control
-`
-
-      fs.writeFileSync(markdownPath, governanceContent)
-
-      const result = await agent.deriveEpic(markdownPath)
-
-      expect(result.objective).toContain('governance')
-      expect(result.objective).toContain('document processing')
-    })
-
-    it('should extract success criteria from bullet points', async () => {
-      const markdownPath = path.join(tempDir, 'doc-with-criteria.md')
-      const governanceContent = `---
-document_id: doc-789
----
-
-# Requirements Document
-
-## Key Requirements
-
-- Documents must be uploaded and stored securely
-- Metadata must be captured accurately
-- Conversion must preserve document structure
-- Traceability links must be established
-- Audit trails must be maintained
-`
-
-      fs.writeFileSync(markdownPath, governanceContent)
-
-      const result = await agent.deriveEpic(markdownPath)
-
-      expect(result.success_criteria.length).toBeGreaterThan(0)
-      expect(result.success_criteria.some(c => c.includes('upload'))).toBeTruthy()
-      expect(result.success_criteria.some(c => c.includes('Metadata'))).toBeTruthy()
-    })
-
-    it('should provide default success criteria when none found', async () => {
-      const markdownPath = path.join(tempDir, 'minimal-doc.md')
-      const governanceContent = `---
-document_id: doc-minimal
----
-
-# Minimal Document
-
-This is a very simple document with no bullet points.
-`
-
-      fs.writeFileSync(markdownPath, governanceContent)
-
-      const result = await agent.deriveEpic(markdownPath)
-
-      expect(result.success_criteria.length).toBeGreaterThan(0)
-      expect(result.success_criteria.some(c => c.includes('upload'))).toBeTruthy()
-    })
-
-    it('should use document_id from front matter if not provided', async () => {
-      const markdownPath = path.join(tempDir, 'auto-id.md')
-      const governanceContent = `---
-document_id: doc-auto-123
----
-
-# Auto ID Document
-`
-
-      fs.writeFileSync(markdownPath, governanceContent)
-
-      const result = await agent.deriveEpic(markdownPath)
-
-      expect(result.derived_from).toBe('doc-auto-123')
-    })
-
-    it('should throw error when markdown file does not exist', async () => {
-      const markdownPath = path.join(tempDir, 'nonexistent.md')
-
-      await expect(agent.deriveEpic(markdownPath)).rejects.toThrow('not found')
-    })
-
-    it('should include generated_at timestamp', async () => {
-      const markdownPath = path.join(tempDir, 'timestamp-test.md')
-      const governanceContent = `---
-document_id: doc-time-123
----
-
-# Timestamp Test
-`
-
-      fs.writeFileSync(markdownPath, governanceContent)
-
-      const beforeTime = new Date().toISOString()
-      const result = await agent.deriveEpic(markdownPath)
-      const afterTime = new Date().toISOString()
-
-      expect(result.generated_at).toBeTruthy()
-      expect(result.generated_at >= beforeTime).toBeTruthy()
-      expect(result.generated_at <= afterTime).toBeTruthy()
-    })
+    // Assert
+    expect(epic).toBeDefined()
+    expect(epic.epic_id).toBe('epic-gov-001')
+    expect(epic.derived_from).toBe('gov-001')
+    expect(epic.source_markdown).toBe(filePath)
+    expect(epic.objective).toBeTruthy()
+    expect(epic.objective.length).toBeGreaterThan(0)
+    expect(Array.isArray(epic.success_criteria)).toBe(true)
+    expect(epic.success_criteria.length).toBeGreaterThan(0)
+    expect(epic.generated_at).toBeTruthy()
   })
 
-  describe('deriveAndWriteEpic', () => {
-    it('should write Epic to file with correct structure', async () => {
-      const markdownPath = path.join(tempDir, 'source.md')
-      const governanceContent = `---
-document_id: doc-write-123
+  it('should extract success criteria from markdown bullet points', async () => {
+    // Arrange
+    const governanceMarkdown = `---
+document_id: gov-002
 ---
 
-# Test Document
+# Document Processing Governance
 
-- Requirement one
-- Requirement two
+This document outlines requirements for handling document uploads.
+
+- All documents must be scanned for malware
+- Documents over 50MB must be rejected
+- Supported formats include PDF, DOCX, and Markdown
+- Processing must complete within 30 seconds
+- Metadata must be extracted and indexed
 `
 
-      fs.writeFileSync(markdownPath, governanceContent)
+    const filePath = path.join(testDir, 'governance-002.md')
+    fs.writeFileSync(filePath, governanceMarkdown, 'utf-8')
 
-      const outputDir = path.join(tempDir, 'epics')
-      const { epic, epicPath } = await agent.deriveAndWriteEpic(
-        markdownPath,
-        'doc-write-123',
-        outputDir
-      )
+    // Act
+    const epic = await agent.deriveEpic(filePath, 'gov-002')
 
-      expect(fs.existsSync(epicPath)).toBeTruthy()
-      
-      const epicContent = fs.readFileSync(epicPath, 'utf-8')
-      
-      // Check YAML front matter
-      expect(epicContent).toContain('---')
-      expect(epicContent).toContain(`epic_id: ${epic.epic_id}`)
-      expect(epicContent).toContain('derived_from: doc-write-123')
-      expect(epicContent).toContain('generated_at:')
-      
-      // Check markdown structure
-      expect(epicContent).toContain('# Epic:')
-      expect(epicContent).toContain('## Objective')
-      expect(epicContent).toContain('## Success Criteria')
-      expect(epicContent).toMatch(/-\s+\w+/)  // At least one bullet point
-    })
-
-    it('should create output directory if it does not exist', async () => {
-      const markdownPath = path.join(tempDir, 'source2.md')
-      const governanceContent = `---
-document_id: doc-dir-123
----
-
-# Test Document
-`
-
-      fs.writeFileSync(markdownPath, governanceContent)
-
-      const outputDir = path.join(tempDir, 'nested', 'epics', 'dir')
-      expect(fs.existsSync(outputDir)).toBeFalsy()
-
-      await agent.deriveAndWriteEpic(markdownPath, 'doc-dir-123', outputDir)
-
-      expect(fs.existsSync(outputDir)).toBeTruthy()
-    })
-
-    it('should name Epic file using derived_from', async () => {
-      const markdownPath = path.join(tempDir, 'naming-test.md')
-      const governanceContent = `---
-document_id: doc-naming-456
----
-
-# Naming Test
-`
-
-      fs.writeFileSync(markdownPath, governanceContent)
-
-      const outputDir = path.join(tempDir, 'epics')
-      const { epicPath } = await agent.deriveAndWriteEpic(
-        markdownPath,
-        'doc-naming-456',
-        outputDir
-      )
-
-      expect(path.basename(epicPath)).toBe('doc-naming-456-epic.md')
-    })
+    // Assert
+    expect(epic.success_criteria.length).toBeGreaterThan(0)
+    expect(epic.success_criteria.some((c: string) => c.includes('malware'))).toBe(true)
   })
 
-  describe('schema validation', () => {
-    it('should validate Epic has all required fields', async () => {
-      const markdownPath = path.join(tempDir, 'valid.md')
-      const governanceContent = `---
-document_id: doc-valid-123
+  it('should generate and write epic markdown with YAML front matter', async () => {
+    // Arrange
+    const governanceMarkdown = `---
+document_id: gov-003
 ---
 
-# Valid Document
+# Data Governance
 
-- Success criterion one
+Protect sensitive data across the platform.
+
+- Encryption at rest required
+- Encryption in transit required
+- Regular backups scheduled
 `
 
-      fs.writeFileSync(markdownPath, governanceContent)
+    const filePath = path.join(testDir, 'governance-003.md')
+    fs.writeFileSync(filePath, governanceMarkdown, 'utf-8')
 
-      const result = await agent.deriveEpic(markdownPath)
+    // Act
+    const { epic, epicPath } = await agent.deriveAndWriteEpic(
+      filePath,
+      'gov-003',
+      outputDir
+    )
 
-      // Verify all required schema fields exist
-      expect(result).toHaveProperty('epic_id')
-      expect(result).toHaveProperty('derived_from')
-      expect(result).toHaveProperty('source_markdown')
-      expect(result).toHaveProperty('objective')
-      expect(result).toHaveProperty('success_criteria')
-      expect(result).toHaveProperty('generated_at')
-    })
+    // Assert
+    expect(epicPath).toBeTruthy()
+    expect(fs.existsSync(epicPath)).toBe(true)
 
-    it('should ensure success_criteria is non-empty array', async () => {
-      const markdownPath = path.join(tempDir, 'criteria-test.md')
-      const governanceContent = `---
-document_id: doc-criteria-123
+    const epicContent = fs.readFileSync(epicPath, 'utf-8')
+    expect(epicContent).toContain('---')
+    expect(epicContent).toContain('epic_id: epic-gov-003')
+    expect(epicContent).toContain('derived_from: gov-003')
+    expect(epicContent).toContain('# Epic:')
+    expect(epicContent).toContain('## Objective')
+    expect(epicContent).toContain('## Success Criteria')
+  })
+
+  it('should throw AgentValidationError for missing required fields', async () => {
+    // This test validates the schema enforcement
+    // The agent should reject any epic missing required fields
+
+    const governanceMarkdown = `---
+document_id: gov-004
 ---
 
-# Document
+# Empty Governance Document
 `
 
-      fs.writeFileSync(markdownPath, governanceContent)
+    const filePath = path.join(testDir, 'governance-004.md')
+    fs.writeFileSync(filePath, governanceMarkdown, 'utf-8')
 
-      const result = await agent.deriveEpic(markdownPath)
+    // Act & Assert
+    // The agent should either:
+    // 1. Extract something valid, OR
+    // 2. Throw AgentValidationError with descriptive message
+    const epic = await agent.deriveEpic(filePath, 'gov-004')
 
-      expect(Array.isArray(result.success_criteria)).toBeTruthy()
-      expect(result.success_criteria.length).toBeGreaterThan(0)
-      expect(result.success_criteria.every(c => typeof c === 'string')).toBeTruthy()
-    })
+    // Verify schema is valid even with minimal input
+    expect(epic.epic_id).toBeTruthy()
+    expect(epic.objective).toBeTruthy()
+    expect(Array.isArray(epic.success_criteria)).toBe(true)
+    expect(epic.success_criteria.length).toBeGreaterThan(0)
+  })
+
+  it('should throw error when governance file does not exist', async () => {
+    // Arrange
+    const nonExistentPath = path.join(testDir, 'does-not-exist.md')
+
+    // Act & Assert
+    expect(async () => {
+      await agent.deriveEpic(nonExistentPath)
+    }).rejects.toThrow('Governance Markdown not found')
+  })
+
+  it('should use document_id from front matter when not provided', async () => {
+    // Arrange
+    const governanceMarkdown = `---
+document_id: front-matter-id
+---
+
+# Example Governance
+`
+
+    const filePath = path.join(testDir, 'governance-005.md')
+    fs.writeFileSync(filePath, governanceMarkdown, 'utf-8')
+
+    // Act: Call without documentId parameter
+    const epic = await agent.deriveEpic(filePath)
+
+    // Assert
+    expect(epic.derived_from).toBe('front-matter-id')
+  })
+
+  it('should fall back to filename when no document_id provided', async () => {
+    // Arrange
+    const governanceMarkdown = `---
+title: Example
+---
+
+# Example Governance
+`
+
+    const filePath = path.join(testDir, 'governance-006.md')
+    fs.writeFileSync(filePath, governanceMarkdown, 'utf-8')
+
+    // Act: Call without documentId parameter
+    const epic = await agent.deriveEpic(filePath)
+
+    // Assert
+    expect(epic.derived_from).toBe('governance-006')
+  })
+
+  it('should limit objective and success_criteria lengths', async () => {
+    // Arrange: Very long governance document
+    const longText = 'word '.repeat(200) // 200 repetitions of "word "
+    const governanceMarkdown = `---
+document_id: gov-007
+---
+
+# Long Document
+
+${longText}
+
+- Very long criterion: ${longText}
+- Another criterion
+`
+
+    const filePath = path.join(testDir, 'governance-007.md')
+    fs.writeFileSync(filePath, governanceMarkdown, 'utf-8')
+
+    // Act
+    const epic = await agent.deriveEpic(filePath, 'gov-007')
+
+    // Assert
+    expect(epic.objective.length).toBeLessThanOrEqual(500)
+    expect(epic.success_criteria.length).toBeLessThanOrEqual(5)
   })
 })

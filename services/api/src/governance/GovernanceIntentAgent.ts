@@ -1,6 +1,6 @@
-import fs from 'fs'
-import path from 'path'
 import matter from 'gray-matter'
+import * as fs from 'fs'
+import * as path from 'path'
 
 /**
  * Schema for Epic output
