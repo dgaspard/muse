@@ -1,6 +1,7 @@
 // Minimal Next.js page for prototype
 // This page provides links to service health endpoints so you can verify services quickly.
 import React from 'react'
+import Link from 'next/link'
 
 export default function Home() {
   const api = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
@@ -10,6 +11,12 @@ export default function Home() {
     <main style={{padding: 40, fontFamily: 'Arial'}}>
       <h1>Muse (prototype)</h1>
       <p>This is a minimal Next.js frontend used for development and quick checks.</p>
+
+      <h2>Workflows</h2>
+      <ul>
+        <li><Link href="/governance">Governance-to-Delivery Pipeline (MUSE-008)</Link></li>
+        <li><Link href="/upload">Simple Document Upload</Link></li>
+      </ul>
 
       <h2>Health</h2>
       <ul>
