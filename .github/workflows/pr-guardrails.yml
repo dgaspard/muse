@@ -11,10 +11,11 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Enforce MUSE-XXX reference via MUSE-ID field
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+          TITLE: ${{ github.event.pull_request.title }}
         run: |
           set -eo pipefail
-          TITLE="${{ github.event.pull_request.title }}"
-          BODY="${{ github.event.pull_request.body }}"
           echo "PR Title: $TITLE"
 
           # Check for explicit MUSE-ID: <MUSE-XXX|N/A> field in the PR body (preferred)
