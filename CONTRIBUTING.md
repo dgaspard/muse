@@ -31,6 +31,9 @@ expect contributors to follow.
 ## Making changes / PR checklist
 
 - Keep PRs small and focused.
+- **Commit message format:** Start every commit with `MUSE-XXX:` (e.g., `MUSE-001: add new feature`). Use `N/A:` if no MUSE story applies.
+  - This is enforced by CI/CD guardrails and required for PR approval.
+  - Example: `MUSE-005: resolve TypeScript compilation errors from GitHub Actions`
 - Include a short description and manual verification steps (endpoints to
   call, env vars to set).
 - Run `./scripts/smoke_test.sh` before opening a PR; fix any failing
