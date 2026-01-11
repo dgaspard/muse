@@ -172,7 +172,6 @@ export class FeatureToStoryAgent {
 
     // Read governance for traceability
     const governance = this.readGovernanceMarkdown(governanceMarkdownPath)
-    const governanceDocId = governance.frontMatter.document_id || 'unknown'
 
     // Extract feature metadata from content
     const lines = content.split('\n')
