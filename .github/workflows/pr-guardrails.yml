@@ -12,13 +12,12 @@ jobs:
 
       - name: Enforce MUSE-XXX reference via MUSE-ID field
         run: |
-          set -euo pipefail
+          set -eo pipefail
           TITLE="${{ github.event.pull_request.title }}"
           BODY="${{ github.event.pull_request.body }}"
           echo "PR Title: $TITLE"
 
           # Check for explicit MUSE-ID: <MUSE-XXX|N/A> field in the PR body (preferred)
-          # Use a here-string to avoid interpretation issues
           if grep -Eiq '^MUSE-ID:[[:space:]]*(MUSE-[0-9]{3,}|N/A)' <<< "$BODY"; then
             echo "Found MUSE-ID field in PR body. Guardrail passed."
             exit 0
