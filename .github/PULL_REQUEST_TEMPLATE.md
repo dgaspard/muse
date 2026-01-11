@@ -12,6 +12,8 @@ MUSE-ID: MUSE-XXX or MUSE-ID: N/A
 
 Please include a MUSE-ID referencing the related Muse story (e.g., `MUSE-001`) or `N/A` if not applicable. This helps reviewers correlate PRs with demo stories and acceptance criteria.
 
+**Important:** Your commit message MUST start with the MUSE-ID (e.g., `MUSE-001: describe change...`). This is enforced by CI/CD guardrails.
+
 ## Details
 
 More details about the change, rationale, and any migration or rollout notes.
@@ -19,3 +21,4 @@ More details about the change, rationale, and any migration or rollout notes.
 ## Verification
 
 How can reviewers verify this change locally? Describe any steps or commands.
+

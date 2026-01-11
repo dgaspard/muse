@@ -39,7 +39,16 @@ describe('GovernanceCommitService', () => {
   afterEach(() => {
     // Clean up temporary directory
     if (fs.existsSync(tempDir)) {
-      execSync(`rm -rf "${tempDir}"`)
+      try {
+        execSync(`rm -rf "${tempDir}"`, { stdio: 'pipe' })
+      } catch (error) {
+        // Fallback to fs.rmSync if execSync fails
+        try {
+          fs.rmSync(tempDir, { recursive: true, force: true })
+        } catch (e) {
+          console.warn(`Failed to clean up ${tempDir}:`, e)
+        }
+      }
     }
   })
 
@@ -248,21 +257,47 @@ This is a sample governance document.`
     })
 
     it('should update existing artifact record if document_id already exists', async () => {
-      const documentId = 'doc-update-test'
-      const markdownPath = path.join(tempDir, 'docs', 'governance', `${documentId}.md`)
+      const documentId = 'doc-replace-test'
+      const originalPath = path.join(tempDir, 'docs', 'governance', `${documentId}-v1.md`)
+      const updatedPath = path.join(tempDir, 'docs', 'governance', `${documentId}-v2.md`)
 
-      fs.writeFileSync(markdownPath, '# Original')
-      const meta1 = await service.commitGovernanceMarkdown(markdownPath, documentId, 'original.pdf')
+      // First: Create and commit initial markdown with this document_id
+      fs.writeFileSync(originalPath, '# Original Content')
+      const meta1 = await service.commitGovernanceMarkdown(originalPath, documentId, 'original.pdf')
+      expect(meta1.document_id).toBe(documentId)
+      expect(meta1.artifact_path).toContain('doc-replace-test-v1.md')
 
-      // Update the markdown
-      fs.writeFileSync(markdownPath, '# Updated')
-      const meta2 = await service.commitGovernanceMarkdown(markdownPath, documentId, 'updated.pdf')
+      // Commit muse.yaml to have clean working tree
+      execSync(`git add muse.yaml`, { cwd: tempDir })
+      execSync('git commit -m "chore: add muse.yaml"', { cwd: tempDir })
 
+      // Verify working tree is clean
+      let status = execSync('git status --porcelain', { cwd: tempDir, encoding: 'utf-8' })
+      expect(status.trim()).toBe('', 'Working tree must be clean')
+
+      // Second: Create and commit a different markdown file but with the SAME document_id
+      // This should update the record in muse.yaml instead of creating a new one
+      fs.writeFileSync(updatedPath, '# Updated Content')
+      const meta2 = await service.commitGovernanceMarkdown(updatedPath, documentId, 'updated.pdf')
+
+      expect(meta2.document_id).toBe(documentId)
+      expect(meta2.artifact_path).toContain('doc-replace-test-v2.md')
+      expect(meta2.original_filename).toBe('updated.pdf')
+
+      // Verify muse.yaml still has exactly 1 record for this document_id (not 2)
       const museum = YAML.parse(
         fs.readFileSync(path.join(tempDir, 'muse.yaml'), 'utf-8'),
       )
-      expect(museum.artifacts.governance_markdown).toHaveLength(1)
-      expect(museum.artifacts.governance_markdown[0].commit_hash).toBe(meta2.commit_hash)
+
+      const matchingArtifacts = museum.artifacts.governance_markdown.filter(
+        (item: any) => item.document_id === documentId,
+      )
+      expect(matchingArtifacts).toHaveLength(1)
+      
+      const artifact = matchingArtifacts[0]
+      expect(artifact.original_filename).toBe('updated.pdf')
+      expect(artifact.artifact_path).toContain('doc-replace-test-v2.md')
+      expect(artifact.committed.commit_hash).toBe(meta2.commit_hash)
     })
   })
 
