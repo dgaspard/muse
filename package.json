@@ -11,5 +11,8 @@
     "compose:down": "docker-compose down",
     "smoke": "bash ./scripts/smoke_test.sh",
     "e2e-upload": "bash ./scripts/e2e_upload.sh"
+  },
+  "devDependencies": {
+    "@types/multer": "^2.0.0"
   }
 }

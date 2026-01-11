@@ -32,3 +32,107 @@ jobs:
           echo "PR must include a MUSE-ID in the PR body (e.g., 'MUSE-ID: MUSE-001' or 'MUSE-ID: N/A')."
           echo "Please add the MUSE-ID field to your PR description or use the PR template (.github/PULL_REQUEST_TEMPLATE.md)."
           exit 1
+
+      - name: PR Template Check
+        run: |
+          set -euo pipefail
+          BODY="${{ github.event.pull_request.body }}"
+
+          # Check if the PR body contains the PR template
+          if echo "$BODY" | grep -q '<!--'; then
+            echo "PR body contains the PR template. Guardrail passed."
+            exit 0
+          fi
+
+          echo "PR body must contain the PR template. Please use the PR template (.github/PULL_REQUEST_TEMPLATE.md)."
+          exit 1
+
+      - name: MUSE-ID Format Check
+        run: |
+          set -euo pipefail
+          BODY="${{ github.event.pull_request.body }}"
+
+          # Check for the correct MUSE-ID format
+          if echo "$BODY" | grep -Eiq '^MUSE-ID:[[:space:]]*MUSE-[0-9]{3,}'; then
+            echo "MUSE-ID format is correct. Guardrail passed."
+            exit 0
+          fi
+
+          echo "MUSE-ID must be in the format 'MUSE-ID: MUSE-001'."
+          exit 1
+
+      - name: Enforce Single Commit Message Format
+        run: |
+          set -euo pipefail
+          COMMIT_MSG="$(git log -1 --pretty=%B)"
+
+          # Check for the correct commit message format
+          if echo "$COMMIT_MSG" | grep -Eq '^MUSE-[0-9]{3,}:'; then
+            echo "Commit message format is correct. Guardrail passed."
+            exit 0
+          fi
+
+          echo "Commit message must reference the MUSE story (e.g., 'MUSE-001:')."
+          exit 1
+
+      - name: Enforce Branch Name Pattern
+        run: |
+          set -euo pipefail
+          BRANCH_NAME="${{ github.ref }}"
+          echo "Branch name: $BRANCH_NAME"
+
+          # Check for the correct branch name pattern
+          if echo "$BRANCH_NAME" | grep -Eq 'refs/heads/MUSE-[0-9]{3,}'; then
+            echo "Branch name pattern is correct. Guardrail passed."
+            exit 0
+          fi
+
+          echo "Branch name must follow the pattern 'refs/heads/MUSE-001'."
+          exit 1
+
+      - name: Check for WIP in Title or Body
+        run: |
+          set -euo pipefail
+          TITLE="${{ github.event.pull_request.title }}"
+          BODY="${{ github.event.pull_request.body }}"
+          echo "PR Title: $TITLE"
+
+          # Disallow WIP in title or body
+          if echo "$TITLE $BODY" | grep -qi '\[wip\]'; then
+            echo "PR title or body contains [WIP]. Guardrail failed."
+            echo "Please remove [WIP] from the title or body."
+            exit 1
+          fi
+
+          echo "No [WIP] found in title or body. Guardrail passed."
+
+      - name: Check for DCO Sign-off
+        run: |
+          set -euo pipefail
+          COMMIT_MSG="$(git log -1 --pretty=%B)"
+          DCO_SIGN_OFF="Signed-off-by:"
+
+          # Check for DCO sign-off in the commit message
+          if echo "$COMMIT_MSG" | grep -q "$DCO_SIGN_OFF"; then
+            echo "DCO sign-off found. Guardrail passed."
+            exit 0
+          fi
+
+          echo "DCO sign-off is required. Please sign off your commit message."
+          exit 1
+
+      - name: Check for Merge Conflicts
+        run: |
+          set -euo pipefail
+
+          # Fetch the latest changes from the base branch
+          git fetch origin main
+
+          # Check for merge conflicts
+          if git merge-base --is-ancestor origin/main HEAD; then
+            echo "No merge conflicts. Guardrail passed."
+            exit 0
+          fi
+
+          echo "Merge conflicts detected. Please resolve them before merging."
+          exit 1

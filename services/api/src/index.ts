@@ -17,8 +17,12 @@ import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
 import os from 'os'
-import { v4 as uuidv4 } from 'uuid'
-import { uploadObject, objectUrl } from './storage/minioClient'
+import {
+  DocumentAlreadyExistsError,
+  FileSystemDocumentStore,
+  type DocumentStore,
+  S3DocumentStore,
+} from './storage/documentStore'
 
 const app = express()
 
@@ -28,6 +32,26 @@ app.use(express.json())
 app.use(cors())
 
 const port = process.env.API_PORT ? Number(process.env.API_PORT) : 4000
+
+const minioEndpoint = process.env.MINIO_ENDPOINT || 'http://localhost:9000'
+const minioAccessKey = process.env.MINIO_ROOT_USER || process.env.MINIO_ACCESS_KEY || 'minioadmin'
+const minioSecretKey = process.env.MINIO_ROOT_PASSWORD || process.env.MINIO_SECRET_KEY || 'minioadmin'
+const minioBucket = process.env.MINIO_BUCKET || 'muse-uploads'
+
+const documentStore: DocumentStore = (() => {
+  const driver = (process.env.DOCUMENT_STORE_DRIVER || 's3').toLowerCase()
+  if (driver === 'filesystem' || driver === 'fs') {
+    const rootDir = process.env.DOCUMENT_STORE_DIR || path.join(process.cwd(), 'storage', 'documents')
+    return new FileSystemDocumentStore({ rootDir })
+  }
+
+  return new S3DocumentStore({
+    endpoint: minioEndpoint,
+    accessKey: minioAccessKey,
+    secretKey: minioSecretKey,
+    bucket: minioBucket,
+  })
+})()
 
 // Health check endpoint used by monitoring and smoke tests
 app.get('/health', (_req: Request, res: Response) => {
@@ -73,11 +97,12 @@ app.post('/uploads', upload.single('file'), async (req: Request, res: Response) 
       return res.status(400).json({ ok: false, error: 'unsupported file type' })
     }
 
-    const documentId = uuidv4()
-    const objectName = `${projectId}/${documentId}-${file.originalname}`
-
-    // Upload to MinIO (streams from disk)
-    await uploadObject(objectName, file.path, file.mimetype)
+    const metadata = await documentStore.saveOriginalFromPath(file.path, {
+      originalFilename: file.originalname,
+      mimeType: file.mimetype,
+      sizeBytes: file.size,
+      projectId,
+    })
 
     // Remove temp file after successful upload
     try {
@@ -88,12 +113,60 @@ app.post('/uploads', upload.single('file'), async (req: Request, res: Response) 
     }
 
     // Log project/document association (do NOT log file contents)
-    console.log(`[uploads] project=${projectId} document=${documentId} object=${objectName}`)
+    console.log(
+      `[uploads] project=${projectId} document=${metadata.documentId} sha256=${metadata.checksumSha256} object=${metadata.originalObjectKey}`,
+    )
 
-    return res.json({ ok: true, documentId, objectName, location: objectUrl(objectName) })
+    return res.json({
+      ok: true,
+      documentId: metadata.documentId,
+      checksumSha256: metadata.checksumSha256,
+      objectName: metadata.originalObjectKey,
+      location: metadata.storageUri,
+      metadata,
+    })
   } catch (err) {
+    if (err instanceof DocumentAlreadyExistsError) {
+      return res.status(409).json({ ok: false, error: 'document already exists', documentId: err.documentId })
+    }
     console.error('Upload failed', err)
     return res.status(500).json({ ok: false, error: 'upload failed' })
+  }
+})
+
+// GET /documents/:documentId/metadata
+// Read-only metadata retrieval.
+app.get('/documents/:documentId/metadata', async (req: Request, res: Response) => {
+  try {
+    const { documentId } = req.params
+    const metadata = await documentStore.getMetadata(documentId)
+    return res.json({ ok: true, metadata })
+  } catch (err) {
+    console.error('Get metadata failed', err)
+    return res.status(404).json({ ok: false, error: 'document not found' })
+  }
+})
+
+// GET /documents/:documentId
+// Streams the original bytes back to the caller.
+app.get('/documents/:documentId', async (req: Request, res: Response) => {
+  try {
+    const { documentId } = req.params
+    const { stream, metadata } = await documentStore.getOriginal(documentId)
+
+    res.setHeader('Content-Type', metadata.mimeType || 'application/octet-stream')
+    res.setHeader('Content-Length', String(metadata.sizeBytes))
+    res.setHeader('X-Document-Id', metadata.documentId)
+    res.setHeader('X-Checksum-Sha256', metadata.checksumSha256)
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${metadata.originalFilename.replace(/"/g, '')}"`,
+    )
+
+    return stream.pipe(res)
+  } catch (err) {
+    console.error('Get document failed', err)
+    return res.status(404).json({ ok: false, error: 'document not found' })
   }
 })
 

@@ -28,25 +28,32 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_SCANNER_DELAY: 0
     ports:
       - "9000:9000"
     volumes:
       - ./storage/minio:/data
     networks:
       - muse-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
 
   createbuckets:
     image: minio/mc:latest
-    env_file: .env
     depends_on:
-      - minio
-    entrypoint: /bin/sh -c
-    command: >
-      "sleep 3 && \
-      mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin} && \
-      for b in $(echo ${MINIO_BUCKETS:-documents,uploads} | tr ',' ' '); do \
-        mc mb --ignore-existing local/$b || true; \
-      done"
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin;
+      mc mb local/muse-documents;
+      mc mb local/muse-artifacts;
+      exit 0;
+      "
     restart: "no"
     networks:
       - muse-network
