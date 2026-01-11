@@ -1,5 +1,6 @@
-import { S3Client, HeadBucketCommand, CreateBucketCommand, PutObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, HeadBucketCommand, CreateBucketCommand, PutObjectCommand, HeadObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
 import fs from 'fs'
+import { Readable } from 'stream'
 
 const endpoint = process.env.MINIO_ENDPOINT || 'http://localhost:9000'
 const accessKey = process.env.MINIO_ROOT_USER || process.env.MINIO_ACCESS_KEY || 'minioadmin'
@@ -41,6 +42,30 @@ export async function uploadObject(objectName: string, filePath: string, content
     ContentType: contentType || 'application/octet-stream',
   }
   return client.send(new PutObjectCommand(input))
+}
+
+export async function objectExists(objectName: string): Promise<boolean> {
+  await ensureBucket()
+  try {
+    await client.send(new HeadObjectCommand({ Bucket: bucket, Key: objectName }))
+    return true
+  } catch (err: any) {
+    const status = err?.$metadata?.httpStatusCode
+    if (status === 404 || err?.name === 'NotFound' || err?.name === 'NoSuchKey') {
+      return false
+    }
+    throw err
+  }
+}
+
+export async function getObjectStream(objectName: string): Promise<Readable> {
+  await ensureBucket()
+  const result = await client.send(new GetObjectCommand({ Bucket: bucket, Key: objectName }))
+  const body = result.Body
+  if (!body) {
+    throw new Error(`object not found: ${objectName}`)
+  }
+  return body as unknown as Readable
 }
 
 export function objectUrl(objectName: string) {
