@@ -66,6 +66,13 @@ export interface DocumentToMarkdownConverter {
    * @returns true if this converter can handle the format
    */
   supports(mimeType: string): boolean
+
+  /**
+   * Get list of supported MIME types.
+   *
+   * @returns Array of MIME types this converter can handle
+   */
+  getSupportedMimeTypes(): string[]
 }
 
 /**
@@ -75,6 +82,7 @@ export interface DocumentToMarkdownConverter {
  */
 export class BasicPdfToMarkdownConverter implements DocumentToMarkdownConverter {
   private readonly generatedAtCache: Map<string, string> = new Map()
+  
   async convert(
     stream: Readable,
     _mimeType: string,
@@ -118,20 +126,45 @@ export class BasicPdfToMarkdownConverter implements DocumentToMarkdownConverter 
     return mimeType === 'application/pdf'
   }
 
+  getSupportedMimeTypes(): string[] {
+    return ['application/pdf']
+  }
+
   /**
-   * Extract text from a PDF stream (placeholder implementation).
-   * In production, integrate pdf-parse or pdfjs-dist.
+   * Extract text from a PDF stream using pdf-parse.
+   * The pdf-parse module v2.4.5+ exports a PDFParse class.
    */
   private async extractTextFromStream(stream: Readable): Promise<string> {
-    // TODO: Integrate pdf-parse or equivalent library for real PDF extraction.
-    // For now, this is a stub that demonstrates the interface.
     const chunks: Buffer[] = []
     return new Promise((resolve, reject) => {
       stream.on('data', (chunk) => chunks.push(chunk))
-      stream.on('end', () => {
-        const buffer = Buffer.concat(chunks as Uint8Array[])
-        // Placeholder: just return a note that PDF parsing is not yet implemented
-        resolve(`[PDF extracted from ${buffer.length} bytes - full text extraction not yet implemented]`)
+      stream.on('end', async () => {
+        try {
+          const buffer = Buffer.concat(chunks as Uint8Array[])
+          
+          // pdf-parse v2.4.5 exports named exports including PDFParse class
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const { PDFParse } = require('pdf-parse')
+          
+          // Create a new parser instance with the PDF data
+          const parser = new PDFParse({ data: buffer })
+          
+          // Use getText() method to extract text from all pages
+          const textResult = await parser.getText()
+          const text = textResult.text || ''
+          
+          // Clean up resources
+          await parser.destroy()
+          
+          if (!text || text.trim().length === 0) {
+            reject(new Error('PDF contains no extractable text. Document may be image-based or encrypted.'))
+            return
+          }
+          
+          resolve(text)
+        } catch (err) {
+          reject(new Error(`PDF parsing failed: ${(err as Error).message}`))
+        }
       })
       stream.on('error', reject)
     })
@@ -189,7 +222,7 @@ export class ConverterRegistry {
     const converter = this.converters.find((c) => c.supports(mimeType))
     if (!converter) {
       throw new Error(
-        `No converter available for MIME type: ${mimeType}. Supported: ${this.converters.map((c) => c.constructor.name).join(', ')}`,
+        `No converter available for MIME type: ${mimeType}. Supported: ${this.getSupportedMimeTypes().join(', ')}`,
       )
     }
     return converter
@@ -199,11 +232,6 @@ export class ConverterRegistry {
    * Get list of supported MIME types.
    */
   getSupportedMimeTypes(): string[] {
-    return this.converters.flatMap((c) => {
-      // Infer MIME types from the converter's supports() check
-      if (c instanceof BasicPdfToMarkdownConverter) return ['application/pdf']
-      // TODO: Add more as converters are implemented
-      return []
-    })
+    return this.converters.flatMap((c) => c.getSupportedMimeTypes())
   }
 }

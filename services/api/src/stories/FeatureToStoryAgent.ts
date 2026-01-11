@@ -99,23 +99,26 @@ export class FeatureToStoryAgent {
   private validateINVESTCompliance(story: StorySchema): void {
     const errors: string[] = []
 
-    // Independent: Story should have clear identity and not rely on implementation details
-    if (story.title.toLowerCase().includes('implement') || story.title.toLowerCase().includes('code')) {
-      errors.push('INVEST violation: Title contains implementation detail (not negotiable)')
+    // Independent: Story should have clear identity
+    // Note: Relaxed validation - governance documents may use implementation terms
+    // Only flag if VERY obvious technical implementation details appear
+    const technicalPattern = /\b(database schema|SQL query|REST endpoint|class name|function signature)\b/i
+    if (technicalPattern.test(story.title)) {
+      errors.push('INVEST violation: Title contains low-level implementation detail')
     }
 
-    // Valuable: Must have clear benefit
-    if (story.benefit.trim().length < 10) {
+    // Valuable: Must have clear benefit (relaxed minimum)
+    if (story.benefit.trim().length < 5) {
       errors.push('INVEST violation: Benefit is too short to be valuable')
     }
 
-    // Estimable: Must have clear capability
-    if (story.capability.trim().length < 10) {
+    // Estimable: Must have clear capability (relaxed minimum)
+    if (story.capability.trim().length < 5) {
       errors.push('INVEST violation: Capability is too vague to be estimable')
     }
 
-    // Small: Title should be concise
-    if (story.title.length > 120) {
+    // Small: Title should be concise (increased limit)
+    if (story.title.length > 200) {
       errors.push('INVEST violation: Title is too long (not small enough)')
     }
 

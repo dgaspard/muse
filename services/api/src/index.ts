@@ -24,6 +24,7 @@ import {
   S3DocumentStore,
 } from './storage/documentStore'
 import { ConverterRegistry } from './conversion/documentToMarkdownConverter'
+import { MusePipelineOrchestrator } from './orchestration/MusePipelineOrchestrator'
 
 const app = express()
 
@@ -227,7 +228,7 @@ app.post('/convert/:documentId', async (req: Request, res: Response) => {
   }
 })
 
-// GET /convert/:documentId/supported-formats
+// GET /convert/supported-formats
 // Returns list of MIME types that can be converted to Markdown
 app.get('/convert/supported-formats', (_req: Request, res: Response) => {
   const supportedMimeTypes = converterRegistry.getSupportedMimeTypes()
@@ -235,6 +236,110 @@ app.get('/convert/supported-formats', (_req: Request, res: Response) => {
     ok: true,
     supportedFormats: supportedMimeTypes,
   })
+})
+
+// POST /pipeline/execute
+// Executes the full Muse governance-to-delivery pipeline (MUSE-008)
+// Accepts multipart/form-data with fields: projectId (string), file (file)
+// Returns Epic, Features, and User Stories derived from the governance document
+app.post('/pipeline/execute', upload.single('file'), async (req: Request, res: Response) => {
+  try {
+    const projectId = (req.body && req.body.projectId) || undefined
+    const file = req.file
+
+    if (!projectId) {
+      return res.status(400).json({ ok: false, error: 'projectId is required' })
+    }
+    if (!file) {
+      return res.status(400).json({ ok: false, error: 'file is required' })
+    }
+
+    // Basic validation of file extension
+    const allowed = ['.docx', '.pdf', '.txt']
+    const ext = path.extname(file.originalname).toLowerCase()
+    if (!allowed.includes(ext)) {
+      // Remove temp file before returning
+      fs.unlinkSync(file.path)
+      return res.status(400).json({ ok: false, error: 'unsupported file type' })
+    }
+
+    // Find a converter that supports the document's MIME type
+    let converter
+    try {
+      converter = converterRegistry.findConverter(file.mimetype)
+    } catch (err) {
+      fs.unlinkSync(file.path)
+      return res.status(400).json({
+        ok: false,
+        error: `Conversion not supported for ${file.mimetype}`,
+      })
+    }
+
+    // Execute the full pipeline
+    const orchestrator = new MusePipelineOrchestrator(documentStore, converter, process.cwd())
+    let pipelineOutput
+    try {
+      pipelineOutput = await orchestrator.executePipeline(file.path, {
+        originalFilename: file.originalname,
+        mimeType: file.mimetype,
+        sizeBytes: file.size,
+        projectId,
+      })
+    } catch (err) {
+      const errorMessage = (err as Error).message
+      console.error('Pipeline execution failed', err)
+      
+      // Check if this was a validation error (MUSE-QA-002 gating)
+      if (errorMessage.includes('validation failed')) {
+        console.log('[pipeline] Validation gating: content quality check failed')
+        // Remove temp file before returning
+        try {
+          fs.unlinkSync(file.path)
+        } catch (e) {
+          console.warn('Failed to remove temp upload file', e)
+        }
+        
+        return res.status(422).json({
+          ok: false,
+          error: 'governance content validation failed',
+          details: errorMessage,
+          validationBlockedPipeline: true,
+        })
+      }
+      
+      // Remove temp file before returning error
+      try {
+        fs.unlinkSync(file.path)
+      } catch (e) {
+        console.warn('Failed to remove temp upload file', e)
+      }
+      
+      return res.status(500).json({
+        ok: false,
+        error: 'pipeline execution failed',
+        details: errorMessage,
+      })
+    }
+
+    // Remove temp file after successful execution
+    try {
+      fs.unlinkSync(file.path)
+    } catch (err) {
+      console.warn('Failed to remove temp upload file', err)
+    }
+
+    console.log(
+      `[pipeline] project=${projectId} document=${pipelineOutput.document.document_id} epic=${pipelineOutput.epic.epic_id} features=${pipelineOutput.features.length} stories=${pipelineOutput.stories.length} validation=${pipelineOutput.validation.isValid}`,
+    )
+
+    return res.json({
+      ok: true,
+      ...pipelineOutput,
+    })
+  } catch (err) {
+    console.error('Pipeline execution failed', err)
+    return res.status(500).json({ ok: false, error: 'pipeline execution failed', details: (err as Error).message })
+  }
 })
 
 app.listen(port, () => {

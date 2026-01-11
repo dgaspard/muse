@@ -58,7 +58,7 @@ describe('InMemoryDocumentStore', () => {
     expect(metadata.documentId).toBe(expected)
   })
 
-  it('prevents overwrite when document already exists', async () => {
+  it('is idempotent when uploading same document twice', async () => {
     const store = new InMemoryDocumentStore()
 
     const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'muse-api-docstore-'))
@@ -67,19 +67,20 @@ describe('InMemoryDocumentStore', () => {
     const inputBytes = Buffer.from('same-bytes', 'utf8')
     await fs.promises.writeFile(filePath, new Uint8Array(inputBytes))
 
-    await store.saveOriginalFromPath(filePath, {
+    const first = await store.saveOriginalFromPath(filePath, {
       originalFilename: 'same.bin',
       mimeType: 'application/octet-stream',
       sizeBytes: inputBytes.length,
     })
 
-    await expect(
-      store.saveOriginalFromPath(filePath, {
-        originalFilename: 'same.bin',
-        mimeType: 'application/octet-stream',
-        sizeBytes: inputBytes.length,
-      }),
-    ).rejects.toBeInstanceOf(DocumentAlreadyExistsError)
+    const second = await store.saveOriginalFromPath(filePath, {
+      originalFilename: 'same.bin',
+      mimeType: 'application/octet-stream',
+      sizeBytes: inputBytes.length,
+    })
+
+    expect(second.documentId).toBe(first.documentId)
+    expect(second.checksumSha256).toBe(first.checksumSha256)
   })
 
   it('persists and retrieves metadata', async () => {
@@ -129,7 +130,7 @@ describe('FileSystemDocumentStore', () => {
     expect(outputBytes.equals(new Uint8Array(inputBytes))).toBe(true)
   })
 
-  it('enforces immutability for existing documentId', async () => {
+  it('is idempotent when uploading same document twice', async () => {
     const tmpRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'muse-api-docstore-fs-'))
     const store = new FileSystemDocumentStore({ rootDir: tmpRoot })
 
@@ -139,18 +140,19 @@ describe('FileSystemDocumentStore', () => {
     const inputBytes = Buffer.from('same-content', 'utf8')
     await fs.promises.writeFile(filePath, new Uint8Array(inputBytes))
 
-    await store.saveOriginalFromPath(filePath, {
+    const first = await store.saveOriginalFromPath(filePath, {
       originalFilename: 'same.txt',
       mimeType: 'text/plain',
       sizeBytes: inputBytes.length,
     })
 
-    await expect(
-      store.saveOriginalFromPath(filePath, {
-        originalFilename: 'same.txt',
-        mimeType: 'text/plain',
-        sizeBytes: inputBytes.length,
-      }),
-    ).rejects.toBeInstanceOf(DocumentAlreadyExistsError)
+    const second = await store.saveOriginalFromPath(filePath, {
+      originalFilename: 'same.txt',
+      mimeType: 'text/plain',
+      sizeBytes: inputBytes.length,
+    })
+
+    expect(second.documentId).toBe(first.documentId)
+    expect(second.checksumSha256).toBe(first.checksumSha256)
   })
 })
