@@ -1,6 +1,7 @@
 # AI Implementation Prompt — MUSE-008: End-to-End Governance Decomposition UI (Single-Page Workflow)
 
 ## Context
+
 You are contributing to **Muse**, a governance-first AI platform that treats policy documents as source code and incrementally derives delivery artifacts using a **governed, agent-based pipeline**.
 
 Up to this point, Muse capabilities exist as composable backend steps:
@@ -19,6 +20,7 @@ This story intentionally revisits and integrates the original upload UI.
 ---
 
 ## User Story
+
 **As a product owner**,  
 I want to upload a governance document and see the derived Epic, Features, and User Stories on the same page,  
 So that I can review and copy delivery artifacts into downstream tools.
@@ -44,11 +46,13 @@ No Git commits or PRs are required in this story; this is a **review-first exper
 ## UI Requirements
 
 ### Page Scope
+
 - Single-page interface (no multi-step wizard)
 - Progressive disclosure of results as each step completes
 - Clear indication of pipeline stage and status
 
 ### File Upload
+
 - User can upload a single file (PDF or DOCX)
 - File is stored locally using existing backend logic
 - Upload triggers the full pipeline automatically
@@ -56,11 +60,13 @@ No Git commits or PRs are required in this story; this is a **review-first exper
 ### Output Presentation
 
 #### Governance Markdown
+
 - Display in a collapsible section
 - Read-only
 - Optional (can be hidden by default)
 
 #### Epic
+
 - Display prominently at the top
 - Show:
   - Epic title
@@ -69,6 +75,7 @@ No Git commits or PRs are required in this story; this is a **review-first exper
 - Include a **Copy to Clipboard** action
 
 #### Features
+
 - Display as a list or grouped cards
 - Each Feature shows:
   - Title
@@ -76,6 +83,7 @@ No Git commits or PRs are required in this story; this is a **review-first exper
 - Include **Copy** actions per Feature and for all Features
 
 #### User Stories
+
 - Display in canonical Muse story format
 - Each story shows:
   - Role / Capability / Benefit
@@ -84,6 +92,7 @@ No Git commits or PRs are required in this story; this is a **review-first exper
 - Include **Copy** actions per story and for all stories
 
 ### UX Constraints
+
 - No inline editing
 - No free-form AI chat
 - UI reflects system outputs exactly
@@ -94,6 +103,7 @@ No Git commits or PRs are required in this story; this is a **review-first exper
 ## Backend Orchestration Requirements
 
 ### Orchestration Service
+
 - Introduce a `MusePipelineOrchestrator`
 - Responsible for coordinating:
   - File upload
@@ -101,6 +111,7 @@ No Git commits or PRs are required in this story; this is a **review-first exper
   - Agent-based derivations (Epic → Features → Stories)
 
 ### Execution Model
+
 - Sequential execution
 - Fail fast on error
 - Return a single structured response containing:
@@ -111,6 +122,7 @@ No Git commits or PRs are required in this story; this is a **review-first exper
   - user stories
 
 Example response shape:
+
 ```json
 {
   "document": { "document_id": "doc-123" },

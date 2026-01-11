@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { DocumentStore, SaveOriginalInput } from '../storage/documentStore'
 import { DocumentToMarkdownConverter, MarkdownOutput } from '../conversion/documentToMarkdownConverter'
+import { GovernanceMarkdownValidator } from '../conversion/governanceMarkdownValidator'
 import { EpicDerivationWorkflow } from '../governance/EpicDerivationWorkflow'
 import { FeatureDerivationWorkflow } from '../features/FeatureDerivationWorkflow'
 import { StoryDerivationWorkflow } from '../stories/StoryDerivationWorkflow'
@@ -56,6 +57,12 @@ export interface PipelineOutput {
     content: string
     path: string
   }
+  validation: {
+    isValid: boolean
+    contentLength: number
+    headingCount: number
+    errors: Array<{ code: string; message: string; suggestion?: string }>
+  }
   epic: EpicData
   features: FeatureData[]
   stories: StoryData[]
@@ -67,29 +74,34 @@ export interface PipelineOutput {
  * Pipeline steps:
  * 1. Upload governance document (persist original)
  * 2. Convert document to governance Markdown
- * 3. Derive Epic from Markdown (MUSE-005)
- * 4. Derive Features from Epic (MUSE-006)
- * 5. Derive User Stories from Features (MUSE-007)
- * 6. Return structured output for UI rendering
+ * 3. Validate governance Markdown completeness (NEW - MUSE-QA-002)
+ * 4. Derive Epic from Markdown (MUSE-005) - blocked if validation fails
+ * 5. Derive Features from Epic (MUSE-006) - blocked if validation fails
+ * 6. Derive User Stories from Features (MUSE-007) - blocked if validation fails
+ * 7. Return structured output for UI rendering
  * 
  * Constraints:
  * - Sequential execution (fail fast)
  * - No Git commits (review-first experience)
  * - Reuses existing agents and workflows
  * - Deterministic and low-temperature
+ * - VALIDATION GATING: Agents never run on incomplete or placeholder content
  */
 export class MusePipelineOrchestrator {
   private documentStore: DocumentStore
   private converter: DocumentToMarkdownConverter
+  private validator: GovernanceMarkdownValidator
   private repoRoot: string
 
   constructor(
     documentStore: DocumentStore,
     converter: DocumentToMarkdownConverter,
-    repoRoot: string = process.cwd()
+    repoRoot: string = process.cwd(),
+    validator?: GovernanceMarkdownValidator
   ) {
     this.documentStore = documentStore
     this.converter = converter
+    this.validator = validator || new GovernanceMarkdownValidator()
     this.repoRoot = repoRoot
   }
 
@@ -99,7 +111,7 @@ export class MusePipelineOrchestrator {
    * @param filePath - Path to uploaded governance document
    * @param input - Metadata for the original document
    * @returns PipelineOutput - Structured data for UI rendering
-   * @throws Error if any step fails
+   * @throws Error if any step fails, including validation failures
    */
   async executePipeline(
     filePath: string,
@@ -119,7 +131,26 @@ export class MusePipelineOrchestrator {
     // Write governance markdown to file
     const governanceMarkdownPath = await this.writeGovernanceMarkdown(markdownOutput)
 
-    // Step 3: Derive Epic (MUSE-005)
+    // Step 3: Validate governance Markdown completeness (MUSE-QA-002)
+    // This is a GATING STEP - agents do not run if validation fails
+    const validationResult = this.validator.validate(markdownOutput.content)
+    
+    console.log('[Pipeline] Governance Markdown Validation:')
+    console.log(this.validator.getValidationSummary(validationResult))
+
+    if (!validationResult.isValid) {
+      // Validation failed - block agent execution
+      const errorMessages = validationResult.errors
+        .map((e) => `${e.code}: ${e.message}${e.suggestion ? ` (${e.suggestion})` : ''}`)
+        .join('\n')
+      
+      throw new Error(
+        `Governance content validation failed. Pipeline blocked at agent gating.\n${errorMessages}`
+      )
+    }
+
+    // Step 4: Derive Epic (MUSE-005) - only runs if validation passes
+    console.log('[Pipeline] Validation passed. Proceeding to Epic derivation...')
     const epicWorkflow = new EpicDerivationWorkflow(this.repoRoot)
     const epicArtifact = await epicWorkflow.deriveEpic(
       governanceMarkdownPath,
@@ -128,7 +159,7 @@ export class MusePipelineOrchestrator {
     )
     const epicData = await this.loadEpicData(path.join(this.repoRoot, epicArtifact.epic_path))
 
-    // Step 4: Derive Features from Epic (MUSE-006)
+    // Step 5: Derive Features from Epic (MUSE-006)
     const featureWorkflow = new FeatureDerivationWorkflow(this.repoRoot)
     const featureArtifacts = await featureWorkflow.deriveFeaturesFromEpic(
       epicArtifact.epic_path
@@ -140,7 +171,7 @@ export class MusePipelineOrchestrator {
       featuresData.push(...featureData)
     }
 
-    // Step 5: Derive User Stories from Features (MUSE-007)
+    // Step 6: Derive User Stories from Features (MUSE-007)
     const storyWorkflow = new StoryDerivationWorkflow(this.repoRoot)
     const allStories: StoryData[] = []
 
@@ -156,7 +187,7 @@ export class MusePipelineOrchestrator {
       }
     }
 
-    // Return structured output
+    // Return structured output with validation status
     return {
       document: {
         document_id: documentMetadata.documentId,
@@ -165,6 +196,12 @@ export class MusePipelineOrchestrator {
       markdown: {
         content: markdownOutput.content,
         path: governanceMarkdownPath,
+      },
+      validation: {
+        isValid: validationResult.isValid,
+        contentLength: validationResult.contentLength,
+        headingCount: validationResult.headingCount,
+        errors: validationResult.errors,
       },
       epic: epicData,
       features: featuresData,
@@ -355,31 +392,33 @@ export class MusePipelineOrchestrator {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
 
-      if (line.startsWith('# User Story:')) {
-        title = line.replace('# User Story:', '').trim()
-      } else if (line.startsWith('## Story')) {
-        inStory = true
+      if (line.startsWith('## User Story:')) {
+        title = line.replace('## User Story:', '').trim()
+        inStory = true  // Start parsing story details
         inCriteria = false
         inGovernanceRefs = false
-      } else if (line.startsWith('## Acceptance Criteria')) {
+      } else if (line.startsWith('### Acceptance Criteria')) {
         inStory = false
         inCriteria = true
         inGovernanceRefs = false
-      } else if (line.startsWith('## Governance References')) {
+      } else if (line.startsWith('### Governance References')) {
         inStory = false
         inCriteria = false
         inGovernanceRefs = true
       } else if (line.startsWith('##')) {
-        inStory = false
+        // Another story section - don't reset inStory yet
+        if (!line.startsWith('## User Story:')) {
+          inStory = false
+        }
         inCriteria = false
         inGovernanceRefs = false
       } else if (inStory) {
         if (line.startsWith('**As a**')) {
-          role = line.replace('**As a**', '').trim()
+          role = line.replace('**As a**', '').replace(/,?\s*$/, '').trim()
         } else if (line.startsWith('**I want**')) {
-          capability = line.replace('**I want**', '').trim()
+          capability = line.replace('**I want**', '').replace(/,?\s*$/, '').trim()
         } else if (line.startsWith('**So that**')) {
-          benefit = line.replace('**So that**', '').trim()
+          benefit = line.replace('**So that**', '').replace(/\.\s*$/, '').trim()
         }
       } else if (inCriteria && line.startsWith('- ')) {
         acceptanceCriteria.push(line.replace('- ', '').trim())

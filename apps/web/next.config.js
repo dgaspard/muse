@@ -4,6 +4,10 @@
  */
 module.exports = {
   reactStrictMode: true,
+  // Increase timeout for AI-powered pipeline operations
+  experimental: {
+    proxyTimeout: 300000, // 5 minutes for large document processing with AI
+  },
   async rewrites() {
     // Proxy /api/* requests to the local API during development so the
     // Next.js app can call the backend without CORS configuration by

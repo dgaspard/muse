@@ -75,8 +75,9 @@ export class InMemoryDocumentStore implements DocumentStore {
     const checksumSha256 = sha256BufferHex(bytes)
     const documentId = checksumSha256
 
-    if (this.bytesById.has(documentId)) {
-      throw new DocumentAlreadyExistsError(documentId)
+    // If document already exists, return existing metadata (idempotent)
+    if (this.metadataById.has(documentId)) {
+      return this.metadataById.get(documentId)!
     }
 
     const originalObjectKey = `original/${documentId}`
@@ -147,6 +148,15 @@ export class FileSystemDocumentStore implements DocumentStore {
     const originalPath = this.originalPath(documentId)
     const metadataPath = this.metadataPath(documentId)
 
+    // If document already exists, return existing metadata (idempotent)
+    if (await fs.promises.access(metadataPath).then(() => true).catch(() => false)) {
+      try {
+        return await this.getMetadata(documentId)
+      } catch {
+        // If metadata file is corrupted, re-create it below
+      }
+    }
+
     await fs.promises.mkdir(`${this.rootDir}/original`, { recursive: true })
     await fs.promises.mkdir(`${this.rootDir}/metadata`, { recursive: true })
 
@@ -154,9 +164,10 @@ export class FileSystemDocumentStore implements DocumentStore {
       await fs.promises.copyFile(filePath, originalPath, fs.constants.COPYFILE_EXCL)
     } catch (err: any) {
       if (err?.code === 'EEXIST') {
-        throw new DocumentAlreadyExistsError(documentId)
+        // File already exists, continue to metadata creation
+      } else {
+        throw err
       }
-      throw err
     }
 
     const originalObjectKey = `original/${documentId}`
@@ -178,10 +189,9 @@ export class FileSystemDocumentStore implements DocumentStore {
     try {
       await fs.promises.writeFile(metadataPath, JSON.stringify(metadata, null, 2), { flag: 'wx' })
     } catch (err: any) {
-      if (err?.code === 'EEXIST') {
-        throw new DocumentAlreadyExistsError(documentId)
+      if (err?.code !== 'EEXIST') {
+        throw err
       }
-      throw err
     }
 
     if (input.projectId) {
@@ -288,11 +298,13 @@ export class S3DocumentStore implements DocumentStore {
     const originalObjectKey = `original/${documentId}`
     const metadataObjectKey = `metadata/${documentId}.json`
 
-    if (await this.objectExists(originalObjectKey)) {
-      throw new DocumentAlreadyExistsError(documentId)
-    }
+    // If document already exists, return existing metadata (idempotent)
     if (await this.objectExists(metadataObjectKey)) {
-      throw new DocumentAlreadyExistsError(documentId)
+      try {
+        return await this.getMetadata(documentId)
+      } catch {
+        // If metadata file is corrupted, re-create it below
+      }
     }
 
     const uploadedAtUtc = input.uploadedAtUtc ?? nowUtcIso()

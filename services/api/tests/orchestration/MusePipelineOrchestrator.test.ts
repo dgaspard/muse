@@ -5,6 +5,7 @@ import os from 'os'
 import { MusePipelineOrchestrator } from '../../src/orchestration/MusePipelineOrchestrator'
 import { DocumentStore, DocumentMetadata } from '../../src/storage/documentStore'
 import { DocumentToMarkdownConverter, MarkdownOutput } from '../../src/conversion/documentToMarkdownConverter'
+import { GovernanceMarkdownValidator } from '../../src/conversion/governanceMarkdownValidator'
 import { Readable } from 'stream'
 
 describe('MusePipelineOrchestrator', () => {
@@ -259,6 +260,285 @@ More policy content.
       // Expected to fail at Epic derivation
       // The test verifies that earlier steps (document save, conversion) work correctly
       expect(err).toBeDefined()
+    }
+  })
+})
+
+// Separate test suite for validation (MUSE-QA-002)
+describe('GovernanceMarkdownValidator', () => {
+  let validator: GovernanceMarkdownValidator
+
+  beforeEach(() => {
+    validator = new GovernanceMarkdownValidator()
+  })
+
+  it('validates real governance content successfully', () => {
+    const content = `---
+document_id: test-doc
+source_checksum: abc123
+generated_at: 2024-01-11T00:00:00Z
+derived_artifact: governance_markdown
+original_filename: policy.pdf
+---
+
+# System Access Logging & Auditability Policy
+
+## Section 1: Purpose
+
+This policy establishes requirements for system access logging and auditability 
+to ensure compliance with regulatory frameworks and organizational security standards.
+
+## Section 2: Scope
+
+This policy applies to all systems managing sensitive data and all personnel 
+with system access.
+
+## Section 3: Policy Requirements
+
+All systems must log the following authentication events:
+- User login attempts (successful and failed)
+- Password changes and resets
+- Access to sensitive data
+- Administrative actions
+- Permission changes
+
+### 3.1 Log Retention
+
+Access logs must be retained for a minimum of 12 months and archived for 7 years.
+
+### 3.2 Log Analysis
+
+Security teams must review audit logs at least monthly to detect anomalies.
+
+## Section 4: Compliance and Enforcement
+
+Non-compliance with this policy may result in disciplinary action.
+All violations must be reported to the compliance team within 24 hours.
+
+## Section 5: Review and Updates
+
+This policy will be reviewed annually and updated as needed.
+`
+
+    const result = validator.validate(content)
+    expect(result.isValid).toBe(true)
+    expect(result.errors).toHaveLength(0)
+    expect(result.contentLength).toBeGreaterThan(500)
+    expect(result.headingCount).toBeGreaterThanOrEqual(1)
+  })
+
+  it('rejects content with placeholder markers (MUSE-QA-002)', () => {
+    const content = `---
+document_id: test-doc
+source_checksum: abc123
+generated_at: 2024-01-11T00:00:00Z
+derived_artifact: governance_markdown
+original_filename: policy.pdf
+---
+
+[PDF extracted from 1234 bytes - full text extraction not yet implemented]
+`
+
+    const result = validator.validate(content)
+    expect(result.isValid).toBe(false)
+    expect(result.errors.length).toBeGreaterThan(0)
+    
+    const placeholderError = result.errors.find((e) => e.code === 'PLACEHOLDER_DETECTED')
+    expect(placeholderError).toBeDefined()
+    expect(placeholderError?.message).toContain('placeholder markers')
+  })
+
+  it('rejects content that is too short', () => {
+    const content = `---
+document_id: test-doc
+source_checksum: abc123
+generated_at: 2024-01-11T00:00:00Z
+derived_artifact: governance_markdown
+original_filename: policy.pdf
+---
+
+Very short content.
+`
+
+    const result = validator.validate(content)
+    expect(result.isValid).toBe(false)
+    
+    const insufficientError = result.errors.find((e) => e.code === 'INSUFFICIENT_CONTENT')
+    expect(insufficientError).toBeDefined()
+  })
+
+  it('rejects content with no section headings', () => {
+    const content = `---
+document_id: test-doc
+source_checksum: abc123
+generated_at: 2024-01-11T00:00:00Z
+derived_artifact: governance_markdown
+original_filename: policy.pdf
+---
+
+This is a paragraph without any section headings. This is another paragraph.
+This is yet another paragraph. The content is long enough but lacks structure
+which indicates incomplete extraction or invalid format. More text here to reach
+the minimum content length required by the validation system. Validation should
+still fail because there are no markdown section headings to indicate structure.
+`
+
+    const result = validator.validate(content)
+    expect(result.isValid).toBe(false)
+    
+    const structureError = result.errors.find((e) => e.code === 'NO_STRUCTURE')
+    expect(structureError).toBeDefined()
+  })
+
+  it('provides helpful error suggestions for remediation', () => {
+    const content = `---
+document_id: test-doc
+source_checksum: abc123
+generated_at: 2024-01-11T00:00:00Z
+derived_artifact: governance_markdown
+original_filename: policy.pdf
+---
+
+[PDF extracted from 100 bytes - full text extraction not yet implemented]
+`
+
+    const result = validator.validate(content)
+    expect(result.isValid).toBe(false)
+    
+    result.errors.forEach((error) => {
+      expect(error.suggestion).toBeDefined()
+      expect(error.suggestion!.length).toBeGreaterThan(0)
+    })
+  })
+
+  it('generates human-readable validation summary', () => {
+    const invalidContent = `---
+document_id: test-doc
+---
+Short content.`
+
+    const result = validator.validate(invalidContent)
+    const summary = validator.getValidationSummary(result)
+    
+    expect(summary).toContain('INVALID')
+    expect(summary).toContain('Content length')
+    expect(summary).toContain('Section headings')
+  })
+
+  it('gates agent execution based on validation status', async () => {
+    // This test verifies that the orchestrator respects validation gating
+    const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'muse-validation-'))
+
+    try {
+      // Mock a converter that returns placeholder content
+      const placeholderConverter: DocumentToMarkdownConverter = {
+        async convert(
+          _stream: Readable,
+          _mimeType: string,
+          metadata: any
+        ): Promise<MarkdownOutput> {
+          return {
+            content: `---
+document_id: ${metadata.documentId}
+source_checksum: ${metadata.checksumSha256}
+generated_at: ${new Date().toISOString()}
+derived_artifact: governance_markdown
+original_filename: ${metadata.originalFilename}
+---
+
+[PDF extracted from 500 bytes - full text extraction not yet implemented]
+`,
+            metadata: {
+              document_id: metadata.documentId,
+              source_checksum: metadata.checksumSha256,
+              generated_at: new Date().toISOString(),
+              derived_artifact: 'governance_markdown',
+              original_filename: metadata.originalFilename,
+            },
+            suggestedFilename: 'placeholder.md',
+          }
+        },
+        supports(mimeType: string): boolean {
+          return mimeType === 'application/pdf'
+        },
+        getSupportedMimeTypes(): string[] {
+          return ['application/pdf']
+        },
+      }
+
+      const mockDocStore: DocumentStore = {
+        async saveOriginalFromPath(_filePath: string, input: any): Promise<DocumentMetadata> {
+          return {
+            documentId: 'test-doc-123',
+            checksumSha256: 'abc123',
+            originalFilename: input.originalFilename,
+            mimeType: input.mimeType,
+            sizeBytes: input.sizeBytes,
+            uploadedAtUtc: new Date().toISOString(),
+            storageUri: 's3://bucket/test',
+            originalObjectKey: 'test-key',
+            metadataObjectKey: 'test-meta',
+            projectId: input.projectId,
+          }
+        },
+        async getOriginal(_documentId: string) {
+          const stream = Readable.from(['test content'])
+          return {
+            stream,
+            metadata: {
+              documentId: 'test-doc-123',
+              checksumSha256: 'abc123',
+              originalFilename: 'test.pdf',
+              mimeType: 'application/pdf',
+              sizeBytes: 100,
+              uploadedAtUtc: new Date().toISOString(),
+              storageUri: 's3://bucket/test',
+              originalObjectKey: 'test-key',
+              metadataObjectKey: 'test-meta',
+            },
+          }
+        },
+        async getMetadata(_documentId: string): Promise<DocumentMetadata> {
+          return {
+            documentId: 'test-doc-123',
+            checksumSha256: 'abc123',
+            originalFilename: 'test.pdf',
+            mimeType: 'application/pdf',
+            sizeBytes: 100,
+            uploadedAtUtc: new Date().toISOString(),
+            storageUri: 's3://bucket/test',
+            originalObjectKey: 'test-key',
+            metadataObjectKey: 'test-meta',
+          }
+        },
+      }
+
+      const orchestrator = new MusePipelineOrchestrator(
+        mockDocStore,
+        placeholderConverter,
+        tempDir,
+        validator
+      )
+
+      const testFile = path.join(tempDir, 'test.pdf')
+      await fs.promises.writeFile(testFile, 'test content')
+
+      // Pipeline should fail at validation gating before agents run
+      await expect(
+        orchestrator.executePipeline(testFile, {
+          originalFilename: 'test.pdf',
+          mimeType: 'application/pdf',
+          sizeBytes: 100,
+          projectId: 'test-project',
+        })
+      ).rejects.toThrow('validation failed')
+    } finally {
+      // Cleanup
+      try {
+        await fs.promises.rm(tempDir, { recursive: true, force: true })
+      } catch (err) {
+        // Ignore cleanup errors
+      }
     }
   })
 })

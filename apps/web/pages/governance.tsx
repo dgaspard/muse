@@ -130,10 +130,35 @@ ${story.governance_references.map(r => `- ${r}`).join('\n')}`
         body: fd,
       })
 
-      const data = await res.json()
+      // Read response as text first (can only read body once)
+      const responseText = await res.text()
+
+      // Check if response is OK
+      if (!res.ok) {
+        let errorMessage = `Server error: ${res.status} ${res.statusText}`
+        try {
+          const errorData = JSON.parse(responseText)
+          errorMessage = errorData.error || errorMessage
+          if (errorData.validationBlockedPipeline && errorData.details) {
+            errorMessage = `Validation Failed: ${errorData.details}\n\nYour document must:\n- Be at least 500 characters\n- Follow governance document standards`
+          }
+        } catch {
+          // Response is not JSON, use plain text
+          if (responseText) errorMessage = responseText
+        }
+        throw new Error(errorMessage)
+      }
+
+      // Parse successful response as JSON
+      const data = JSON.parse(responseText)
 
       if (!data.ok) {
-        throw new Error(data.error || 'Pipeline execution failed')
+        // Improve error messaging for validation failures
+        let errorMessage = data.error || 'Pipeline execution failed'
+        if (data.validationBlockedPipeline && data.details) {
+          errorMessage = `Validation Failed: ${data.details}\n\nYour document must:\n- Be at least 500 characters\n- Follow governance document standards`
+        }
+        throw new Error(errorMessage)
       }
 
       setStage('complete')
@@ -220,7 +245,10 @@ ${story.governance_references.map(r => `- ${r}`).join('\n')}`
 
       {error && (
         <div style={{ padding: 16, backgroundColor: '#FFEBEE', border: '1px solid #F44336', marginBottom: 24 }}>
-          <strong>Error:</strong> {error}
+          <strong>Error:</strong>
+          <pre style={{ margin: '8px 0 0 0', whiteSpace: 'pre-wrap', wordWrap: 'break-word', fontFamily: 'monospace', fontSize: 12 }}>
+            {error}
+          </pre>
         </div>
       )}
 

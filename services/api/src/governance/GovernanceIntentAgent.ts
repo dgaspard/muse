@@ -1,6 +1,7 @@
 import matter from 'gray-matter'
 import * as fs from 'fs'
 import * as path from 'path'
+import Anthropic from '@anthropic-ai/sdk'
 
 /**
  * Schema for Epic output
@@ -43,6 +44,17 @@ export class AgentValidationError extends Error {
  * - Extracts intent directly supported by the source document
  */
 export class GovernanceIntentAgent {
+  private anthropic: Anthropic | null = null
+
+  constructor() {
+    // Initialize Anthropic client if API key is available
+    if (process.env.ANTHROPIC_API_KEY) {
+      this.anthropic = new Anthropic({
+        apiKey: process.env.ANTHROPIC_API_KEY,
+      })
+    }
+  }
+
   /**
    * Read and parse governance Markdown
    */
@@ -105,47 +117,155 @@ export class GovernanceIntentAgent {
   /**
    * Invoke agent to derive Epic from governance document
    * 
-   * For this prototype, implements rule-based extraction.
-   * In production, this would call an LLM with temperature=0.
+   * Uses Claude AI with strict validation prompt from Prompt-muse-Userstory-Validation.md
    */
   private async invokeAgent(governanceContent: string, documentId: string, markdownPath: string): Promise<EpicSchema> {
-    // TODO: Replace with actual LLM call (OpenAI, Anthropic, etc.)
-    // For now, implement deterministic rule-based extraction
-    
-    const lines = governanceContent.split('\n')
-    // TODO: In future LLM integration, extract headings for context:
-    // const headings = lines.filter(line => line.startsWith('##'))
-    
-    // Extract objective from first paragraph after title
-    const contentLines = lines.filter(line => line.trim() && !line.startsWith('#'))
-    const objective = contentLines.slice(0, 3).join(' ').trim() || 
-      'Enable governance-driven development through automated document processing and traceability'
-
-    // Extract success criteria from bullet points or numbered lists
-    const criteriaPattern = /^[-*\d.]\s+(.+)/
-    const criteria = lines
-      .filter(line => criteriaPattern.test(line.trim()))
-      .map(line => line.trim().replace(criteriaPattern, '$1'))
-      .filter(c => c.length > 10) // Filter out short bullets
-      .slice(0, 5) // Limit to 5 criteria
-
-    // Generate deterministic epic_id
     const epicId = `epic-${documentId.substring(0, 8)}`
 
-    const epic: EpicSchema = {
+    // If Anthropic API is not configured, fall back to rule-based extraction
+    if (!this.anthropic) {
+      console.warn('[GovernanceIntentAgent] ANTHROPIC_API_KEY not set, using rule-based extraction')
+      return this.ruleBasedExtractEpic(governanceContent, documentId, markdownPath, epicId)
+    }
+
+    // AI-powered epic derivation using validation prompt
+    const systemPrompt = `You are the GovernanceIntentAgent in the Muse platform.
+
+Your sole responsibility is to derive a SINGLE Epic that captures the
+HIGH-LEVEL BUSINESS AND GOVERNANCE INTENT of the provided governance document.
+
+This is an interpretive task, but it is NOT creative.
+
+## HARD CONSTRAINTS (NON-NEGOTIABLE)
+
+1. You may ONLY derive intent that is explicitly supported by the governance content.
+2. You MUST NOT reference:
+   - document upload
+   - file storage
+   - metadata capture
+   - markdown conversion
+   - pipelines
+   - artifact generation
+   - AI, agents, or automation
+3. You MUST NOT describe how Muse works.
+4. You MUST NOT invent requirements or outcomes.
+5. If governance intent cannot be determined, you MUST FAIL.
+
+## EPIC DEFINITION RULES
+
+The Epic MUST:
+- Describe a GOVERNANCE or BUSINESS OUTCOME
+- Be phrased independently of implementation details
+- Be meaningful to a product owner or compliance leader
+- Include a concise Objective (1–2 sentences)
+- Include 3–6 Success Criteria that reflect policy outcomes
+
+## OUTPUT FORMAT (STRICT)
+
+You MUST output ONLY valid YAML in this exact structure:
+
+\`\`\`yaml
+epic:
+  epic_id: ${epicId}
+  objective: <string>
+  success_criteria:
+    - <string>
+    - <string>
+    - <string>
+  derived_from: ${documentId}
+\`\`\`
+
+No prose. No explanations. Only YAML.`
+
+    const userPrompt = `Governance Markdown content:\n\n${governanceContent}\n\nDocument metadata:\n- document_id: ${documentId}\n- filename: ${markdownPath}`
+
+    try {
+      const response = await this.anthropic.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1024,
+        temperature: 0,
+        system: systemPrompt,
+        messages: [
+          {
+            role: 'user',
+            content: userPrompt,
+          },
+        ],
+      })
+
+      const content = response.content[0]
+      if (content.type !== 'text') {
+        throw new AgentValidationError('Agent returned non-text response')
+      }
+
+      // Extract YAML from code block if present
+      const yamlMatch = content.text.match(/```(?:yaml)?\n([\s\S]+?)\n```/)
+      const yamlText = yamlMatch ? yamlMatch[1] : content.text
+
+      // Parse YAML response
+      const YAML = require('yaml')
+      const parsed = YAML.parse(yamlText)
+
+      if (!parsed || !parsed.epic) {
+        throw new AgentValidationError('Agent response missing epic structure')
+      }
+
+      const epic: EpicSchema = {
+        epic_id: parsed.epic.epic_id || epicId,
+        derived_from: parsed.epic.derived_from || documentId,
+        source_markdown: markdownPath,
+        objective: parsed.epic.objective,
+        success_criteria: parsed.epic.success_criteria,
+      }
+
+      return epic
+    } catch (error) {
+      if (error instanceof AgentValidationError) {
+        throw error
+      }
+      console.error('[GovernanceIntentAgent] AI derivation failed:', error)
+      console.warn('[GovernanceIntentAgent] Falling back to rule-based extraction')
+      return this.ruleBasedExtractEpic(governanceContent, documentId, markdownPath, epicId)
+    }
+  }
+
+  /**
+   * Rule-based fallback for epic extraction
+   */
+  private ruleBasedExtractEpic(
+    governanceContent: string,
+    documentId: string,
+    markdownPath: string,
+    epicId: string
+  ): EpicSchema {
+    const lines = governanceContent.split('\n')
+    const contentLines = lines.filter((line) => line.trim() && !line.startsWith('#'))
+    const objective =
+      contentLines.slice(0, 3).join(' ').trim() ||
+      'Enable governance-driven development through automated document processing and traceability'
+
+    const criteriaPattern = /^[-*\d.]\s+(.+)/
+    const criteria = lines
+      .filter((line) => criteriaPattern.test(line.trim()))
+      .map((line) => line.trim().replace(criteriaPattern, '$1'))
+      .filter((c) => c.length > 10)
+      .slice(0, 5)
+
+    return {
       epic_id: epicId,
       derived_from: documentId,
       source_markdown: markdownPath,
-      objective: objective.substring(0, 500), // Limit length
-      success_criteria: criteria.length > 0 ? criteria : [
-        'Governance documents are successfully uploaded and stored',
-        'Document metadata is accurately captured and retrievable',
-        'Markdown conversion preserves document structure and intent',
-        'Traceability links are established between artifacts'
-      ]
+      objective: objective.substring(0, 500),
+      success_criteria:
+        criteria.length > 0
+          ? criteria
+          : [
+              'Governance documents are successfully uploaded and stored',
+              'Document metadata is accurately captured and retrievable',
+              'Markdown conversion preserves document structure and intent',
+              'Traceability links are established between artifacts',
+            ],
     }
-
-    return epic
   }
 
   /**

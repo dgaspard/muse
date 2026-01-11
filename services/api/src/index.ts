@@ -228,7 +228,7 @@ app.post('/convert/:documentId', async (req: Request, res: Response) => {
   }
 })
 
-// GET /convert/:documentId/supported-formats
+// GET /convert/supported-formats
 // Returns list of MIME types that can be converted to Markdown
 app.get('/convert/supported-formats', (_req: Request, res: Response) => {
   const supportedMimeTypes = converterRegistry.getSupportedMimeTypes()
@@ -277,12 +277,49 @@ app.post('/pipeline/execute', upload.single('file'), async (req: Request, res: R
 
     // Execute the full pipeline
     const orchestrator = new MusePipelineOrchestrator(documentStore, converter, process.cwd())
-    const pipelineOutput = await orchestrator.executePipeline(file.path, {
-      originalFilename: file.originalname,
-      mimeType: file.mimetype,
-      sizeBytes: file.size,
-      projectId,
-    })
+    let pipelineOutput
+    try {
+      pipelineOutput = await orchestrator.executePipeline(file.path, {
+        originalFilename: file.originalname,
+        mimeType: file.mimetype,
+        sizeBytes: file.size,
+        projectId,
+      })
+    } catch (err) {
+      const errorMessage = (err as Error).message
+      console.error('Pipeline execution failed', err)
+      
+      // Check if this was a validation error (MUSE-QA-002 gating)
+      if (errorMessage.includes('validation failed')) {
+        console.log('[pipeline] Validation gating: content quality check failed')
+        // Remove temp file before returning
+        try {
+          fs.unlinkSync(file.path)
+        } catch (e) {
+          console.warn('Failed to remove temp upload file', e)
+        }
+        
+        return res.status(422).json({
+          ok: false,
+          error: 'governance content validation failed',
+          details: errorMessage,
+          validationBlockedPipeline: true,
+        })
+      }
+      
+      // Remove temp file before returning error
+      try {
+        fs.unlinkSync(file.path)
+      } catch (e) {
+        console.warn('Failed to remove temp upload file', e)
+      }
+      
+      return res.status(500).json({
+        ok: false,
+        error: 'pipeline execution failed',
+        details: errorMessage,
+      })
+    }
 
     // Remove temp file after successful execution
     try {
@@ -292,7 +329,7 @@ app.post('/pipeline/execute', upload.single('file'), async (req: Request, res: R
     }
 
     console.log(
-      `[pipeline] project=${projectId} document=${pipelineOutput.document.document_id} epic=${pipelineOutput.epic.epic_id} features=${pipelineOutput.features.length} stories=${pipelineOutput.stories.length}`,
+      `[pipeline] project=${projectId} document=${pipelineOutput.document.document_id} epic=${pipelineOutput.epic.epic_id} features=${pipelineOutput.features.length} stories=${pipelineOutput.stories.length} validation=${pipelineOutput.validation.isValid}`,
     )
 
     return res.json({
