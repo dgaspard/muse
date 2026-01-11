@@ -1,18 +1,20 @@
-### Acceptance Criteria (MUSE-003 — Final Revised)
+# MUSE-003 — Convert Uploaded Document to Markdown
 
-#### Content Extraction
+## Acceptance Criteria (MUSE-003 — Final Revised)
+
+### Content Extraction
 
 - Text MUST be extractable as readable Unicode text
 - Scanned or image-only PDFs MUST fail with an explicit error
 - Placeholder or stub text is strictly forbidden
 
-#### Content Completeness
+### Content Completeness
 
 - Extracted content MUST exceed a minimum length threshold
 - Content MUST contain coherent sentences and paragraphs
 - Maximum length limits are not enforced
 
-#### Structural Signals
+### Structural Signals
 
 - Content SHOULD contain recognizable structural cues, such as:
   - Numbered sections
@@ -21,7 +23,7 @@
 
 Absence of explicit headings MUST NOT block processing.
 
-#### Markdown Generation
+### Markdown Generation
 
 - Muse MUST generate Markdown structure from extracted content
 - Generated Markdown MUST include:
@@ -29,12 +31,12 @@ Absence of explicit headings MUST NOT block processing.
 - Headings are optional; include them when structural cues are available
 - Structural inference is allowed at this step and should be best-effort only
 
-#### Failure Handling
+### Failure Handling
 
 - Hard failures occur only when content is unreadable or missing
 - Poor structure results in warnings, not errors
 
-#### Traceability
+### Traceability
 
 - Markdown includes YAML front matter with:
   - document_id

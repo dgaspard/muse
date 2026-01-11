@@ -15,11 +15,13 @@ This implementation addresses the challenge that the Muse end-to-end pipeline wa
 ## Changes Implemented
 
 ### 1. New Validation Module (`governanceMarkdownValidator.ts`)
+
 **File:** [services/api/src/conversion/governanceMarkdownValidator.ts](../../services/api/src/conversion/governanceMarkdownValidator.ts)
 
 Created a `GovernanceMarkdownValidator` class that enforces content quality gates before agent execution:
 
 **Key Features:**
+
 - **Minimum content length check** (default: 500 characters) — rejects stub documents
 - **Structure validation** — requires at least 1 section heading (indicates real governance content)
 - **Placeholder marker detection** — explicitly blocks known extraction failure indicators:
@@ -32,6 +34,7 @@ Created a `GovernanceMarkdownValidator` class that enforces content quality gate
 - **Configurable thresholds** — validation rules can be customized per deployment
 
 **Validation Result Structure:**
+
 ```typescript
 {
   isValid: boolean
@@ -44,9 +47,11 @@ Created a `GovernanceMarkdownValidator` class that enforces content quality gate
 ---
 
 ### 2. Interface Enhancement (`documentToMarkdownConverter.ts`)
+
 **File:** [services/api/src/conversion/documentToMarkdownConverter.ts](../../services/api/src/conversion/documentToMarkdownConverter.ts)
 
 Updated `DocumentToMarkdownConverter` interface to include:
+
 ```typescript
 getSupportedMimeTypes(): string[]
 ```
@@ -58,12 +63,13 @@ Updated `BasicPdfToMarkdownConverter` and `ConverterRegistry` implementations to
 ---
 
 ### 3. Pipeline Orchestrator with Validation Gating
+
 **File:** [services/api/src/orchestration/MusePipelineOrchestrator.ts](../../services/api/src/orchestration/MusePipelineOrchestrator.ts)
 
 **Enhanced Execution Flow:**
 
 | Step | Action | Gated? |
-|------|--------|--------|
+| ---- | ------ | ------ |
 | 1 | Persist original document | ❌ No |
 | 2 | Convert to governance Markdown | ❌ No |
 | **3** | **Validate Markdown completeness** | ✅ **GATE** |
@@ -72,6 +78,7 @@ Updated `BasicPdfToMarkdownConverter` and `ConverterRegistry` implementations to
 | 6 | Derive Stories (MUSE-007) | ✅ Blocked if validation fails |
 
 **Key Changes:**
+
 - Constructor now accepts optional `GovernanceMarkdownValidator` parameter (defaults to standard config)
 - `executePipeline()` validates content before agent invocation
 - Throws descriptive error if validation fails (HTTP 422 from API layer)
@@ -79,6 +86,7 @@ Updated `BasicPdfToMarkdownConverter` and `ConverterRegistry` implementations to
 - Returns validation status in `PipelineOutput`
 
 **New Response Structure:**
+
 ```typescript
 {
   document: { ... }
@@ -98,11 +106,13 @@ Updated `BasicPdfToMarkdownConverter` and `ConverterRegistry` implementations to
 ---
 
 ### 4. API Routes with Validation Error Handling
+
 **File:** [services/api/src/index.ts](../../services/api/src/index.ts)
 
 **Enhanced `/pipeline/execute` Route:**
 
 - **Success (HTTP 200):** Full pipeline executes, validation passed
+
   ```json
   {
     "ok": true,
@@ -113,6 +123,7 @@ Updated `BasicPdfToMarkdownConverter` and `ConverterRegistry` implementations to
   ```
 
 - **Validation Failure (HTTP 422):** Content quality gate triggered
+
   ```json
   {
     "ok": false,
@@ -123,6 +134,7 @@ Updated `BasicPdfToMarkdownConverter` and `ConverterRegistry` implementations to
   ```
 
 - **Other Errors (HTTP 500):** Conversion or agent execution failure
+
   ```json
   {
     "ok": false,
@@ -132,6 +144,7 @@ Updated `BasicPdfToMarkdownConverter` and `ConverterRegistry` implementations to
   ```
 
 **Implementation:**
+
 - Catches validation failures specifically and returns HTTP 422 (Unprocessable Entity)
 - Provides user-friendly error messages with remediation guidance
 - Logs validation gating events for audit trail
@@ -139,11 +152,13 @@ Updated `BasicPdfToMarkdownConverter` and `ConverterRegistry` implementations to
 ---
 
 ### 5. Comprehensive Test Coverage (MUSE-QA-005)
+
 **File:** [services/api/tests/orchestration/MusePipelineOrchestrator.test.ts](../../services/api/tests/orchestration/MusePipelineOrchestrator.test.ts)
 
 **New Test Suite: `GovernanceMarkdownValidator`**
 
 12 new tests covering:
+
 - ✅ Real governance content validation passes
 - ✅ Placeholder marker detection and rejection
 - ✅ Content length minimum enforcement
@@ -153,7 +168,8 @@ Updated `BasicPdfToMarkdownConverter` and `ConverterRegistry` implementations to
 - ✅ **Validation gating integration** — confirms agents never run on invalid content
 
 **Test Results:**
-```
+
+```text
 ✓ tests/orchestration/MusePipelineOrchestrator.test.ts  (87 tests)
 ✓ tests/governance/GovernanceCommitService.test.ts  (17 tests)
 ---
@@ -164,15 +180,18 @@ Tests       87 passed (87)
 ---
 
 ### 6. End-to-End Smoke Test Script (MUSE-QA-005)
+
 **File:** [scripts/e2e_content_quality.sh](../../scripts/e2e_content_quality.sh)
 
 Verifies:
+
 1. Placeholder content is detected and rejected
 2. Real governance content structure is prepared
 3. Validation module correctly gates pipeline execution
 4. Error messages include remediation guidance
 
 **Run with:**
+
 ```bash
 bash scripts/e2e_content_quality.sh
 ```
@@ -182,12 +201,14 @@ bash scripts/e2e_content_quality.sh
 ## Acceptance Criteria Status
 
 ### User Story 1: Extract Full Text from Governance PDFs (muse-qa-001)
+
 - ✅ PDF uploads processed using extraction library path
 - ✅ Placeholder messages are explicit and actionable (validator shows extraction failure)
 - ✅ Extraction failures surface before agent execution
 - ⏳ **Note:** Real PDF library integration (pdf-parse/pdfjs-dist) is still a TODO; placeholder detection gates execution
 
 ### User Story 2: Validate Governance Markdown Completeness (muse-qa-002)
+
 - ✅ Governance Markdown validated before agent execution
 - ✅ Validation checks: content length > 500 chars, ≥ 1 heading, no placeholder markers
 - ✅ Validation failure halts pipeline
@@ -195,17 +216,20 @@ bash scripts/e2e_content_quality.sh
 - ✅ Detailed suggestion for remediation included
 
 ### User Story 3: Prevent Agent Invocation on Invalid Content (muse-qa-003)
+
 - ✅ Epic, Feature, and Story agents blocked if validation fails
 - ✅ Agent execution logs explicitly record validation gating
 - ✅ No partial/empty artifacts written on validation failure
 
 ### User Story 4: Surface Extraction and Validation Status in UI (muse-qa-004)
+
 - ✅ UI response includes validation status (isValid, contentLength, headingCount, errors)
 - ✅ Pipeline blocked when validation fails (HTTP 422)
 - ✅ Error messages include remediation guidance
 - ⏳ **Note:** Frontend UI implementation separate; API contract ready
 
 ### User Story 5: Add E2E Smoke Test (muse-qa-005)
+
 - ✅ Test script created for validation gating
 - ✅ End-to-end unit tests validate placeholder detection
 - ✅ Tests confirm pipeline fails on incomplete content
@@ -241,12 +265,14 @@ bash scripts/e2e_content_quality.sh
 ## How to Test Locally
 
 ### Run Unit Tests
+
 ```bash
 cd services/api
 npm test
 ```
 
 ### Run E2E Validation Test
+
 ```bash
 bash scripts/e2e_content_quality.sh
 ```
@@ -254,6 +280,7 @@ bash scripts/e2e_content_quality.sh
 ### Manual API Testing
 
 **1. Upload and execute pipeline with real governance content:**
+
 ```bash
 curl -X POST http://localhost:4000/pipeline/execute \
   -F "projectId=test-proj" \
@@ -265,6 +292,7 @@ curl -X POST http://localhost:4000/pipeline/execute \
 **2. Upload document that triggers validation gate:**
 
 Create a PDF with placeholder text:
+
 ```bash
 # The API will convert it to markdown with placeholder markers
 # Validator will reject it
@@ -276,6 +304,7 @@ Create a PDF with placeholder text:
 ## Governance References
 
 Inline with:
+
 - **EPIC-001:** Governance-to-Code Translation
 - **Section 1:** Purpose — Policy validation ensures meaningful governance processing
 - **Section 3:** Policy Requirements — Authentication/Authorization logging aligned with validation audit trail

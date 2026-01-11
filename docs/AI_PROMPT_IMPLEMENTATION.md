@@ -13,6 +13,7 @@ Muse now uses AI-powered agents (Claude Sonnet 4) for Epic and Feature derivatio
 **Purpose:** Derives a single Epic capturing the HIGH-LEVEL BUSINESS AND GOVERNANCE INTENT from governance documents.
 
 **Key Constraints:**
+
 - Only derives intent explicitly supported by governance content
 - MUST NOT reference: document upload, file storage, metadata capture, markdown conversion, pipelines, artifact generation, AI/agents/automation
 - MUST NOT describe how Muse works
@@ -20,6 +21,7 @@ Muse now uses AI-powered agents (Claude Sonnet 4) for Epic and Feature derivatio
 - If governance intent cannot be determined, MUST FAIL
 
 **Output Format:**
+
 ```yaml
 epic:
   epic_id: <string>
@@ -40,6 +42,7 @@ epic:
 **Purpose:** Decomposes a single Epic into a small set of IMPLEMENTABLE PRODUCT FEATURES.
 
 **Key Constraints:**
+
 - Each Feature MUST describe a SYSTEM CAPABILITY
 - Each Feature MUST include:
   - Actor (system, user, auditor, service)
@@ -51,6 +54,7 @@ epic:
 - MUST NOT invent scope not implied by the Epic
 
 **Output Format:**
+
 ```yaml
 features:
   - feature_id: <string>
@@ -66,6 +70,7 @@ features:
 **File:** `services/api/src/features/FeatureDerivationWorkflow.ts`
 
 The workflow now:
+
 1. Tries AI-powered feature derivation first (if `ANTHROPIC_API_KEY` is set)
 2. Falls back to rule-based derivation if AI fails
 3. Logs which approach was used
@@ -83,7 +88,7 @@ ANTHROPIC_API_KEY=your_api_key_here
 
 ### Getting an API Key
 
-1. Sign up at https://console.anthropic.com/
+1. Sign up at <https://console.anthropic.com/>
 2. Navigate to API Keys
 3. Create a new API key
 4. Add to `.env` file
@@ -104,6 +109,7 @@ docker-compose up -d
 ```
 
 The pipeline will automatically:
+
 1. Convert document to markdown
 2. Validate content quality
 3. **Use AI to derive Epic** (GovernanceIntentAgent)
@@ -113,6 +119,7 @@ The pipeline will automatically:
 ### Fallback Mode
 
 If `ANTHROPIC_API_KEY` is not set:
+
 - Epic derivation uses rule-based extraction (extracts from bullets/paragraphs)
 - Feature derivation uses rule-based extraction (one feature per success criterion)
 
@@ -121,6 +128,7 @@ If `ANTHROPIC_API_KEY` is not set:
 ### Epic Validation
 
 ✅ **Valid Epic:**
+
 - Describes a governance or business outcome
 - Phrased independently of implementation details
 - Meaningful to product owner or compliance leader
@@ -128,6 +136,7 @@ If `ANTHROPIC_API_KEY` is not set:
 - Includes 3-6 success criteria reflecting policy outcomes
 
 ❌ **Invalid Epic (will be rejected):**
+
 - References pipeline mechanics
 - Could apply to any document
 - Success criteria are generic or tool-oriented
@@ -136,11 +145,13 @@ If `ANTHROPIC_API_KEY` is not set:
 ### Feature Validation
 
 ✅ **Valid Feature:**
+
 - "Log all authentication and authorization events for system access."
 - "Retain access logs for a minimum of 365 days to support audits."
 - "Allow authorized auditors to query and export access logs."
 
 ❌ **Invalid Feature (will be rejected):**
+
 - "Governance documents are stored." (describes Muse, not system)
 - "Metadata is tracked." (vague, no behavioral verb)
 - "Markdown is generated." (pipeline step, not capability)
@@ -155,7 +166,8 @@ docker-compose logs api | grep "GovernanceIntentAgent\|FeatureDerivationWorkflow
 ```
 
 Example output:
-```
+
+```text
 api-1 | [GovernanceIntentAgent] Using AI-powered epic derivation
 api-1 | [FeatureDerivationWorkflow] Using AI-powered feature derivation
 api-1 | [FeatureDerivationWorkflow] Successfully derived 4 features using AI
@@ -163,7 +175,7 @@ api-1 | [FeatureDerivationWorkflow] Successfully derived 4 features using AI
 
 ### Fallback Indicators
 
-```
+```text
 api-1 | [GovernanceIntentAgent] ANTHROPIC_API_KEY not set, using rule-based extraction
 api-1 | [FeatureDerivationWorkflow] AI derivation failed, falling back to rule-based
 ```
@@ -173,6 +185,7 @@ api-1 | [FeatureDerivationWorkflow] AI derivation failed, falling back to rule-b
 ### Unit Tests
 
 Tests exist for rule-based agents:
+
 - `services/api/tests/governance/GovernanceIntentAgent.test.ts`
 - Feature derivation tests (to be added)
 
@@ -203,6 +216,7 @@ curl -F "file=@your_document.pdf" \
 ### Estimated Costs Per Document
 
 Assuming:
+
 - Governance document: ~2000 tokens
 - Epic derivation: ~500 output tokens
 - Feature derivation: ~1000 output tokens
@@ -226,7 +240,8 @@ Assuming:
 
 **Cause:** AI returned features that don't meet validation rules (missing verbs, vague descriptions).
 
-**Solution:** 
+**Solution:**
+
 1. Check API logs for detailed error
 2. Review governance document quality
 3. Try again (AI has some randomness even at temperature=0)
@@ -237,6 +252,7 @@ Assuming:
 **Cause:** AI returned invalid YAML or missing required fields.
 
 **Solution:**
+
 1. Falls back to rule-based extraction automatically
 2. Check governance document has clear structure
 3. Verify API key is valid
@@ -262,11 +278,12 @@ Assuming:
 - **Epic Agent:** `services/api/src/governance/GovernanceIntentAgent.ts`
 - **Feature Agent:** `services/api/src/features/EpicDecompositionAgent.ts`
 - **Workflow:** `services/api/src/features/FeatureDerivationWorkflow.ts`
-- **Anthropic Docs:** https://docs.anthropic.com/
+- **Anthropic Docs:** <https://docs.anthropic.com/>
 
 ## Support
 
 For issues or questions:
+
 1. Check logs: `docker-compose logs api`
 2. Review validation guide above
 3. Open an issue with governance document sample and error logs

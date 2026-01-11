@@ -97,6 +97,7 @@ More policy content.
           suggestedFilename: 'test-governance.md',
         }
       },
+      supports: (mimeType: string) => mimeType === 'application/pdf',
       getSupportedMimeTypes: () => ['application/pdf'],
     }
   })

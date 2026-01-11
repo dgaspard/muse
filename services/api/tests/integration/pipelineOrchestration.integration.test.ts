@@ -9,6 +9,10 @@ import { Readable } from 'stream'
 
 // Mock converter for testing
 class MockMarkdownConverter implements DocumentToMarkdownConverter {
+  supports(mimeType: string): boolean {
+    return ['text/plain', 'application/pdf'].includes(mimeType)
+  }
+
   async convert(_stream: Readable, _mimeType: string, metadata: any): Promise<MarkdownOutput> {
     const content = `---
 document_id: ${metadata.documentId}
