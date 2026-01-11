@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import YAML from 'yaml'
-import { FeatureDerivationAgent, FeatureOutput } from './FeatureDerivationAgent'
+import { FeatureDerivationAgent } from './FeatureDerivationAgent'
 
 export interface FeatureArtifact {
   feature_id: string
@@ -82,3 +82,4 @@ export class FeatureDerivationWorkflow {
     return artifacts
   }
 }
+
