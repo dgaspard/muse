@@ -74,6 +74,7 @@ export interface DocumentToMarkdownConverter {
  * Simply extracts text and preserves paragraph structure where evident.
  */
 export class BasicPdfToMarkdownConverter implements DocumentToMarkdownConverter {
+  private readonly generatedAtCache: Map<string, string> = new Map()
   async convert(
     stream: Readable,
     _mimeType: string,
@@ -87,10 +88,17 @@ export class BasicPdfToMarkdownConverter implements DocumentToMarkdownConverter 
     // In production, this would use a library like pdf-parse or pdfjs-dist.
     const text = await this.extractTextFromStream(stream)
 
+    const cacheKey = `${metadata.documentId}|${metadata.checksumSha256}|${metadata.originalFilename}`
+    let generatedAt = this.generatedAtCache.get(cacheKey)
+    if (!generatedAt) {
+      generatedAt = new Date().toISOString()
+      this.generatedAtCache.set(cacheKey, generatedAt)
+    }
+
     const frontMatter: MarkdownMetadata = {
       document_id: metadata.documentId,
       source_checksum: metadata.checksumSha256,
-      generated_at: new Date().toISOString(),
+      generated_at: generatedAt,
       derived_artifact: 'governance_markdown',
       original_filename: metadata.originalFilename,
     }
