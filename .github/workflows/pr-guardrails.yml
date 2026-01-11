@@ -18,13 +18,14 @@ jobs:
           echo "PR Title: $TITLE"
 
           # Check for explicit MUSE-ID: <MUSE-XXX|N/A> field in the PR body (preferred)
-          if echo "$BODY" | grep -Eiq '^MUSE-ID:[[:space:]]*(MUSE-[0-9]{3,}|N/A)'; then
+          # Use printf to avoid interpretation issues with the body content
+          if printf '%s\n' "$BODY" | grep -Eiq '^MUSE-ID:[[:space:]]*(MUSE-[0-9]{3,}|N/A)'; then
             echo "Found MUSE-ID field in PR body. Guardrail passed."
             exit 0
           fi
 
           # Fallback: accept if title or body contains MUSE-123 pattern (backwards compatibility)
-          if echo "$TITLE $BODY" | grep -Eq 'MUSE-[0-9]{3,}'; then
+          if printf '%s\n' "$TITLE" "$BODY" | grep -Eq 'MUSE-[0-9]{3,}'; then
             echo "Found MUSE-xxx reference in title/body. Guardrail passed (fallback)."
             exit 0
           fi
