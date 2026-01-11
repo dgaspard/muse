@@ -113,7 +113,8 @@ export class GovernanceIntentAgent {
     // For now, implement deterministic rule-based extraction
     
     const lines = governanceContent.split('\n')
-    const headings = lines.filter(line => line.startsWith('##'))
+    // TODO: In future LLM integration, extract headings for context:
+    // const headings = lines.filter(line => line.startsWith('##'))
     
     // Extract objective from first paragraph after title
     const contentLines = lines.filter(line => line.trim() && !line.startsWith('#'))

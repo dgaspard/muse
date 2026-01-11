@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import YAML from 'yaml'
-import { GovernanceIntentAgent, EpicOutput } from './GovernanceIntentAgent'
+import { GovernanceIntentAgent } from './GovernanceIntentAgent'
 import { GovernanceCommitService } from './GovernanceCommitService'
 
 /**
@@ -174,9 +174,9 @@ export class EpicDerivationWorkflow {
 
       // Stage Epic and muse.yaml
       const relativeEpicPath = path.relative(this.repoRoot, epicPath)
-      const commitMessage = `muse-005: derive epic from ${epic.derived_from}\n\nSource: ${epic.source_markdown}\nEpic: ${relativeEpicPath}`
 
-      // TODO: Use Git service to commit both files
+      // TODO: Use Git service to commit both files with message:
+      // `muse-005: derive epic from ${epic.derived_from}\n\nSource: ${epic.source_markdown}\nEpic: ${relativeEpicPath}`
       // For now, files are written but not committed
       console.log(`Epic derived successfully. Files ready to commit:\n- ${relativeEpicPath}\n- muse.yaml`)
     }
