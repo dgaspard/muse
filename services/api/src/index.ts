@@ -23,8 +23,12 @@ import {
   type DocumentStore,
   S3DocumentStore,
 } from './storage/documentStore'
+import { ConverterRegistry } from './conversion/documentToMarkdownConverter'
 
 const app = express()
+
+// Initialize converter registry for Markdown generation
+const converterRegistry = new ConverterRegistry()
 
 // Parse JSON request bodies for future endpoints
 app.use(express.json())
@@ -174,6 +178,64 @@ app.get('/documents/:documentId', async (req: Request, res: Response) => {
 // import usersRouter from './routes/users'
 // app.use('/users', usersRouter)
 // Place further business logic and database integrations inside those route handlers or dedicated services.
+
+// POST /convert/:documentId
+// Converts an immutable original document to Markdown with YAML front matter.
+// The generated Markdown includes traceability metadata linking it to the source document.
+app.post('/convert/:documentId', async (req: Request, res: Response) => {
+  try {
+    const { documentId } = req.params
+
+    // Retrieve the immutable original document
+    const { stream, metadata } = await documentStore.getOriginal(documentId)
+
+    // Find a converter that supports the document's MIME type
+    let converter
+    try {
+      converter = converterRegistry.findConverter(metadata.mimeType)
+    } catch (err) {
+      return res.status(400).json({
+        ok: false,
+        error: `Conversion not supported for ${metadata.mimeType}`,
+        documentId,
+      })
+    }
+
+    // Convert the document to Markdown
+    const markdownOutput = await converter.convert(stream, metadata.mimeType, {
+      documentId: metadata.documentId,
+      checksumSha256: metadata.checksumSha256,
+      originalFilename: metadata.originalFilename,
+    })
+
+    // Log the conversion
+    console.log(
+      `[convert] document=${documentId} filename=${markdownOutput.suggestedFilename} source_checksum=${markdownOutput.metadata.source_checksum}`,
+    )
+
+    // Return the Markdown with metadata
+    return res.json({
+      ok: true,
+      documentId,
+      markdownContent: markdownOutput.content,
+      metadata: markdownOutput.metadata,
+      suggestedFilename: markdownOutput.suggestedFilename,
+    })
+  } catch (err) {
+    console.error('Conversion failed', err)
+    return res.status(500).json({ ok: false, error: 'conversion failed' })
+  }
+})
+
+// GET /convert/:documentId/supported-formats
+// Returns list of MIME types that can be converted to Markdown
+app.get('/convert/supported-formats', (_req: Request, res: Response) => {
+  const supportedMimeTypes = converterRegistry.getSupportedMimeTypes()
+  return res.json({
+    ok: true,
+    supportedFormats: supportedMimeTypes,
+  })
+})
 
 app.listen(port, () => {
   // Keep the log explicit for developers running the container
