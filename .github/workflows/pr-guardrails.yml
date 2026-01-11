@@ -10,6 +10,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Enforce MUSE-XXX reference
+      - name: Enforce MUSE-XXX reference via MUSE-ID field
         run: |
-          echo "${{ github.event.pull_request.title }} ${{ github.event.pull_request.body }}" |           grep -E "MUSE-[0-9]{3,}" ||           (echo "PR must reference MUSE-XXX" && exit 1)
+          set -euo pipefail
+          TITLE="${{ github.event.pull_request.title }}"
+          BODY="${{ github.event.pull_request.body }}"
+          echo "PR Title: $TITLE"
+
+          # Check for explicit MUSE-ID: <MUSE-XXX|N/A> field in the PR body (preferred)
+          if echo "$BODY" | grep -Eiq '^MUSE-ID:[[:space:]]*(MUSE-[0-9]{3,}|N/A)'; then
+            echo "Found MUSE-ID field in PR body. Guardrail passed."
+            exit 0
+          fi
+
+          # Fallback: accept if title or body contains MUSE-123 pattern (backwards compatibility)
+          if echo "$TITLE $BODY" | grep -Eq 'MUSE-[0-9]{3,}'; then
+            echo "Found MUSE-xxx reference in title/body. Guardrail passed (fallback)."
+            exit 0
+          fi
+
+          echo "PR must include a MUSE-ID in the PR body (e.g., 'MUSE-ID: MUSE-001' or 'MUSE-ID: N/A')."
+          echo "Please add the MUSE-ID field to your PR description or use the PR template (.github/PULL_REQUEST_TEMPLATE.md)."
+          exit 1

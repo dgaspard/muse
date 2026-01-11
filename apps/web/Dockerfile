@@ -2,6 +2,8 @@
 # Simplified build: install dependencies in builder stage so `next` is available for build
 FROM node:20-alpine AS builder
 WORKDIR /app
+ARG API_ENDPOINT
+ENV API_ENDPOINT=${API_ENDPOINT}
 COPY package.json package-lock.json* ./
 RUN npm install --silent
 COPY . .

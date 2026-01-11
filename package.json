@@ -9,6 +9,7 @@
     "bootstrap": "# install root deps if needed",
     "compose:up": "docker-compose up --build",
     "compose:down": "docker-compose down",
-    "smoke": "bash ./scripts/smoke_test.sh"
+    "smoke": "bash ./scripts/smoke_test.sh",
+    "e2e-upload": "bash ./scripts/e2e_upload.sh"
   }
 }

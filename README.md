@@ -19,6 +19,12 @@ Quick start
    - Pipeline (FastAPI): [http://localhost:8000/health](http://localhost:8000/health)
    - Worker: [http://localhost:4100/health](http://localhost:4100/health)
 
+Integration E2E upload test
+
+- Run locally: `npm run e2e-upload` or `bash ./scripts/e2e_upload.sh`. This script brings up a minimal stack (minio, api, web), posts a sample file to `http://localhost:3000/api/uploads`, asserts an HTTP 200 and `"ok": true` in the JSON response, and then tears the stack down. Docker and Docker Compose are required; the script uses ports 3000, 4000, and 9000.
+
+- CI: A GitHub Actions workflow `.github/workflows/integration.yml` runs this script on pull requests and can also be triggered manually from the Actions UI.
+
 Structure
 
 - apps/web — Next.js frontend (minimal)
