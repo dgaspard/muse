@@ -170,8 +170,8 @@ export class FeatureToStoryAgent {
       throw new StoryValidationError('Missing epic_id in front matter or parameters')
     }
 
-    // Read governance for traceability
-    const governance = this.readGovernanceMarkdown(governanceMarkdownPath)
+    // Read governance for traceability (validates file exists)
+    this.readGovernanceMarkdown(governanceMarkdownPath)
 
     // Extract feature metadata from content
     const lines = content.split('\n')
