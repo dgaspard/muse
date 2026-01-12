@@ -1,6 +1,4 @@
 import matter from 'gray-matter'
-import * as fs from 'fs'
-import * as path from 'path'
 import { Readable } from 'stream'
 import {
   GovernanceReference,
@@ -49,24 +47,6 @@ export class FeatureToStoryAgent {
         resolve({ content: parsed.content, frontMatter: parsed.data })
       })
     })
-  }
-
-  private readFeatureMarkdown(markdownPath: string): { content: string; frontMatter: Record<string, unknown> } {
-    if (!fs.existsSync(markdownPath)) {
-      throw new Error(`Feature Markdown not found: ${markdownPath}`)
-    }
-    const fileContent = fs.readFileSync(markdownPath, 'utf-8')
-    const parsed = matter(fileContent)
-    return { content: parsed.content, frontMatter: parsed.data }
-  }
-
-  private readGovernanceMarkdown(governancePath: string): { content: string; frontMatter: Record<string, unknown> } {
-    if (!fs.existsSync(governancePath)) {
-      throw new Error(`Governance Markdown not found: ${governancePath}`)
-    }
-    const fileContent = fs.readFileSync(governancePath, 'utf-8')
-    const parsed = matter(fileContent)
-    return { content: parsed.content, frontMatter: parsed.data }
   }
 
   private validateStorySchema(story: unknown, featureText?: string): asserts story is StorySchema {
@@ -184,43 +164,6 @@ export class FeatureToStoryAgent {
     if (errors.length > 0) {
       throw new StoryValidationError(`Story INVEST validation failed:\n${errors.join('\n')}`)
     }
-  }
-
-  private generateStoryMarkdown(story: StoryOutput): string {
-    const lines: string[] = []
-
-    // Add story-specific front matter
-    lines.push(`---`)
-    lines.push(`story_id: ${story.story_id}`)
-    lines.push(`derived_from_feature: ${story.derived_from_feature}`)
-    lines.push(`derived_from_epic: ${story.derived_from_epic}`)
-    lines.push(`generated_at: ${story.generated_at}`)
-    lines.push(`---`)
-    lines.push('')
-    
-    lines.push(`## User Story: ${story.title}`)
-    lines.push(`**Story ID:** ${story.story_id}`)
-    lines.push(`**Derived From Feature:** ${story.derived_from_feature}`)
-    lines.push(`**Derived From Epic:** ${story.derived_from_epic}`)
-    lines.push('')
-    lines.push(`**As a** ${story.role},`)
-    lines.push(`**I want** ${story.capability},`)
-    lines.push(`**So that** ${story.benefit}.`)
-    lines.push('')
-    lines.push('### Governance References')
-    story.governance_references.forEach((ref) => {
-      lines.push(`- File: ${ref.filename}`)
-      lines.push(`  Path: ${ref.markdown_path}`)
-      lines.push(`  Sections: ${(ref.sections as string[]).join(', ')}`)
-    })
-    lines.push('')
-    lines.push('### Acceptance Criteria')
-    story.acceptance_criteria.forEach((criterion) => {
-      lines.push(`- ${criterion}`)
-    })
-    lines.push('')
-
-    return lines.join('\n')
   }
 
   /**
@@ -457,76 +400,6 @@ export class FeatureToStoryAgent {
     return outputs
   }
 
-  /**
-   * Derive INVEST-compliant user stories from Feature markdown.
-   * 
-   * IMPORTANT: Each User Story MUST:
-   * - Deliver a portion of the Feature's stated business value
-   * - Reference the Feature's acceptance criteria it supports
-   * - Be named using the convention: <project>-<feature_id>-<short_capability_name>
-   * 
-   * If a Feature has no actionable acceptance criteria, you MUST FAIL instead of generating stories.
-   * 
-   * Strategy: one story per acceptance criterion (or feature if no criteria).
-   */
-  async deriveStories(
-    featureMarkdownPath: string,
-    governanceMarkdownPath: string,
-    projectId: string,
-    epicId?: string,
-  ): Promise<StoryOutput[]> {
-    const { content: featureContent, frontMatter: featureFrontMatter } = this.readFeatureMarkdown(featureMarkdownPath)
-    const { content: govContent, frontMatter: govFrontMatter } = this.readGovernanceMarkdown(governanceMarkdownPath)
-
-    return this.deriveStoriesFromContent(featureContent, featureFrontMatter, govContent, govFrontMatter, projectId, epicId)
-  }
-
-  async deriveAndWriteStories(
-    featureMarkdownPath: string,
-    governanceMarkdownPath: string,
-    projectId: string,
-    epicId?: string,
-    outputDir: string = 'docs/stories',
-  ): Promise<{ stories: StoryOutput[]; storyPath: string }> {
-    const stories = await this.deriveStories(featureMarkdownPath, governanceMarkdownPath, projectId, epicId)
-
-    const featureFrontMatter = matter(fs.readFileSync(featureMarkdownPath, 'utf-8')).data
-    const documentId = featureFrontMatter.epic_id || 'unknown'
-
-    const filename = `${documentId}-stories.md`
-    const outPath = path.join(outputDir, filename)
-
-    const dir = path.dirname(outPath)
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true })
-    }
-
-    // Build front matter
-    const frontMatter = {
-      derived_from_epic: stories[0].derived_from_epic,
-      derived_from_features: Array.from(new Set(stories.map((s) => s.derived_from_feature))),
-      source_features: path.relative(process.cwd(), featureMarkdownPath),
-      generated_at: new Date().toISOString(),
-    }
-
-    const lines: string[] = []
-    lines.push('---')
-    lines.push(`derived_from_epic: ${frontMatter.derived_from_epic}`)
-    lines.push('derived_from_features:')
-    frontMatter.derived_from_features.forEach((f) => lines.push(`  - ${f}`))
-    lines.push(`source_features: ${frontMatter.source_features}`)
-    lines.push(`generated_at: ${frontMatter.generated_at}`)
-    lines.push('---')
-    lines.push('')
-
-    stories.forEach((story) => {
-      lines.push(this.generateStoryMarkdown(story))
-    })
-
-    fs.writeFileSync(outPath, lines.join('\n'), 'utf-8')
-
-    return { stories, storyPath: outPath }
-  }
 }
 
 function toKebabCase(input: string): string {

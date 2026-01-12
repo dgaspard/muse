@@ -3,7 +3,7 @@ import os from 'os'
 import path from 'path'
 import crypto from 'crypto'
 import { describe, expect, it } from 'vitest'
-import { DocumentAlreadyExistsError, FileSystemDocumentStore, InMemoryDocumentStore } from './documentStore'
+import { FileSystemDocumentStore, InMemoryDocumentStore } from './documentStore'
 
 async function readStreamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
   return new Promise((resolve, reject) => {

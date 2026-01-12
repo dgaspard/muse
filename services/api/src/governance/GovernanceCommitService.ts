@@ -215,7 +215,7 @@ export class GovernanceCommitService {
 
     try {
       // Read existing muse.yaml or create new structure
-      let museConfig: any = { artifacts: { governance_markdown: [] } }
+      let museConfig: Record<string, unknown> = { artifacts: { governance_markdown: [] } }
 
       if (fs.existsSync(museYamlPath)) {
         const content = fs.readFileSync(museYamlPath, 'utf-8')
@@ -227,18 +227,20 @@ export class GovernanceCommitService {
         museConfig.artifacts = {}
       }
 
-      if (!museConfig.artifacts.governance_markdown) {
-        museConfig.artifacts.governance_markdown = []
+      const artifacts = museConfig.artifacts as Record<string, unknown>
+      if (!artifacts.governance_markdown) {
+        artifacts.governance_markdown = []
       }
 
       // Ensure it's an array
-      if (!Array.isArray(museConfig.artifacts.governance_markdown)) {
-        museConfig.artifacts.governance_markdown = []
+      if (!Array.isArray(artifacts.governance_markdown)) {
+        artifacts.governance_markdown = []
       }
 
       // Add or update artifact record
-      const existingIndex = museConfig.artifacts.governance_markdown.findIndex(
-        (item: any) => item.document_id === metadata.document_id,
+      const govMarkdown = artifacts.governance_markdown as Record<string, unknown>[]
+      const existingIndex = govMarkdown.findIndex(
+        (item: Record<string, unknown>) => (item as Record<string, unknown>).document_id === metadata.document_id,
       )
 
       const record = {
@@ -253,9 +255,9 @@ export class GovernanceCommitService {
       }
 
       if (existingIndex >= 0) {
-        museConfig.artifacts.governance_markdown[existingIndex] = record
+        govMarkdown[existingIndex] = record
       } else {
-        museConfig.artifacts.governance_markdown.push(record)
+        govMarkdown.push(record)
       }
 
       // Write back to muse.yaml
@@ -290,7 +292,7 @@ export class GovernanceCommitService {
       }
 
       const record = museConfig.artifacts.governance_markdown.find(
-        (item: any) => item.document_id === documentId,
+        (item: Record<string, unknown>) => (item as Record<string, unknown>).document_id === documentId,
       )
 
       if (!record) {

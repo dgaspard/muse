@@ -14,6 +14,7 @@
 import express, { Request, Response } from 'express'
 import cors from 'cors'
 import multer from 'multer'
+import rateLimit from 'express-rate-limit'
 import path from 'path'
 import fs from 'fs'
 import os from 'os'
@@ -36,6 +37,28 @@ const converterRegistry = new ConverterRegistry()
 app.use(express.json())
 // Allow cross-origin requests in prototype mode (no auth)
 app.use(cors())
+
+// Rate limiting to protect against DoS attacks on expensive operations
+// General API rate limit: 100 requests per 15 minutes per IP
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true, // Return rate limit info in RateLimit-* headers
+  legacyHeaders: false, // Disable X-RateLimit-* headers
+})
+
+// Stricter rate limit for expensive operations (uploads, conversions, pipeline)
+const expensiveOperationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // limit each IP to 10 expensive operations per windowMs
+  message: 'Too many upload/conversion requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+
+// Apply general rate limiting to all routes
+app.use(generalLimiter)
 
 const port = process.env.API_PORT ? Number(process.env.API_PORT) : 4000
 
@@ -77,6 +100,17 @@ const uploadDir = path.join(os.tmpdir(), 'muse-uploads')
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true })
 }
+// Guard against path traversal by ensuring we only read/remove files inside our temp upload dir.
+// This function validates that uploaded files remain within the designated upload directory,
+// preventing path traversal attacks (satisfies CodeQL js/path-injection).
+const resolveUploadPath = (filePath: string): string => {
+  const resolved = path.resolve(filePath)
+  const uploadRoot = path.resolve(uploadDir) + path.sep
+  if (!resolved.startsWith(uploadRoot)) {
+    throw new Error('invalid upload path')
+  }
+  return resolved
+}
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadDir),
   filename: (_req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`),
@@ -85,7 +119,7 @@ const upload = multer({ storage })
 
 // POST /uploads
 // Accepts multipart/form-data with fields: projectId (string), file (file)
-app.post('/uploads', upload.single('file'), async (req: Request, res: Response) => {
+app.post('/uploads', expensiveOperationLimiter, upload.single('file'), async (req: Request, res: Response) => {
   try {
     const projectId = (req.body && req.body.projectId) || undefined
     const file = req.file
@@ -102,11 +136,17 @@ app.post('/uploads', upload.single('file'), async (req: Request, res: Response) 
     const ext = path.extname(file.originalname).toLowerCase()
     if (!allowed.includes(ext)) {
       // Remove temp file before returning
-      fs.unlinkSync(file.path)
+      // lgtm[js/path-injection] - resolveUploadPath validates path is within upload dir
+      fs.unlinkSync(resolveUploadPath(file.path))
       return res.status(400).json({ ok: false, error: 'unsupported file type' })
     }
 
-    const metadata = await documentStore.saveOriginalFromPath(file.path, {
+    // Read the file buffer from disk
+    // lgtm[js/path-injection] - resolveUploadPath validates path is within upload dir
+    const buffer = await fs.promises.readFile(resolveUploadPath(file.path))
+
+    // Use buffer-based upload (safe for containerized environments)
+    const metadata = await documentStore.saveOriginalFromBuffer(buffer, {
       originalFilename: file.originalname,
       mimeType: file.mimetype,
       sizeBytes: file.size,
@@ -115,7 +155,8 @@ app.post('/uploads', upload.single('file'), async (req: Request, res: Response) 
 
     // Remove temp file after successful upload
     try {
-      fs.unlinkSync(file.path)
+      // lgtm[js/path-injection] - resolveUploadPath validates path is within upload dir
+      fs.unlinkSync(resolveUploadPath(file.path))
     } catch (err) {
       // Non-fatal cleanup error
       console.warn('Failed to remove temp upload file', err)
@@ -187,7 +228,7 @@ app.get('/documents/:documentId', async (req: Request, res: Response) => {
 // POST /convert/:documentId
 // Converts an immutable original document to Markdown with YAML front matter.
 // The generated Markdown includes traceability metadata linking it to the source document.
-app.post('/convert/:documentId', async (req: Request, res: Response) => {
+app.post('/convert/:documentId', expensiveOperationLimiter, async (req: Request, res: Response) => {
   try {
     const { documentId } = req.params
 
@@ -246,7 +287,7 @@ app.get('/convert/supported-formats', (_req: Request, res: Response) => {
 // Executes the full Muse governance-to-delivery pipeline (MUSE-008)
 // Accepts multipart/form-data with fields: projectId (string), file (file)
 // Returns Epic, Features, and User Stories derived from the governance document
-app.post('/pipeline/execute', upload.single('file'), async (req: Request, res: Response) => {
+app.post('/pipeline/execute', expensiveOperationLimiter, upload.single('file'), async (req: Request, res: Response) => {
   try {
     const projectId = (req.body && req.body.projectId) || undefined
     const file = req.file
@@ -263,7 +304,8 @@ app.post('/pipeline/execute', upload.single('file'), async (req: Request, res: R
     const ext = path.extname(file.originalname).toLowerCase()
     if (!allowed.includes(ext)) {
       // Remove temp file before returning
-      fs.unlinkSync(file.path)
+      // lgtm[js/path-injection] - resolveUploadPath validates path is within upload dir
+      fs.unlinkSync(resolveUploadPath(file.path))
       return res.status(400).json({ ok: false, error: 'unsupported file type' })
     }
 
@@ -272,7 +314,8 @@ app.post('/pipeline/execute', upload.single('file'), async (req: Request, res: R
     try {
       converter = converterRegistry.findConverter(file.mimetype)
     } catch (err) {
-      fs.unlinkSync(file.path)
+      // lgtm[js/path-injection] - resolveUploadPath validates path is within upload dir
+      fs.unlinkSync(resolveUploadPath(file.path))
       return res.status(400).json({
         ok: false,
         error: `Conversion not supported for ${file.mimetype}`,
@@ -283,7 +326,10 @@ app.post('/pipeline/execute', upload.single('file'), async (req: Request, res: R
     const orchestrator = new MusePipelineOrchestrator(documentStore, converter, process.cwd())
     let pipelineOutput
     try {
-      pipelineOutput = await orchestrator.executePipeline(file.path, {
+      // Read file to buffer for safe container handling
+      // lgtm[js/path-injection] - resolveUploadPath validates path is within upload dir
+      const fileBuffer = await fs.promises.readFile(resolveUploadPath(file.path))
+      pipelineOutput = await orchestrator.executePipeline(fileBuffer, {
         originalFilename: file.originalname,
         mimeType: file.mimetype,
         sizeBytes: file.size,
@@ -298,7 +344,8 @@ app.post('/pipeline/execute', upload.single('file'), async (req: Request, res: R
         console.log('[pipeline] Validation gating: content quality check failed')
         // Remove temp file before returning
         try {
-          fs.unlinkSync(file.path)
+          // lgtm[js/path-injection] - resolveUploadPath validates path is within upload dir
+          fs.unlinkSync(resolveUploadPath(file.path))
         } catch (e) {
           console.warn('Failed to remove temp upload file', e)
         }
@@ -313,7 +360,8 @@ app.post('/pipeline/execute', upload.single('file'), async (req: Request, res: R
       
       // Remove temp file before returning error
       try {
-        fs.unlinkSync(file.path)
+        // lgtm[js/path-injection] - resolveUploadPath validates path is within upload dir
+        fs.unlinkSync(resolveUploadPath(file.path))
       } catch (e) {
         console.warn('Failed to remove temp upload file', e)
       }
@@ -327,7 +375,8 @@ app.post('/pipeline/execute', upload.single('file'), async (req: Request, res: R
 
     // Remove temp file after successful execution
     try {
-      fs.unlinkSync(file.path)
+      // lgtm[js/path-injection] - resolveUploadPath validates path is within upload dir
+      fs.unlinkSync(resolveUploadPath(file.path))
     } catch (err) {
       console.warn('Failed to remove temp upload file', err)
     }
@@ -349,7 +398,7 @@ app.post('/pipeline/execute', upload.single('file'), async (req: Request, res: R
 // POST /features/:featureId/stories
 // Derive user stories from a specific feature on-demand (MinIO-based)
 // Requires: featurePath and governancePath in request body
-app.post('/features/:featureId/stories', async (req: Request, res: Response) => {
+app.post('/features/:featureId/stories', expensiveOperationLimiter, async (req: Request, res: Response) => {
   try {
     const { featureId } = req.params
     const { featurePath, governancePath, projectId, epicId } = req.body
@@ -435,7 +484,7 @@ app.post('/features/:featureId/stories', async (req: Request, res: Response) => 
 
 // DELETE /features/:featureId/stories
 // Delete generated stories for a feature
-app.delete('/features/:featureId/stories', async (req: Request, res: Response) => {
+app.delete('/features/:featureId/stories', expensiveOperationLimiter, async (req: Request, res: Response) => {
   try {
     const { featureId } = req.params
     const { storyPath } = req.body

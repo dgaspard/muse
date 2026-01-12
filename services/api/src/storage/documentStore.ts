@@ -8,6 +8,7 @@ import {
 } from '@aws-sdk/client-s3'
 import crypto from 'crypto'
 import fs from 'fs'
+import path from 'path'
 import { Readable } from 'stream'
 
 export type DocumentMetadata = {
@@ -43,6 +44,7 @@ export class DocumentAlreadyExistsError extends Error {
 
 export interface DocumentStore {
   saveOriginalFromPath(filePath: string, input: SaveOriginalInput): Promise<DocumentMetadata>
+  saveOriginalFromBuffer(buffer: Buffer, input: SaveOriginalInput): Promise<DocumentMetadata>
   getOriginal(documentId: string): Promise<{ stream: Readable; metadata: DocumentMetadata }>
   getMetadata(documentId: string): Promise<DocumentMetadata>
 }
@@ -71,6 +73,7 @@ export class InMemoryDocumentStore implements DocumentStore {
   private readonly metadataById = new Map<string, DocumentMetadata>()
 
   async saveOriginalFromPath(filePath: string, input: SaveOriginalInput): Promise<DocumentMetadata> {
+    // For in-memory store (typically used in tests), don't validate path restrictions
     const bytes = await fs.promises.readFile(filePath)
     const checksumSha256 = sha256BufferHex(bytes)
     const documentId = checksumSha256
@@ -120,6 +123,37 @@ export class InMemoryDocumentStore implements DocumentStore {
     }
     return metadata
   }
+
+  async saveOriginalFromBuffer(buffer: Buffer, input: SaveOriginalInput): Promise<DocumentMetadata> {
+    const checksumSha256 = sha256BufferHex(buffer)
+    const documentId = checksumSha256
+
+    // If document already exists, return existing metadata (idempotent)
+    if (this.metadataById.has(documentId)) {
+      return this.metadataById.get(documentId)!
+    }
+
+    const originalObjectKey = `original/${documentId}`
+    const metadataObjectKey = `metadata/${documentId}.json`
+
+    const metadata: DocumentMetadata = {
+      documentId,
+      checksumSha256,
+      originalFilename: input.originalFilename,
+      mimeType: input.mimeType,
+      sizeBytes: input.sizeBytes,
+      uploadedAtUtc: input.uploadedAtUtc ?? nowUtcIso(),
+      storageUri: `memory://${originalObjectKey}`,
+      originalObjectKey,
+      metadataObjectKey,
+      projectId: input.projectId,
+    }
+
+    this.bytesById.set(documentId, buffer)
+    this.metadataById.set(documentId, metadata)
+
+    return metadata
+  }
 }
 
 export type FileSystemDocumentStoreConfig = {
@@ -142,7 +176,8 @@ export class FileSystemDocumentStore implements DocumentStore {
   }
 
   async saveOriginalFromPath(filePath: string, input: SaveOriginalInput): Promise<DocumentMetadata> {
-    const checksumSha256 = await sha256FileHex(filePath)
+    const safePath = assertSafeLocalPath(filePath)
+    const checksumSha256 = await sha256FileHex(safePath)
     const documentId = checksumSha256
 
     const originalPath = this.originalPath(documentId)
@@ -161,9 +196,10 @@ export class FileSystemDocumentStore implements DocumentStore {
     await fs.promises.mkdir(`${this.rootDir}/metadata`, { recursive: true })
 
     try {
-      await fs.promises.copyFile(filePath, originalPath, fs.constants.COPYFILE_EXCL)
-    } catch (err: any) {
-      if (err?.code === 'EEXIST') {
+      await fs.promises.copyFile(safePath, originalPath, fs.constants.COPYFILE_EXCL)
+    } catch (err: unknown) {
+      const error = err as Record<string, unknown>
+      if ((error as Record<string, unknown>)?.code === 'EEXIST') {
         // File already exists, continue to metadata creation
       } else {
         throw err
@@ -188,14 +224,16 @@ export class FileSystemDocumentStore implements DocumentStore {
 
     try {
       await fs.promises.writeFile(metadataPath, JSON.stringify(metadata, null, 2), { flag: 'wx' })
-    } catch (err: any) {
-      if (err?.code !== 'EEXIST') {
+    } catch (err: unknown) {
+      const error = err as Record<string, unknown>
+      if ((error as Record<string, unknown>)?.code !== 'EEXIST') {
         throw err
       }
     }
 
     if (input.projectId) {
-      const projectDir = `${this.rootDir}/projects/${input.projectId}/documents`
+      const projectIdSafe = sanitizeKeySegment(input.projectId)
+      const projectDir = `${this.rootDir}/projects/${projectIdSafe}/documents`
       const projectPath = `${projectDir}/${documentId}.json`
       await fs.promises.mkdir(projectDir, { recursive: true })
       try {
@@ -203,7 +241,7 @@ export class FileSystemDocumentStore implements DocumentStore {
           projectPath,
           JSON.stringify(
             {
-              projectId: input.projectId,
+              projectId: projectIdSafe,
               documentId,
               metadataObjectKey,
               originalObjectKey,
@@ -215,8 +253,9 @@ export class FileSystemDocumentStore implements DocumentStore {
           ),
           { flag: 'wx' },
         )
-      } catch (err: any) {
-        if (err?.code !== 'EEXIST') {
+      } catch (err: unknown) {
+        const error = err as Record<string, unknown>
+        if ((error as Record<string, unknown>)?.code !== 'EEXIST') {
           throw err
         }
       }
@@ -235,6 +274,92 @@ export class FileSystemDocumentStore implements DocumentStore {
     const metadata = await this.getMetadata(documentId)
     const originalPath = this.originalPath(documentId)
     return { stream: fs.createReadStream(originalPath), metadata }
+  }
+
+  async saveOriginalFromBuffer(buffer: Buffer, input: SaveOriginalInput): Promise<DocumentMetadata> {
+    const checksumSha256 = sha256BufferHex(buffer)
+    const documentId = checksumSha256
+
+    const originalPath = this.originalPath(documentId)
+    const metadataPath = this.metadataPath(documentId)
+
+    // If document already exists, return existing metadata (idempotent)
+    if (await fs.promises.access(metadataPath).then(() => true).catch(() => false)) {
+      try {
+        return await this.getMetadata(documentId)
+      } catch {
+        // If metadata file is corrupted, re-create it below
+      }
+    }
+
+    await fs.promises.mkdir(`${this.rootDir}/original`, { recursive: true })
+    await fs.promises.mkdir(`${this.rootDir}/metadata`, { recursive: true })
+
+    try {
+      await fs.promises.writeFile(originalPath, new Uint8Array(buffer), { flag: 'wx' })
+    } catch (err: unknown) {
+      const error = err as Record<string, unknown>
+      if ((error as Record<string, unknown>)?.code !== 'EEXIST') {
+        throw err
+      }
+    }
+
+    const originalObjectKey = `original/${documentId}`
+    const metadataObjectKey = `metadata/${documentId}.json`
+
+    const metadata: DocumentMetadata = {
+      documentId,
+      checksumSha256,
+      originalFilename: input.originalFilename,
+      mimeType: input.mimeType,
+      sizeBytes: input.sizeBytes,
+      uploadedAtUtc: input.uploadedAtUtc ?? nowUtcIso(),
+      storageUri: `file://${originalPath}`,
+      originalObjectKey,
+      metadataObjectKey,
+      projectId: input.projectId,
+    }
+
+    try {
+      await fs.promises.writeFile(metadataPath, JSON.stringify(metadata, null, 2), { flag: 'wx' })
+    } catch (err: unknown) {
+      const error = err as Record<string, unknown>
+      if ((error as Record<string, unknown>)?.code !== 'EEXIST') {
+        throw err
+      }
+    }
+
+    if (input.projectId) {
+      const projectIdSafe = sanitizeKeySegment(input.projectId)
+      const projectDir = `${this.rootDir}/projects/${projectIdSafe}/documents`
+      const projectPath = `${projectDir}/${documentId}.json`
+      await fs.promises.mkdir(projectDir, { recursive: true })
+      try {
+        await fs.promises.writeFile(
+          projectPath,
+          JSON.stringify(
+            {
+              projectId: projectIdSafe,
+              documentId,
+              metadataObjectKey,
+              originalObjectKey,
+              checksumSha256,
+              uploadedAtUtc: metadata.uploadedAtUtc,
+            },
+            null,
+            2,
+          ),
+          { flag: 'wx' },
+        )
+      } catch (err: unknown) {
+        const error = err as Record<string, unknown>
+        if ((error as Record<string, unknown>)?.code !== 'EEXIST') {
+          throw err
+        }
+      }
+    }
+
+    return metadata
   }
 }
 
@@ -267,8 +392,11 @@ export class S3DocumentStore implements DocumentStore {
   private async ensureBucket(): Promise<void> {
     try {
       await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }))
-    } catch (err: any) {
-      if (err?.$metadata?.httpStatusCode === 404 || err?.name === 'NotFound') {
+    } catch (err: unknown) {
+      type HttpError = { $metadata?: { httpStatusCode?: number }; name?: string }
+      const error = err as HttpError
+      const httpStatus = error?.$metadata?.httpStatusCode
+      if (httpStatus === 404 || error?.name === 'NotFound') {
         await this.client.send(new CreateBucketCommand({ Bucket: this.bucket }))
         return
       }
@@ -281,9 +409,11 @@ export class S3DocumentStore implements DocumentStore {
     try {
       await this.client.send(new HeadObjectCommand({ Bucket: this.bucket, Key: key }))
       return true
-    } catch (err: any) {
-      const status = err?.$metadata?.httpStatusCode
-      if (status === 404 || err?.name === 'NotFound' || err?.name === 'NoSuchKey') {
+    } catch (err: unknown) {
+      type HttpError = { $metadata?: { httpStatusCode?: number }; name?: string }
+      const error = err as HttpError
+      const status = error?.$metadata?.httpStatusCode
+      if (status === 404 || error?.name === 'NotFound' || error?.name === 'NoSuchKey') {
         return false
       }
       throw err
@@ -292,7 +422,8 @@ export class S3DocumentStore implements DocumentStore {
 
   async saveOriginalFromPath(filePath: string, input: SaveOriginalInput): Promise<DocumentMetadata> {
     await this.ensureBucket()
-    const checksumSha256 = await sha256FileHex(filePath)
+    const safePath = assertSafeLocalPath(filePath)
+    const checksumSha256 = await sha256FileHex(safePath)
     const documentId = checksumSha256
 
     const originalObjectKey = `original/${documentId}`
@@ -314,14 +445,14 @@ export class S3DocumentStore implements DocumentStore {
       new PutObjectCommand({
         Bucket: this.bucket,
         Key: originalObjectKey,
-        Body: fs.createReadStream(filePath),
+        Body: fs.createReadStream(safePath),
         ContentType: input.mimeType || 'application/octet-stream',
         Metadata: {
           document_id: documentId,
           checksum_sha256: checksumSha256,
           original_filename: input.originalFilename,
           uploaded_at_utc: uploadedAtUtc,
-          ...(input.projectId ? { project_id: input.projectId } : {}),
+          ...(input.projectId ? { project_id: sanitizeKeySegment(input.projectId) } : {}),
         },
       }),
     )
@@ -351,7 +482,8 @@ export class S3DocumentStore implements DocumentStore {
     )
 
     if (input.projectId) {
-      const projectManifestKey = `projects/${input.projectId}/documents/${documentId}.json`
+      const projectIdSafe = sanitizeKeySegment(input.projectId)
+      const projectManifestKey = `projects/${projectIdSafe}/documents/${documentId}.json`
       if (!(await this.objectExists(projectManifestKey))) {
         await this.client.send(
           new PutObjectCommand({
@@ -359,7 +491,7 @@ export class S3DocumentStore implements DocumentStore {
             Key: projectManifestKey,
             Body: JSON.stringify(
               {
-                projectId: input.projectId,
+                projectId: projectIdSafe,
                 documentId,
                 metadataObjectKey,
                 originalObjectKey,
@@ -393,7 +525,7 @@ export class S3DocumentStore implements DocumentStore {
       throw new Error(`metadata not found: ${documentId}`)
     }
 
-    const json = await streamToString(body as any)
+    const json = await streamToString(body as unknown)
     return JSON.parse(json) as DocumentMetadata
   }
 
@@ -414,11 +546,101 @@ export class S3DocumentStore implements DocumentStore {
 
     return { stream: body as unknown as Readable, metadata }
   }
+
+  async saveOriginalFromBuffer(buffer: Buffer, input: SaveOriginalInput): Promise<DocumentMetadata> {
+    await this.ensureBucket()
+    const checksumSha256 = sha256BufferHex(buffer)
+    const documentId = checksumSha256
+
+    const originalObjectKey = `original/${documentId}`
+    const metadataObjectKey = `metadata/${documentId}.json`
+
+    // If document already exists, return existing metadata (idempotent)
+    if (await this.objectExists(metadataObjectKey)) {
+      try {
+        return await this.getMetadata(documentId)
+      } catch {
+        // If metadata file is corrupted, re-create it below
+      }
+    }
+
+    const uploadedAtUtc = input.uploadedAtUtc ?? nowUtcIso()
+
+    // Upload original bytes directly from buffer
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: originalObjectKey,
+        Body: buffer,
+        ContentType: input.mimeType || 'application/octet-stream',
+        Metadata: {
+          document_id: documentId,
+          checksum_sha256: checksumSha256,
+          original_filename: input.originalFilename,
+          uploaded_at_utc: uploadedAtUtc,
+          ...(input.projectId ? { project_id: sanitizeKeySegment(input.projectId) } : {}),
+        },
+      }),
+    )
+
+    const storageUri = `${this.endpoint}/${this.bucket}/${encodeURIComponent(originalObjectKey)}`
+
+    const metadata: DocumentMetadata = {
+      documentId,
+      checksumSha256,
+      originalFilename: input.originalFilename,
+      mimeType: input.mimeType,
+      sizeBytes: input.sizeBytes,
+      uploadedAtUtc,
+      storageUri,
+      originalObjectKey,
+      metadataObjectKey,
+      projectId: input.projectId,
+    }
+
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: metadataObjectKey,
+        Body: JSON.stringify(metadata, null, 2),
+        ContentType: 'application/json',
+      }),
+    )
+
+    if (input.projectId) {
+      const projectIdSafe = sanitizeKeySegment(input.projectId)
+      const projectManifestKey = `projects/${projectIdSafe}/documents/${documentId}.json`
+      if (!(await this.objectExists(projectManifestKey))) {
+        await this.client.send(
+          new PutObjectCommand({
+            Bucket: this.bucket,
+            Key: projectManifestKey,
+            Body: JSON.stringify(
+              {
+                projectId: projectIdSafe,
+                documentId,
+                metadataObjectKey,
+                originalObjectKey,
+                checksumSha256,
+                uploadedAtUtc,
+              },
+              null,
+              2,
+            ),
+            ContentType: 'application/json',
+          }),
+        )
+      }
+    }
+
+    return metadata
+  }
 }
 
-async function streamToString(body: Readable | Blob | any): Promise<string> {
-  if (typeof body?.transformToString === 'function') {
-    return body.transformToString()
+async function streamToString(body: Readable | Blob | unknown): Promise<string> {
+  const bodyObj = body as { transformToString?: () => string }
+  if (typeof bodyObj?.transformToString === 'function') {
+    return bodyObj.transformToString()
   }
 
   return new Promise((resolve, reject) => {
@@ -429,4 +651,29 @@ async function streamToString(body: Readable | Blob | any): Promise<string> {
     readable.on('error', reject)
     readable.on('end', () => resolve(Buffer.concat(chunks as Uint8Array[]).toString('utf8')))
   })
+}
+
+/**
+ * Ensure a provided local filesystem path resolves within the working directory.
+ * Prevents uncontrolled path usage flagged by code scanning.
+ */
+function assertSafeLocalPath(p: string): string {
+  if (typeof p !== 'string' || p.trim().length === 0) {
+    throw new Error('invalid path')
+  }
+  const resolved = path.resolve(p)
+  const cwd = process.cwd()
+  const base = cwd.endsWith(path.sep) ? cwd : cwd + path.sep
+  if (!resolved.startsWith(base)) {
+    throw new Error('unsafe path outside working directory')
+  }
+  return resolved
+}
+
+/**
+ * Sanitize user-provided key segments used in object storage keys.
+ * Allows alphanumerics, dash, underscore, dot. Replaces others with dash.
+ */
+function sanitizeKeySegment(s: string): string {
+  return String(s).replace(/[^A-Za-z0-9._-]/g, '-')
 }

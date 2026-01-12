@@ -33,6 +33,20 @@ describe('MusePipelineOrchestrator', () => {
           projectId: input.projectId,
         }
       },
+      async saveOriginalFromBuffer(_buffer: Buffer, input: any): Promise<DocumentMetadata> {
+        return {
+          documentId: 'test-doc-123',
+          checksumSha256: 'abc123',
+          originalFilename: input.originalFilename,
+          mimeType: input.mimeType,
+          sizeBytes: input.sizeBytes,
+          uploadedAtUtc: new Date().toISOString(),
+          storageUri: 's3://bucket/test',
+          originalObjectKey: 'test-key',
+          metadataObjectKey: 'test-meta',
+          projectId: input.projectId,
+        }
+      },
       async getOriginal(_documentId: string) {
         const content = 'Mock document content'
         const stream = Readable.from([content])
@@ -124,10 +138,10 @@ More policy content.
     // Spy on workflow methods to verify execution order
     const executionOrder: string[] = []
 
-    const originalSaveFromPath = mockDocStore.saveOriginalFromPath
-    mockDocStore.saveOriginalFromPath = async (filePath: string, input: any) => {
+    const originalSaveFromBuffer = mockDocStore.saveOriginalFromBuffer
+    mockDocStore.saveOriginalFromBuffer = async (buffer: Buffer, input: any) => {
       executionOrder.push('saveOriginal')
-      return originalSaveFromPath(filePath, input)
+      return originalSaveFromBuffer(buffer, input)
     }
 
     const originalConvert = mockConverter.convert
@@ -136,17 +150,15 @@ More policy content.
       return originalConvert(stream, mimeType, metadata)
     }
 
-    // Create a test file
-    const testFile = path.join(tempDir, 'test.pdf')
-    await fs.promises.writeFile(testFile, 'test content')
+    const fileBuffer = Buffer.from('test content')
 
     // This will fail at Epic derivation because we're not mocking the agent,
     // but we can verify the first two steps execute in order
     try {
-      await orchestrator.executePipeline(testFile, {
+      await orchestrator.executePipeline(fileBuffer, {
         originalFilename: 'test.pdf',
         mimeType: 'application/pdf',
-        sizeBytes: 100,
+        sizeBytes: fileBuffer.length,
         projectId: 'test-project',
       })
     } catch (err) {
@@ -160,25 +172,24 @@ More policy content.
 
   it('fails fast when document save fails', async () => {
     const failingDocStore = {
-      ...mockDocStore,
-      async saveOriginalFromPath(): Promise<DocumentMetadata> {
+       ...mockDocStore,
+      async saveOriginalFromBuffer(): Promise<DocumentMetadata> {
         throw new Error('Storage failure')
       },
-    }
-
-    const orchestrator = new MusePipelineOrchestrator(failingDocStore, mockConverter, tempDir)
-
-    const testFile = path.join(tempDir, 'test.pdf')
-    await fs.promises.writeFile(testFile, 'test content')
-
-    await expect(
-      orchestrator.executePipeline(testFile, {
-        originalFilename: 'test.pdf',
-        mimeType: 'application/pdf',
-        sizeBytes: 100,
-        projectId: 'test-project',
-      }),
-    ).rejects.toThrow('Storage failure')
+     }
+ 
+     const orchestrator = new MusePipelineOrchestrator(failingDocStore, mockConverter, tempDir)
+ 
+    const fileBuffer = Buffer.from('test content')
+ 
+     await expect(
+      orchestrator.executePipeline(fileBuffer, {
+         originalFilename: 'test.pdf',
+         mimeType: 'application/pdf',
+         sizeBytes: fileBuffer.length,
+         projectId: 'test-project',
+       }),
+     ).rejects.toThrow('Storage failure')
   })
 
   it('fails fast when conversion fails', async () => {
@@ -191,14 +202,13 @@ More policy content.
 
     const orchestrator = new MusePipelineOrchestrator(mockDocStore, failingConverter, tempDir)
 
-    const testFile = path.join(tempDir, 'test.pdf')
-    await fs.promises.writeFile(testFile, 'test content')
+    const fileBuffer = Buffer.from('test content')
 
     await expect(
-      orchestrator.executePipeline(testFile, {
+      orchestrator.executePipeline(fileBuffer, {
         originalFilename: 'test.pdf',
         mimeType: 'application/pdf',
-        sizeBytes: 100,
+        sizeBytes: fileBuffer.length,
         projectId: 'test-project',
       }),
     ).rejects.toThrow('Conversion failure')
@@ -207,14 +217,13 @@ More policy content.
   it('writes governance markdown to correct location', async () => {
     const orchestrator = new MusePipelineOrchestrator(mockDocStore, mockConverter, tempDir)
 
-    const testFile = path.join(tempDir, 'test.pdf')
-    await fs.promises.writeFile(testFile, 'test content')
+    const fileBuffer = Buffer.from('test content')
 
     try {
-      await orchestrator.executePipeline(testFile, {
+      await orchestrator.executePipeline(fileBuffer, {
         originalFilename: 'test.pdf',
         mimeType: 'application/pdf',
-        sizeBytes: 100,
+        sizeBytes: fileBuffer.length,
         projectId: 'test-project',
       })
     } catch (err) {
@@ -240,14 +249,13 @@ More policy content.
     const orchestrator = new MusePipelineOrchestrator(mockDocStore, mockConverter, tempDir)
 
     // We'll verify the structure by checking the error contains expected properties
-    const testFile = path.join(tempDir, 'test.pdf')
-    await fs.promises.writeFile(testFile, 'test content')
+    const fileBuffer = Buffer.from('test content')
 
     try {
-      const result = await orchestrator.executePipeline(testFile, {
+      const result = await orchestrator.executePipeline(fileBuffer, {
         originalFilename: 'test.pdf',
         mimeType: 'application/pdf',
-        sizeBytes: 100,
+        sizeBytes: fileBuffer.length,
         projectId: 'test-project',
       })
 
@@ -486,8 +494,22 @@ original_filename: ${metadata.originalFilename}
             projectId: input.projectId,
           }
         },
+        async saveOriginalFromBuffer(_buffer: Buffer, input: any): Promise<DocumentMetadata> {
+          return {
+            documentId: 'test-doc-123',
+            checksumSha256: 'abc123',
+            originalFilename: input.originalFilename,
+            mimeType: input.mimeType,
+            sizeBytes: input.sizeBytes,
+            uploadedAtUtc: new Date().toISOString(),
+            storageUri: 's3://bucket/test',
+            originalObjectKey: 'test-key',
+            metadataObjectKey: 'test-meta',
+            projectId: input.projectId,
+          }
+        },
         async getOriginal(_documentId: string) {
-          const stream = Readable.from(['test content'])
+          const stream = Readable.from([Buffer.from('test content')])
           return {
             stream,
             metadata: {
@@ -525,18 +547,17 @@ original_filename: ${metadata.originalFilename}
         validator
       )
 
-      const testFile = path.join(tempDir, 'test.pdf')
-      await fs.promises.writeFile(testFile, 'test content')
+      const fileBuffer = Buffer.from('test content')
 
       // Pipeline should fail at validation gating before agents run
       await expect(
-        orchestrator.executePipeline(testFile, {
-          originalFilename: 'test.pdf',
-          mimeType: 'application/pdf',
-          sizeBytes: 100,
-          projectId: 'test-project',
-        })
-      ).rejects.toThrow('validation failed')
+        orchestrator.executePipeline(fileBuffer, {
+           originalFilename: 'test.pdf',
+           mimeType: 'application/pdf',
+           sizeBytes: fileBuffer.length,
+           projectId: 'test-project',
+         })
+       ).rejects.toThrow('validation failed')
     } finally {
       // Cleanup
       try {

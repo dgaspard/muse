@@ -15,7 +15,7 @@ export interface FeatureArtifact {
 
 interface MuseYaml {
   artifacts?: {
-    epics?: any[]
+    epics?: Record<string, unknown>[]
     features?: FeatureArtifact[]
   }
 }
@@ -60,9 +60,9 @@ export class FeatureDerivationWorkflow {
 
   async deriveFeaturesFromEpic(
     epicMarkdownPath: string,
-    options: { outputDir?: string; useAI?: boolean; governancePath?: string } = {}
+    options: { outputDir?: string; useAI?: boolean; governancePath?: string; projectId?: string } = {}
   ): Promise<FeatureArtifact[]> {
-    const { outputDir = path.join(this.repoRoot, 'docs/features'), useAI = true, governancePath } = options
+    const { outputDir = path.join(this.repoRoot, 'docs/features'), useAI = true, governancePath, projectId } = options
 
     const absoluteEpicPath = path.isAbsolute(epicMarkdownPath)
       ? epicMarkdownPath
@@ -227,7 +227,8 @@ export class FeatureDerivationWorkflow {
     const { features, featurePaths } = await this.agent.deriveAndWriteFeatures(
       absoluteEpicPath,
       undefined,
-      outputDir
+      outputDir,
+      projectId
     )
 
     const artifacts: FeatureArtifact[] = features.map((f, idx) => ({

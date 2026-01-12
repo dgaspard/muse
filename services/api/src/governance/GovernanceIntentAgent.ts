@@ -2,6 +2,7 @@ import matter from 'gray-matter'
 import * as fs from 'fs'
 import * as path from 'path'
 import Anthropic from '@anthropic-ai/sdk'
+import YAML from 'yaml'
 
 /**
  * Schema for Epic output
@@ -58,7 +59,7 @@ export class GovernanceIntentAgent {
   /**
    * Read and parse governance Markdown
    */
-  private readGovernanceMarkdown(markdownPath: string): { content: string; frontMatter: any } {
+  private readGovernanceMarkdown(markdownPath: string): { content: string; frontMatter: Record<string, unknown> } {
     if (!fs.existsSync(markdownPath)) {
       throw new Error(`Governance Markdown not found: ${markdownPath}`)
     }
@@ -75,36 +76,43 @@ export class GovernanceIntentAgent {
   /**
    * Validate Epic output against schema
    */
-  private validateEpicSchema(epic: any): asserts epic is EpicSchema {
-    const errors: string[] = []
+  private validateEpicSchema(epic: unknown): asserts epic is EpicSchema {
+    if (typeof epic !== 'object' || epic === null) {
+      throw new AgentValidationError('Epic must be an object')
+    }
 
-    if (!epic.epic_id || typeof epic.epic_id !== 'string') {
+    const errors: string[] = []
+    const e = epic as Record<string, unknown>
+
+    if (!e.epic_id || typeof e.epic_id !== 'string') {
       errors.push('Missing or invalid epic_id')
     }
 
-    if (!epic.derived_from || typeof epic.derived_from !== 'string') {
+    if (!e.derived_from || typeof e.derived_from !== 'string') {
       errors.push('Missing or invalid derived_from')
     }
 
-    if (!epic.source_markdown || typeof epic.source_markdown !== 'string') {
+    if (!e.source_markdown || typeof e.source_markdown !== 'string') {
       errors.push('Missing or invalid source_markdown')
     }
 
-    if (!epic.objective || typeof epic.objective !== 'string') {
+    if (!e.objective || typeof e.objective !== 'string') {
       errors.push('Missing or invalid objective')
     }
 
-    if (!Array.isArray(epic.success_criteria) || epic.success_criteria.length === 0) {
+    if (!Array.isArray(e.success_criteria) || e.success_criteria.length === 0) {
       errors.push('Missing or invalid success_criteria (must be non-empty array)')
     }
 
-    if (epic.success_criteria && !epic.success_criteria.every((c: any) => typeof c === 'string')) {
+    if (e.success_criteria && !Array.isArray(e.success_criteria)) {
+      errors.push('success_criteria must be an array')
+    } else if (Array.isArray(e.success_criteria) && !e.success_criteria.every((c: unknown) => typeof c === 'string')) {
       errors.push('All success_criteria must be strings')
     }
 
     // No additional fields allowed
     const allowedFields = ['epic_id', 'derived_from', 'source_markdown', 'objective', 'success_criteria']
-    const extraFields = Object.keys(epic).filter(key => !allowedFields.includes(key))
+    const extraFields = Object.keys(e).filter(key => !allowedFields.includes(key))
     if (extraFields.length > 0) {
       errors.push(`Unexpected fields: ${extraFields.join(', ')}`)
     }
@@ -203,7 +211,6 @@ No prose. No explanations. Only YAML.`
       const yamlText = yamlMatch ? yamlMatch[1] : content.text
 
       // Parse YAML response
-      const YAML = require('yaml')
       const parsed = YAML.parse(yamlText)
 
       if (!parsed || !parsed.epic) {
@@ -324,7 +331,8 @@ No prose. No explanations. Only YAML.`
     const { content, frontMatter } = this.readGovernanceMarkdown(markdownPath)
     
     // Use document_id from front matter if not provided
-    const docId = documentId || frontMatter.document_id || path.basename(markdownPath, '.md')
+    const fmObj = frontMatter as Record<string, unknown>
+    const docId = documentId || (typeof fmObj.document_id === 'string' ? fmObj.document_id : null) || path.basename(markdownPath, '.md')
 
     let lastError: Error | null = null
     const maxAttempts = 2

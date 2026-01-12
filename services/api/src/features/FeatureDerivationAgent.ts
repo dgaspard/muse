@@ -2,6 +2,14 @@ import matter from 'gray-matter'
 import * as fs from 'fs'
 import * as path from 'path'
 
+const slugify = (value: string): string => {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-')
+}
+
 export interface FeatureSchema {
   feature_id: string
   epic_id: string
@@ -22,7 +30,7 @@ export class FeatureValidationError extends Error {
 }
 
 export class FeatureDerivationAgent {
-  private readEpicMarkdown(markdownPath: string): { content: string; frontMatter: any } {
+  private readEpicMarkdown(markdownPath: string): { content: string; frontMatter: Record<string, unknown> } {
     if (!fs.existsSync(markdownPath)) {
       throw new Error(`Epic Markdown not found: ${markdownPath}`)
     }
@@ -31,18 +39,23 @@ export class FeatureDerivationAgent {
     return { content: parsed.content, frontMatter: parsed.data }
   }
 
-  private validateFeatureSchema(feature: any): asserts feature is FeatureSchema {
-    const errors: string[] = []
+  private validateFeatureSchema(feature: unknown): asserts feature is FeatureSchema {
+    if (typeof feature !== 'object' || feature === null) {
+      throw new FeatureValidationError('Feature must be an object')
+    }
 
-    if (!feature.feature_id || typeof feature.feature_id !== 'string') errors.push('Missing or invalid feature_id')
-    if (!feature.epic_id || typeof feature.epic_id !== 'string') errors.push('Missing or invalid epic_id')
-    if (!feature.title || typeof feature.title !== 'string') errors.push('Missing or invalid title')
-    if (!feature.description || typeof feature.description !== 'string') errors.push('Missing or invalid description')
-    if (!Array.isArray(feature.acceptance_criteria) || feature.acceptance_criteria.length === 0) {
+    const errors: string[] = []
+    const f = feature as Record<string, unknown>
+
+    if (!f.feature_id || typeof f.feature_id !== 'string') errors.push('Missing or invalid feature_id')
+    if (!f.epic_id || typeof f.epic_id !== 'string') errors.push('Missing or invalid epic_id')
+    if (!f.title || typeof f.title !== 'string') errors.push('Missing or invalid title')
+    if (!f.description || typeof f.description !== 'string') errors.push('Missing or invalid description')
+    if (!Array.isArray(f.acceptance_criteria) || f.acceptance_criteria.length === 0) {
       errors.push('Missing or invalid acceptance_criteria (must be non-empty array)')
     }
     const allowed = ['feature_id', 'epic_id', 'title', 'description', 'acceptance_criteria']
-    const extras = Object.keys(feature).filter(k => !allowed.includes(k))
+    const extras = Object.keys(f).filter(k => !allowed.includes(k))
     if (extras.length > 0) errors.push(`Unexpected fields: ${extras.join(', ')}`)
 
     if (errors.length) throw new FeatureValidationError(`Feature validation failed:\n${errors.join('\n')}`)
@@ -73,10 +86,11 @@ export class FeatureDerivationAgent {
   /**
    * Derive features from Epic markdown. Strategy: one feature per success criterion.
    */
-  async deriveFeatures(epicMarkdownPath: string, epicId?: string): Promise<FeatureOutput[]> {
+  async deriveFeatures(epicMarkdownPath: string, epicId?: string, projectId?: string): Promise<FeatureOutput[]> {
     const { content, frontMatter } = this.readEpicMarkdown(epicMarkdownPath)
 
-    const effectiveEpicId = epicId || frontMatter.epic_id
+    const fmObj = frontMatter as Record<string, unknown>
+    const effectiveEpicId = epicId || (typeof fmObj.epic_id === 'string' ? fmObj.epic_id : null)
     if (!effectiveEpicId) throw new FeatureValidationError('Missing epic_id in front matter or parameters')
 
     const lines = content.split('\n')
@@ -112,9 +126,13 @@ export class FeatureDerivationAgent {
       selected.push('Demonstrate measurable outcome aligned with Epic objective')
     }
 
+    const projectSlug = projectId ? slugify(projectId) : 'project'
+
     const outputs: FeatureOutput[] = selected.map((criterion, idx) => {
+      const featureIndex = String(idx + 1).padStart(2, '0')
+      const featureId = `${projectSlug}-${effectiveEpicId}-feature-${featureIndex}`
       const feature: FeatureSchema = {
-        feature_id: `feat-${effectiveEpicId}-${String(idx + 1).padStart(2, '0')}`,
+        feature_id: featureId,
         epic_id: effectiveEpicId,
         title: criterion.substring(0, 120),
         description: descriptionBase,
@@ -130,9 +148,10 @@ export class FeatureDerivationAgent {
   async deriveAndWriteFeatures(
     epicMarkdownPath: string,
     epicId: string | undefined,
-    outputDir: string = 'docs/features'
+    outputDir: string = 'docs/features',
+    projectId?: string
   ): Promise<{ features: FeatureOutput[]; featurePaths: string[] }> {
-    const features = await this.deriveFeatures(epicMarkdownPath, epicId)
+    const features = await this.deriveFeatures(epicMarkdownPath, epicId, projectId)
     const featurePaths: string[] = []
     features.forEach(f => {
       const filename = `${f.epic_id}-${f.feature_id.split('-').slice(-1)[0]}.md`
