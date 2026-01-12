@@ -396,4 +396,155 @@ This feature has a description but no explicit acceptance criteria section.
       expect(stories[0].story_id).not.toMatch(/[!@#$%^&*()]/) // No special chars
     })
   })
+
+  describe('Multiple features in single document', () => {
+    it('should handle documents with multiple feature sections', async () => {
+      const multiFeatureContent = `# Feature: Authentication
+      
+## Description
+User authentication system
+
+## Acceptance Criteria
+- User can login
+- User can logout
+
+# Feature: Authorization
+
+## Description
+User authorization system
+
+## Acceptance Criteria
+- Admin can manage roles
+- User can view their permissions
+`
+      const featureStream = Readable.from([
+        `---\nfeature_id: myproject-epic-12-feature-01\nepic_id: epic-12\n---\n\n${multiFeatureContent}`,
+      ])
+      const govStream = Readable.from([`# Security\n\nAuth required.`])
+
+      mockDocumentStore.getOriginal = vi
+        .fn()
+        .mockResolvedValueOnce({ stream: featureStream, metadata: {} })
+        .mockResolvedValueOnce({ stream: govStream, metadata: {} })
+
+      const stories = await agent.deriveStoriesFromDocuments(
+        'feature-doc-id',
+        'governance-doc-id',
+        'myproject',
+        'epic-12',
+        mockDocumentStore,
+      )
+
+      // Should generate stories from all features found
+      expect(stories.length).toBeGreaterThanOrEqual(2)
+      
+      // Verify stories have different titles
+      const titles = stories.map(s => s.title)
+      expect(new Set(titles).size).toBeGreaterThan(1)
+    })
+  })
+
+  describe('Empty and malformed documents', () => {
+    it('should handle empty governance documents gracefully', async () => {
+      const featureStream = Readable.from([
+        `---\nfeature_id: myproject-epic-13-feature-01\nepic_id: epic-13\n---\n\n# Feature: Test\n\n## Description\nTest\n\n## Acceptance Criteria\n- Valid criterion\n`,
+      ])
+      const govStream = Readable.from([''])
+
+      mockDocumentStore.getOriginal = vi
+        .fn()
+        .mockResolvedValueOnce({ stream: featureStream, metadata: {} })
+        .mockResolvedValueOnce({ stream: govStream, metadata: {} })
+
+      const stories = await agent.deriveStoriesFromDocuments(
+        'feature-doc-id',
+        'governance-doc-id',
+        'myproject',
+        'epic-13',
+        mockDocumentStore,
+      )
+
+      expect(stories.length).toBeGreaterThan(0)
+      // Should still have governance references even with empty doc
+      expect(stories[0].governance_references.length).toBeGreaterThan(0)
+    })
+
+    it('should handle feature documents without descriptions', async () => {
+      const featureStream = Readable.from([
+        `---\nfeature_id: myproject-epic-14-feature-01\nepic_id: epic-14\n---\n\n# Feature: No Description Feature\n\n## Acceptance Criteria\n- Criterion without description\n`,
+      ])
+      const govStream = Readable.from([`# Gov\n\nTest.`])
+
+      mockDocumentStore.getOriginal = vi
+        .fn()
+        .mockResolvedValueOnce({ stream: featureStream, metadata: {} })
+        .mockResolvedValueOnce({ stream: govStream, metadata: {} })
+
+      const stories = await agent.deriveStoriesFromDocuments(
+        'feature-doc-id',
+        'governance-doc-id',
+        'myproject',
+        'epic-14',
+        mockDocumentStore,
+      )
+
+      expect(stories.length).toBeGreaterThan(0)
+      expect(stories[0].story_id).toBeTruthy()
+    })
+  })
+
+  describe('Story field completeness', () => {
+    it('should ensure all stories have required timestamps', async () => {
+      const featureStream = Readable.from([
+        `---\nfeature_id: myproject-epic-15-feature-01\nepic_id: epic-15\n---\n\n# Feature: Test\n\n## Description\nTest\n\n## Acceptance Criteria\n- Test criterion\n`,
+      ])
+      const govStream = Readable.from([`# Test\n\nTest.`])
+
+      mockDocumentStore.getOriginal = vi
+        .fn()
+        .mockResolvedValueOnce({ stream: featureStream, metadata: {} })
+        .mockResolvedValueOnce({ stream: govStream, metadata: {} })
+
+      const stories = await agent.deriveStoriesFromDocuments(
+        'feature-doc-id',
+        'governance-doc-id',
+        'myproject',
+        'epic-15',
+        mockDocumentStore,
+      )
+
+      stories.forEach(story => {
+        expect(story.generated_at).toBeTruthy()
+        const timestamp = new Date(story.generated_at).getTime()
+        expect(timestamp).toBeGreaterThan(0)
+        expect(timestamp).toBeLessThanOrEqual(Date.now())
+      })
+    })
+
+    it('should ensure story titles are descriptive and non-empty', async () => {
+      const featureStream = Readable.from([
+        `---\nfeature_id: myproject-epic-16-feature-01\nepic_id: epic-16\n---\n\n# Feature: Test\n\n## Description\nTest\n\n## Acceptance Criteria\n- Valid test criterion\n`,
+      ])
+      const govStream = Readable.from([`# Test\n\nTest.`])
+
+      mockDocumentStore.getOriginal = vi
+        .fn()
+        .mockResolvedValueOnce({ stream: featureStream, metadata: {} })
+        .mockResolvedValueOnce({ stream: govStream, metadata: {} })
+
+      const stories = await agent.deriveStoriesFromDocuments(
+        'feature-doc-id',
+        'governance-doc-id',
+        'myproject',
+        'epic-16',
+        mockDocumentStore,
+      )
+
+      stories.forEach(story => {
+        expect(story.title).toBeTruthy()
+        expect(story.title.length).toBeGreaterThan(0)
+        expect(typeof story.title).toBe('string')
+      })
+    })
+  })
 })

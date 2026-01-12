@@ -345,4 +345,128 @@ describe('FeatureValueDerivationAgent', () => {
       }).toThrow('sections array')
     })
   })
+
+  describe('Additional Validation Edge Cases', () => {
+    it('should reject features with very short titles', () => {
+      const shortTitleFeature = {
+        feature_id: 'testproject-epic-01-feature-01',
+        title: 'A',
+        business_value: 'Clear business value statement here',
+        description: 'A test feature description',
+        acceptance_criteria: ['Auditors can retrieve records within statutory timeframes'],
+        risk_of_not_delivering: ['Inability to demonstrate compliance during audits'],
+        governance_references: [{
+          document_id: 'doc-123',
+          filename: 'governance.md',
+          markdown_path: 'docs/governance/governance.md',
+          sections: ['Section 1']
+        }],
+        derived_from_epic: 'epic-doc-123'
+      }
+
+      expect(() => {
+        validateSchema(shortTitleFeature)
+      }).toThrow()
+    })
+
+    it('should reject features with very short business value', () => {
+      const shortBusinessValueFeature = {
+        feature_id: 'testproject-epic-01-feature-01',
+        title: 'Valid Feature Title',
+        business_value: 'Short',
+        description: 'A test feature description',
+        acceptance_criteria: ['Auditors can retrieve records within statutory timeframes'],
+        risk_of_not_delivering: ['Inability to demonstrate compliance during audits'],
+        governance_references: [{
+          document_id: 'doc-123',
+          filename: 'governance.md',
+          markdown_path: 'docs/governance/governance.md',
+          sections: ['Section 1']
+        }],
+        derived_from_epic: 'epic-doc-123'
+      }
+
+      expect(() => {
+        validateSchema(shortBusinessValueFeature)
+      }).toThrow('business_value')
+    })
+
+    it('should accept features with multiple governance references', () => {
+      const multiRefFeature = {
+        feature_id: 'testproject-epic-01-feature-01',
+        title: 'Multi-Reference Feature',
+        business_value: 'Provides comprehensive governance traceability',
+        description: 'Feature with multiple governance document references',
+        acceptance_criteria: ['System meets all regulatory requirements'],
+        risk_of_not_delivering: ['Non-compliance with multiple regulations'],
+        governance_references: [
+          {
+            document_id: 'doc-123',
+            filename: 'governance-1.md',
+            markdown_path: 'docs/governance/governance-1.md',
+            sections: ['Security Controls']
+          },
+          {
+            document_id: 'doc-456',
+            filename: 'governance-2.md',
+            markdown_path: 'docs/governance/governance-2.md',
+            sections: ['Privacy Requirements']
+          }
+        ],
+        derived_from_epic: 'epic-doc-123'
+      }
+
+      expect(() => {
+        validateSchema(multiRefFeature)
+      }).not.toThrow()
+    })
+
+    it('should reject features with empty acceptance criteria array', () => {
+      const emptyAcceptanceFeature = {
+        feature_id: 'testproject-epic-01-feature-01',
+        title: 'Feature Without Acceptance Criteria',
+        business_value: 'Clear business value statement here',
+        description: 'A test feature description',
+        acceptance_criteria: [],
+        risk_of_not_delivering: ['Risk statement with sufficient length'],
+        governance_references: [{
+          document_id: 'doc-123',
+          filename: 'governance.md',
+          markdown_path: 'docs/governance/governance.md',
+          sections: ['Section 1']
+        }],
+        derived_from_epic: 'epic-doc-123'
+      }
+
+      expect(() => {
+        validateSchema(emptyAcceptanceFeature)
+      }).toThrow('acceptance_criteria')
+    })
+
+    it('should reject features with multiple generic criteria', () => {
+      const multiGenericFeature = {
+        feature_id: 'testproject-epic-01-feature-01',
+        title: 'Generic Feature',
+        business_value: 'Clear business value statement here',
+        description: 'A test feature description',
+        acceptance_criteria: [
+          'Feature is implemented',
+          'System works correctly',
+          'All tests pass'
+        ],
+        risk_of_not_delivering: ['Risk statement with sufficient length'],
+        governance_references: [{
+          document_id: 'doc-123',
+          filename: 'governance.md',
+          markdown_path: 'docs/governance/governance.md',
+          sections: ['Section 1']
+        }],
+        derived_from_epic: 'epic-doc-123'
+      }
+
+      expect(() => {
+        validateSchema(multiGenericFeature)
+      }).toThrow('Generic/tautological')
+    })
+  })
 })
