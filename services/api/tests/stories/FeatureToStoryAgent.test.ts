@@ -13,6 +13,7 @@ describe('FeatureToStoryAgent (MinIO-based)', () => {
     // Create mock DocumentStore
     mockDocumentStore = {
       saveOriginalFromPath: vi.fn(),
+      saveOriginalFromBuffer: vi.fn(),
       getOriginal: vi.fn(),
       getMetadata: vi.fn(),
     }
