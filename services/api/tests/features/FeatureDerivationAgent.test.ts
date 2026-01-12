@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import * as fs from 'fs'
 import * as path from 'path'
 import { FeatureDerivationAgent, FeatureValidationError } from '../../src/features/FeatureDerivationAgent'
@@ -9,13 +9,10 @@ describe('FeatureDerivationAgent', () => {
   let agent: FeatureDerivationAgent
 
   beforeAll(() => {
+    agent = new FeatureDerivationAgent()
     if (!fs.existsSync(tmp)) fs.mkdirSync(tmp, { recursive: true })
     const content = `---\nepic_id: epic-doc-123\n---\n\n# Epic: Sample\n\n## Objective\nDeliver measurable outcomes.\n\n## Success Criteria\n- A criterion A\n- Criterion B with more details\n- Another criterion C\n`
     fs.writeFileSync(epicPath, content, 'utf-8')
-  })
-
-  beforeEach(() => {
-    agent = new FeatureDerivationAgent()
   })
 
   afterAll(() => {
