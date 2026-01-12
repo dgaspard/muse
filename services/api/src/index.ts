@@ -38,6 +38,28 @@ app.use(express.json())
 // Allow cross-origin requests in prototype mode (no auth)
 app.use(cors())
 
+// Rate limiting to protect against DoS attacks on expensive operations
+// General API rate limit: 100 requests per 15 minutes per IP
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true, // Return rate limit info in RateLimit-* headers
+  legacyHeaders: false, // Disable X-RateLimit-* headers
+})
+
+// Stricter rate limit for expensive operations (uploads, conversions, pipeline)
+const expensiveOperationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // limit each IP to 10 expensive operations per windowMs
+  message: 'Too many upload/conversion requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+
+// Apply general rate limiting to all routes
+app.use(generalLimiter)
+
 const port = process.env.API_PORT ? Number(process.env.API_PORT) : 4000
 
 const minioEndpoint = process.env.MINIO_ENDPOINT || 'http://localhost:9000'
