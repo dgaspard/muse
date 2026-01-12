@@ -398,7 +398,7 @@ app.post('/pipeline/execute', expensiveOperationLimiter, upload.single('file'), 
 // POST /features/:featureId/stories
 // Derive user stories from a specific feature on-demand (MinIO-based)
 // Requires: featurePath and governancePath in request body
-app.post('/features/:featureId/stories', async (req: Request, res: Response) => {
+app.post('/features/:featureId/stories', expensiveOperationLimiter, async (req: Request, res: Response) => {
   try {
     const { featureId } = req.params
     const { featurePath, governancePath, projectId, epicId } = req.body
@@ -484,7 +484,7 @@ app.post('/features/:featureId/stories', async (req: Request, res: Response) => 
 
 // DELETE /features/:featureId/stories
 // Delete generated stories for a feature
-app.delete('/features/:featureId/stories', async (req: Request, res: Response) => {
+app.delete('/features/:featureId/stories', expensiveOperationLimiter, async (req: Request, res: Response) => {
   try {
     const { featureId } = req.params
     const { storyPath } = req.body
