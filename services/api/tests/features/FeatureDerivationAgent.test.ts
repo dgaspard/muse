@@ -23,7 +23,7 @@ describe('FeatureDerivationAgent', () => {
     const features = await agent.deriveFeatures(epicPath)
     expect(features.length).toBeGreaterThan(0)
     expect(features[0].epic_id).toBe('epic-doc-123')
-    expect(features[0].feature_id).toContain('feat-')
+    expect(features[0].feature_id).toMatch(/^project-epic-doc-123-feature-\d{2}$/)
     expect(Array.isArray(features[0].acceptance_criteria)).toBe(true)
   })
 })

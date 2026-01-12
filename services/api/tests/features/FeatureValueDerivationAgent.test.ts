@@ -39,7 +39,7 @@ describe('FeatureValueDerivationAgent', () => {
   describe('Feature Validation Rules', () => {
     it('should reject features without business_value', async () => {
       const mockFeature = {
-        feature_id: 'feat-doc-01',
+        feature_id: 'testproject-epic-01-feature-01',
         title: 'Test Feature Title',
         description: 'A test feature description',
         acceptance_criteria: ['Criterion 1 with sufficient length'],
@@ -47,6 +47,7 @@ describe('FeatureValueDerivationAgent', () => {
         governance_references: [{
           document_id: 'doc-123',
           filename: 'governance.md',
+          markdown_path: 'docs/governance/governance.md',
           sections: ['Section 1']
         }],
         derived_from_epic: 'epic-doc-123'
@@ -59,15 +60,16 @@ describe('FeatureValueDerivationAgent', () => {
 
     it('should reject features with generic acceptance criteria', async () => {
       const mockFeature = {
-        feature_id: 'feat-doc-01',
+        feature_id: 'testproject-epic-01-feature-01',
         title: 'Test Feature Title',
         business_value: 'Clear business value statement here',
         description: 'A test feature description',
-        acceptance_criteria: ['Feature is implemented as described'],
+        acceptance_criteria: ['Feature is implemented'],
         risk_of_not_delivering: ['Risk 1 with sufficient length'],
         governance_references: [{
           document_id: 'doc-123',
           filename: 'governance.md',
+          markdown_path: 'docs/governance/governance.md',
           sections: ['Section 1']
         }],
         derived_from_epic: 'epic-doc-123'
@@ -75,12 +77,12 @@ describe('FeatureValueDerivationAgent', () => {
 
       expect(() => {
         validateSchema(mockFeature)
-      }).toThrow('Generic acceptance criterion detected')
+      }).toThrow('Generic/tautological acceptance criteria detected')
     })
 
     it('should reject features without risks', async () => {
       const mockFeature = {
-        feature_id: 'feat-doc-01',
+        feature_id: 'testproject-epic-01-feature-01',
         title: 'Test Feature Title',
         business_value: 'Clear business value statement here',
         description: 'A test feature description',
@@ -89,6 +91,7 @@ describe('FeatureValueDerivationAgent', () => {
         governance_references: [{
           document_id: 'doc-123',
           filename: 'governance.md',
+          markdown_path: 'docs/governance/governance.md',
           sections: ['Section 1']
         }],
         derived_from_epic: 'epic-doc-123'
@@ -101,7 +104,7 @@ describe('FeatureValueDerivationAgent', () => {
 
     it('should reject features without governance references', async () => {
       const mockFeature = {
-        feature_id: 'feat-doc-01',
+        feature_id: 'testproject-epic-01-feature-01',
         title: 'Test Feature Title',
         business_value: 'Clear business value statement here',
         description: 'A test feature description',
@@ -118,7 +121,7 @@ describe('FeatureValueDerivationAgent', () => {
 
     it('should reject features describing Muse internals', async () => {
       const mockFeature = {
-        feature_id: 'feat-doc-01',
+        feature_id: 'testproject-epic-01-feature-01',
         title: 'Upload documents to Muse platform',
         business_value: 'Clear business value statement here',
         description: 'Pipeline processes uploaded documents',
@@ -127,6 +130,7 @@ describe('FeatureValueDerivationAgent', () => {
         governance_references: [{
           document_id: 'doc-123',
           filename: 'governance.md',
+          markdown_path: 'docs/governance/governance.md',
           sections: ['Section 1']
         }],
         derived_from_epic: 'epic-doc-123'
@@ -139,7 +143,7 @@ describe('FeatureValueDerivationAgent', () => {
 
     it('should accept valid value-based features', () => {
       const mockFeature = {
-        feature_id: 'feat-doc-01',
+        feature_id: 'testproject-epic-01-feature-01',
         title: 'Personnel Record Access Logging',
         business_value: 'Ensures audit compliance by logging all access attempts to personnel records',
         description: 'System logs all authentication and authorization events for personnel record access',
@@ -154,6 +158,7 @@ describe('FeatureValueDerivationAgent', () => {
         governance_references: [{
           document_id: 'doc-123',
           filename: 'governance.md',
+          markdown_path: 'docs/governance/governance.md',
           sections: ['Access Control Requirements', 'Audit Logging']
         }],
         derived_from_epic: 'epic-doc-123'
@@ -183,6 +188,7 @@ describe('FeatureValueDerivationAgent', () => {
           {
             document_id: 'doc-123',
             filename: 'governance.md',
+          markdown_path: 'docs/governance/governance.md',
             governance_path: 'docs/governance/governance.md'
           }
         )
@@ -203,15 +209,16 @@ describe('FeatureValueDerivationAgent', () => {
   describe('Validation Error Messages', () => {
     it('should provide detailed error messages for validation failures', () => {
       const invalidFeature = {
-        feature_id: 'feat-doc-01',
-        title: 'Short',
-        business_value: 'Too short',
-        description: 'Too short',
-        acceptance_criteria: ['Short'],
-        risk_of_not_delivering: ['Short'],
+        feature_id: 'testproject-epic-01-feature-01',
+        title: 'Valid Test Feature Title',
+        business_value: 'Valid business value statement here',
+        description: 'Valid test feature description',
+        acceptance_criteria: ['Feature is implemented'],
+        risk_of_not_delivering: ['Risk statement with sufficient length'],
         governance_references: [{
           document_id: 'doc-123',
           filename: 'governance.md',
+          markdown_path: 'docs/governance/governance.md',
           sections: []
         }],
         derived_from_epic: 'epic-doc-123'
@@ -222,7 +229,7 @@ describe('FeatureValueDerivationAgent', () => {
         expect.fail('Should have thrown validation error')
       } catch (error) {
         expect(error).toBeInstanceOf(FeatureValueValidationError)
-        expect((error as Error).message).toContain('validation failed')
+        expect((error as Error).message).toContain('hardening validation failed')
       }
     })
   })
@@ -230,7 +237,7 @@ describe('FeatureValueDerivationAgent', () => {
   describe('Schema Constraints', () => {
     it('should require minimum lengths for key fields', () => {
       const shortTitleFeature = {
-        feature_id: 'feat-doc-01',
+        feature_id: 'testproject-epic-01-feature-01',
         title: 'Short',
         business_value: 'Clear business value statement here',
         description: 'A test feature description',
@@ -239,6 +246,7 @@ describe('FeatureValueDerivationAgent', () => {
         governance_references: [{
           document_id: 'doc-123',
           filename: 'governance.md',
+          markdown_path: 'docs/governance/governance.md',
           sections: ['Section 1']
         }],
         derived_from_epic: 'epic-doc-123'
@@ -251,15 +259,16 @@ describe('FeatureValueDerivationAgent', () => {
 
     it('should require substantial acceptance criteria', () => {
       const shortCriteriaFeature = {
-        feature_id: 'feat-doc-01',
+        feature_id: 'testproject-epic-01-feature-01',
         title: 'Test Feature Title',
         business_value: 'Clear business value statement here',
         description: 'A test feature description',
-        acceptance_criteria: ['Too short'],
+        acceptance_criteria: ['System supports the feature'],
         risk_of_not_delivering: ['Inability to demonstrate compliance during audits'],
         governance_references: [{
           document_id: 'doc-123',
           filename: 'governance.md',
+          markdown_path: 'docs/governance/governance.md',
           sections: ['Section 1']
         }],
         derived_from_epic: 'epic-doc-123'
@@ -267,12 +276,12 @@ describe('FeatureValueDerivationAgent', () => {
 
       expect(() => {
         validateSchema(shortCriteriaFeature)
-      }).toThrow('Acceptance criteria must be strings of at least 15 characters')
+      }).toThrow('Generic/tautological acceptance criteria detected')
     })
 
     it('should require substantial risk statements', () => {
       const shortRiskFeature = {
-        feature_id: 'feat-doc-01',
+        feature_id: 'testproject-epic-01-feature-01',
         title: 'Test Feature Title',
         business_value: 'Clear business value statement here',
         description: 'A test feature description',
@@ -281,6 +290,7 @@ describe('FeatureValueDerivationAgent', () => {
         governance_references: [{
           document_id: 'doc-123',
           filename: 'governance.md',
+          markdown_path: 'docs/governance/governance.md',
           sections: ['Section 1']
         }],
         derived_from_epic: 'epic-doc-123'
@@ -288,14 +298,14 @@ describe('FeatureValueDerivationAgent', () => {
 
       expect(() => {
         validateSchema(shortRiskFeature)
-      }).toThrow('Risk statements must be strings of at least 15 characters')
+      }).toThrow('Each risk statement must be at least 15 characters')
     })
   })
 
   describe('Governance Reference Validation', () => {
     it('should require document_id in governance references', () => {
       const invalidRefFeature = {
-        feature_id: 'feat-doc-01',
+        feature_id: 'testproject-epic-01-feature-01',
         title: 'Test Feature Title',
         business_value: 'Clear business value statement here',
         description: 'A test feature description',
@@ -303,6 +313,7 @@ describe('FeatureValueDerivationAgent', () => {
         risk_of_not_delivering: ['Inability to demonstrate compliance during audits'],
         governance_references: [{
           filename: 'governance.md',
+          markdown_path: 'docs/governance/governance.md',
           sections: ['Section 1']
         }],
         derived_from_epic: 'epic-doc-123'
@@ -310,12 +321,12 @@ describe('FeatureValueDerivationAgent', () => {
 
       expect(() => {
         validateSchema(invalidRefFeature)
-      }).toThrow('governance reference')
+      }).toThrow(/governance.reference/)
     })
 
     it('should require sections in governance references', () => {
       const noSectionsFeature = {
-        feature_id: 'feat-doc-01',
+        feature_id: 'testproject-epic-01-feature-01',
         title: 'Test Feature Title',
         business_value: 'Clear business value statement here',
         description: 'A test feature description',
@@ -324,6 +335,7 @@ describe('FeatureValueDerivationAgent', () => {
         governance_references: [{
           document_id: 'doc-123',
           filename: 'governance.md',
+          markdown_path: 'docs/governance/governance.md',
           sections: []
         }],
         derived_from_epic: 'epic-doc-123'
