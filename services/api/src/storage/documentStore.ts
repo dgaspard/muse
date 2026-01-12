@@ -44,6 +44,7 @@ export class DocumentAlreadyExistsError extends Error {
 
 export interface DocumentStore {
   saveOriginalFromPath(filePath: string, input: SaveOriginalInput): Promise<DocumentMetadata>
+  saveOriginalFromBuffer(buffer: Buffer, input: SaveOriginalInput): Promise<DocumentMetadata>
   getOriginal(documentId: string): Promise<{ stream: Readable; metadata: DocumentMetadata }>
   getMetadata(documentId: string): Promise<DocumentMetadata>
 }
@@ -120,6 +121,37 @@ export class InMemoryDocumentStore implements DocumentStore {
     if (!metadata) {
       throw new Error(`document not found: ${documentId}`)
     }
+    return metadata
+  }
+
+  async saveOriginalFromBuffer(buffer: Buffer, input: SaveOriginalInput): Promise<DocumentMetadata> {
+    const checksumSha256 = sha256BufferHex(buffer)
+    const documentId = checksumSha256
+
+    // If document already exists, return existing metadata (idempotent)
+    if (this.metadataById.has(documentId)) {
+      return this.metadataById.get(documentId)!
+    }
+
+    const originalObjectKey = `original/${documentId}`
+    const metadataObjectKey = `metadata/${documentId}.json`
+
+    const metadata: DocumentMetadata = {
+      documentId,
+      checksumSha256,
+      originalFilename: input.originalFilename,
+      mimeType: input.mimeType,
+      sizeBytes: input.sizeBytes,
+      uploadedAtUtc: input.uploadedAtUtc ?? nowUtcIso(),
+      storageUri: `memory://${originalObjectKey}`,
+      originalObjectKey,
+      metadataObjectKey,
+      projectId: input.projectId,
+    }
+
+    this.bytesById.set(documentId, buffer)
+    this.metadataById.set(documentId, metadata)
+
     return metadata
   }
 }
@@ -242,6 +274,92 @@ export class FileSystemDocumentStore implements DocumentStore {
     const metadata = await this.getMetadata(documentId)
     const originalPath = this.originalPath(documentId)
     return { stream: fs.createReadStream(originalPath), metadata }
+  }
+
+  async saveOriginalFromBuffer(buffer: Buffer, input: SaveOriginalInput): Promise<DocumentMetadata> {
+    const checksumSha256 = sha256BufferHex(buffer)
+    const documentId = checksumSha256
+
+    const originalPath = this.originalPath(documentId)
+    const metadataPath = this.metadataPath(documentId)
+
+    // If document already exists, return existing metadata (idempotent)
+    if (await fs.promises.access(metadataPath).then(() => true).catch(() => false)) {
+      try {
+        return await this.getMetadata(documentId)
+      } catch {
+        // If metadata file is corrupted, re-create it below
+      }
+    }
+
+    await fs.promises.mkdir(`${this.rootDir}/original`, { recursive: true })
+    await fs.promises.mkdir(`${this.rootDir}/metadata`, { recursive: true })
+
+    try {
+      await fs.promises.writeFile(originalPath, buffer, { flag: 'wx' })
+    } catch (err: unknown) {
+      const error = err as Record<string, unknown>
+      if ((error as Record<string, unknown>)?.code !== 'EEXIST') {
+        throw err
+      }
+    }
+
+    const originalObjectKey = `original/${documentId}`
+    const metadataObjectKey = `metadata/${documentId}.json`
+
+    const metadata: DocumentMetadata = {
+      documentId,
+      checksumSha256,
+      originalFilename: input.originalFilename,
+      mimeType: input.mimeType,
+      sizeBytes: input.sizeBytes,
+      uploadedAtUtc: input.uploadedAtUtc ?? nowUtcIso(),
+      storageUri: `file://${originalPath}`,
+      originalObjectKey,
+      metadataObjectKey,
+      projectId: input.projectId,
+    }
+
+    try {
+      await fs.promises.writeFile(metadataPath, JSON.stringify(metadata, null, 2), { flag: 'wx' })
+    } catch (err: unknown) {
+      const error = err as Record<string, unknown>
+      if ((error as Record<string, unknown>)?.code !== 'EEXIST') {
+        throw err
+      }
+    }
+
+    if (input.projectId) {
+      const projectIdSafe = sanitizeKeySegment(input.projectId)
+      const projectDir = `${this.rootDir}/projects/${projectIdSafe}/documents`
+      const projectPath = `${projectDir}/${documentId}.json`
+      await fs.promises.mkdir(projectDir, { recursive: true })
+      try {
+        await fs.promises.writeFile(
+          projectPath,
+          JSON.stringify(
+            {
+              projectId: projectIdSafe,
+              documentId,
+              metadataObjectKey,
+              originalObjectKey,
+              checksumSha256,
+              uploadedAtUtc: metadata.uploadedAtUtc,
+            },
+            null,
+            2,
+          ),
+          { flag: 'wx' },
+        )
+      } catch (err: unknown) {
+        const error = err as Record<string, unknown>
+        if ((error as Record<string, unknown>)?.code !== 'EEXIST') {
+          throw err
+        }
+      }
+    }
+
+    return metadata
   }
 }
 
@@ -427,6 +545,95 @@ export class S3DocumentStore implements DocumentStore {
     }
 
     return { stream: body as unknown as Readable, metadata }
+  }
+
+  async saveOriginalFromBuffer(buffer: Buffer, input: SaveOriginalInput): Promise<DocumentMetadata> {
+    await this.ensureBucket()
+    const checksumSha256 = sha256BufferHex(buffer)
+    const documentId = checksumSha256
+
+    const originalObjectKey = `original/${documentId}`
+    const metadataObjectKey = `metadata/${documentId}.json`
+
+    // If document already exists, return existing metadata (idempotent)
+    if (await this.objectExists(metadataObjectKey)) {
+      try {
+        return await this.getMetadata(documentId)
+      } catch {
+        // If metadata file is corrupted, re-create it below
+      }
+    }
+
+    const uploadedAtUtc = input.uploadedAtUtc ?? nowUtcIso()
+
+    // Upload original bytes directly from buffer
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: originalObjectKey,
+        Body: buffer,
+        ContentType: input.mimeType || 'application/octet-stream',
+        Metadata: {
+          document_id: documentId,
+          checksum_sha256: checksumSha256,
+          original_filename: input.originalFilename,
+          uploaded_at_utc: uploadedAtUtc,
+          ...(input.projectId ? { project_id: sanitizeKeySegment(input.projectId) } : {}),
+        },
+      }),
+    )
+
+    const storageUri = `${this.endpoint}/${this.bucket}/${encodeURIComponent(originalObjectKey)}`
+
+    const metadata: DocumentMetadata = {
+      documentId,
+      checksumSha256,
+      originalFilename: input.originalFilename,
+      mimeType: input.mimeType,
+      sizeBytes: input.sizeBytes,
+      uploadedAtUtc,
+      storageUri,
+      originalObjectKey,
+      metadataObjectKey,
+      projectId: input.projectId,
+    }
+
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: metadataObjectKey,
+        Body: JSON.stringify(metadata, null, 2),
+        ContentType: 'application/json',
+      }),
+    )
+
+    if (input.projectId) {
+      const projectIdSafe = sanitizeKeySegment(input.projectId)
+      const projectManifestKey = `projects/${projectIdSafe}/documents/${documentId}.json`
+      if (!(await this.objectExists(projectManifestKey))) {
+        await this.client.send(
+          new PutObjectCommand({
+            Bucket: this.bucket,
+            Key: projectManifestKey,
+            Body: JSON.stringify(
+              {
+                projectId: projectIdSafe,
+                documentId,
+                metadataObjectKey,
+                originalObjectKey,
+                checksumSha256,
+                uploadedAtUtc,
+              },
+              null,
+              2,
+            ),
+            ContentType: 'application/json',
+          }),
+        )
+      }
+    }
+
+    return metadata
   }
 }
 

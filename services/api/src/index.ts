@@ -106,7 +106,11 @@ app.post('/uploads', upload.single('file'), async (req: Request, res: Response) 
       return res.status(400).json({ ok: false, error: 'unsupported file type' })
     }
 
-    const metadata = await documentStore.saveOriginalFromPath(file.path, {
+    // Read the file buffer from disk
+    const buffer = await fs.promises.readFile(file.path)
+
+    // Use buffer-based upload (safe for containerized environments)
+    const metadata = await documentStore.saveOriginalFromBuffer(buffer, {
       originalFilename: file.originalname,
       mimeType: file.mimetype,
       sizeBytes: file.size,
