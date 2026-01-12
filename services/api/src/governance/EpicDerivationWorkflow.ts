@@ -20,7 +20,7 @@ export interface EpicArtifact {
  */
 interface MuseYaml {
   artifacts?: {
-    governance_markdown?: any[]
+    governance_markdown?: Record<string, unknown>[]
     epics?: EpicArtifact[]
   }
 }

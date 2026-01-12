@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import YAML from 'yaml'
 
 /**
  * Schema for Feature output
@@ -55,22 +56,27 @@ export class EpicDecompositionAgent {
   /**
    * Validate Feature output against schema
    */
-  private validateFeatureSchema(feature: any): asserts feature is FeatureSchema {
-    const errors: string[] = []
+  private validateFeatureSchema(feature: unknown): asserts feature is FeatureSchema {
+    if (typeof feature !== 'object' || feature === null) {
+      throw new FeatureValidationError('Feature must be an object')
+    }
 
-    if (!feature.feature_id || typeof feature.feature_id !== 'string') {
+    const errors: string[] = []
+    const f = feature as Record<string, unknown>
+
+    if (!f.feature_id || typeof f.feature_id !== 'string') {
       errors.push('Missing or invalid feature_id')
     }
 
-    if (!feature.title || typeof feature.title !== 'string') {
+    if (!f.title || typeof f.title !== 'string') {
       errors.push('Missing or invalid title')
     }
 
-    if (!feature.description || typeof feature.description !== 'string') {
+    if (!f.description || typeof f.description !== 'string') {
       errors.push('Missing or invalid description')
     }
 
-    if (!feature.derived_from_epic || typeof feature.derived_from_epic !== 'string') {
+    if (!f.derived_from_epic || typeof f.derived_from_epic !== 'string') {
       errors.push('Missing or invalid derived_from_epic')
     }
 
@@ -78,17 +84,19 @@ export class EpicDecompositionAgent {
     const verbPattern = /(log|record|retain|query|export|protect|authenticate|authorize|validate|process|store|retrieve|monitor|track|audit|enable|ensure|provide|implement|establish|maintain|support|manage|control|define|document|review|update|create|enforce|verify|assess|report|notify|alert|configure|integrate|synchronize|backup|restore|archive|delete|remove|add|modify|change|approve|reject|execute|perform|conduct|demonstrate|require|allow|prevent|restrict|grant|revoke|assign|unassign|register|deregister|activate|deactivate|suspend|resume|lock|unlock|encrypt|decrypt|sign|certify|comply|adhere|follow|meet|satisfy|achieve|deliver|complete|finalize|initiate|start|stop|end|cancel|pause|continue|schedule|plan|organize|coordinate|communicate|inform|notify|escalate|resolve|address|handle|manage|oversee|govern|regulate|standardize|normalize|harmonize|align|integrate|consolidate|aggregate|summarize|analyze|evaluate|calculate|compute|measure|quantify|estimate|forecast|predict|recommend|suggest|advise|guide|instruct|train|educate|inform|warn|alert)/i
     const nounPattern = /(access|authentication|authorization|logs|data|events|records|users|sessions|credentials|policies|compliance|audit|security|privacy|confidentiality|integrity|availability|identity|role|permission|privilege|right|entitlement|resource|asset|document|file|folder|directory|database|system|application|service|interface|api|endpoint|connection|network|infrastructure|platform|environment|configuration|setting|parameter|option|preference|metadata|attribute|property|field|value|content|message|notification|alert|report|dashboard|metric|indicator|measure|threshold|limit|quota|capacity|performance|availability|reliability|scalability|maintainability|usability|accessibility|compatibility|interoperability|standard|guideline|procedure|process|workflow|lifecycle|phase|stage|step|task|activity|action|operation|transaction|request|response|input|output|result|outcome|status|state|condition|error|exception|warning|issue|incident|problem|defect|vulnerability|risk|threat|control|safeguard|countermeasure|mitigation|remediation|correction|improvement|enhancement|optimization|change|modification|update|upgrade|patch|fix|resolution|closure|approval|rejection|acceptance|verification|validation|certification|accreditation|attestation|declaration|statement|assertion|claim|evidence|proof|documentation|record|trail|history|log|archive|backup|snapshot|checkpoint|restore|recovery|rollback|version|revision|release|deployment|installation|configuration|setup|initialization|provisioning|deprovisioning|retirement|decommissioning|disposal|destruction|deletion|removal|purge|expiration|retention|preservation|archival|storage|repository|registry|catalog|inventory|index|directory|listing|manifest|schema|model|template|pattern|format|structure|layout|design|architecture|framework|component|module|library|package|bundle|artifact|deliverable|output|product|service|offering|capability|feature|function|functionality|behavior|characteristic|quality|requirement|specification|criteria|constraint|assumption|dependency|prerequisite|precondition|postcondition|invariant|rule|policy|regulation|law|statute|ordinance|code|standard|norm|convention|practice|custom|tradition|habit|routine|procedure)/i
     
-    if (!verbPattern.test(feature.description) && !verbPattern.test(feature.title)) {
+    const descStr = typeof f.description === 'string' ? f.description : ''
+    const titleStr = typeof f.title === 'string' ? f.title : ''
+    if (!verbPattern.test(descStr) && !verbPattern.test(titleStr)) {
       errors.push('Feature description or title should contain an action verb describing the capability')
     }
 
-    if (!nounPattern.test(feature.description) && !nounPattern.test(feature.title)) {
+    if (!nounPattern.test(descStr) && !nounPattern.test(titleStr)) {
       errors.push('Feature description or title should reference a domain concept or artifact')
     }
 
     // No additional fields allowed
     const allowedFields = ['feature_id', 'title', 'description', 'derived_from_epic']
-    const extraFields = Object.keys(feature).filter((key) => !allowedFields.includes(key))
+    const extraFields = Object.keys(f).filter((key) => !allowedFields.includes(key))
     if (extraFields.length > 0) {
       errors.push(`Unexpected fields: ${extraFields.join(', ')}`)
     }
@@ -224,7 +232,6 @@ ${epic.success_criteria.map((c, i) => `${i + 1}. ${c}`).join('\n')}`
       const yamlText = yamlMatch ? yamlMatch[1] : content.text
 
       // Parse YAML response
-      const YAML = require('yaml')
       const parsed = YAML.parse(yamlText)
 
       if (!parsed || !parsed.features || !Array.isArray(parsed.features)) {

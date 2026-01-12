@@ -21,9 +21,12 @@ const client = new S3Client({
 export async function ensureBucket() {
   try {
     await client.send(new HeadBucketCommand({ Bucket: bucket }))
-  } catch (err: any) {
+  } catch (err: unknown) {
     // If bucket doesn't exist, create it (prototype behavior)
-    if (err?.$metadata?.httpStatusCode === 404 || err?.name === 'NotFound') {
+    type HttpError = { $metadata?: { httpStatusCode?: number }; name?: string }
+    const error = err as HttpError
+    const httpStatus = error?.$metadata?.httpStatusCode
+    if (httpStatus === 404 || error?.name === 'NotFound') {
       await client.send(new CreateBucketCommand({ Bucket: bucket }))
     } else {
       // Re-throw unexpected errors
@@ -49,9 +52,11 @@ export async function objectExists(objectName: string): Promise<boolean> {
   try {
     await client.send(new HeadObjectCommand({ Bucket: bucket, Key: objectName }))
     return true
-  } catch (err: any) {
-    const status = err?.$metadata?.httpStatusCode
-    if (status === 404 || err?.name === 'NotFound' || err?.name === 'NoSuchKey') {
+  } catch (err: unknown) {
+    type HttpError = { $metadata?: { httpStatusCode?: number }; name?: string }
+    const error = err as HttpError
+    const status = error?.$metadata?.httpStatusCode
+    if (status === 404 || error?.name === 'NotFound' || error?.name === 'NoSuchKey') {
       return false
     }
     throw err

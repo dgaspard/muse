@@ -72,19 +72,19 @@ Users must authenticate before accessing the system.
     })
 
     it('should reference governance source', async () => {
-      const stories = await agent.deriveStories(featurePath, governancePath)
+      const stories = await agent.deriveStories(featurePath, governancePath, 'epic-123')
 
       stories.forEach((story) => {
         expect(story.governance_references.length).toBeGreaterThan(0)
         story.governance_references.forEach((ref) => {
-          expect(ref.section).toBeTruthy()
-          expect(ref.path).toBeTruthy()
+          expect(ref.sections).toBeTruthy()
+          expect(ref.markdown_path).toBeTruthy()
         })
       })
     })
 
     it('should include acceptance criteria in each story', async () => {
-      const stories = await agent.deriveStories(featurePath, governancePath)
+      const stories = await agent.deriveStories(featurePath, governancePath, 'epic-123')
 
       stories.forEach((story) => {
         expect(story.acceptance_criteria.length).toBeGreaterThan(0)
@@ -96,19 +96,19 @@ Users must authenticate before accessing the system.
     })
 
     it('should throw error if feature file not found', async () => {
-      await expect(agent.deriveStories('/nonexistent/path.md', governancePath)).rejects.toThrow(
+      await expect(agent.deriveStories('/nonexistent/path.md', governancePath, 'epic-123')).rejects.toThrow(
         'Feature Markdown not found',
       )
     })
 
     it('should throw error if governance file not found', async () => {
-      await expect(agent.deriveStories(featurePath, '/nonexistent/governance.md')).rejects.toThrow(
+      await expect(agent.deriveStories(featurePath, '/nonexistent/governance.md', 'epic-123')).rejects.toThrow(
         'Governance Markdown not found',
       )
     })
 
     it('should validate INVEST compliance', async () => {
-      const stories = await agent.deriveStories(featurePath, governancePath)
+      const stories = await agent.deriveStories(featurePath, governancePath, 'epic-123')
 
       // INVEST validation happens during derivation
       // If we get here without exception, stories are INVEST-compliant
@@ -182,7 +182,7 @@ Enable database access for the system.
       fs.writeFileSync(featurePath, content, 'utf-8')
 
       // Should NOT reject - 'implement' is allowed in relaxed validation
-      const stories = await agent.deriveStories(featurePath, governancePath)
+      const stories = await agent.deriveStories(featurePath, governancePath, 'epic-01')
       expect(stories.length).toBeGreaterThan(0)
     })
 
@@ -207,7 +207,7 @@ Create a data storage capability for user information.
       fs.writeFileSync(featurePath, content, 'utf-8')
 
       // Should NOT reject - "database" alone is not a rejectable phrase
-      const stories = await agent.deriveStories(featurePath, governancePath)
+      const stories = await agent.deriveStories(featurePath, governancePath, 'epic-01')
       expect(stories.length).toBeGreaterThan(0)
     })
 
@@ -230,7 +230,7 @@ Enable system updates to work properly.
       fs.writeFileSync(minimalFeaturePath, minimalContent, 'utf-8')
 
       // Should NOT reject - minimal content is allowed in relaxed validation
-      const stories = await agent.deriveStories(minimalFeaturePath, governancePath)
+      const stories = await agent.deriveStories(minimalFeaturePath, governancePath, 'epic-min')
       expect(stories.length).toBeGreaterThan(0)
     })
   })

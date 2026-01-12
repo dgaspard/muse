@@ -1,13 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk'
-
-/**
- * Governance reference structure
- */
-export interface GovernanceReference {
-  document_id: string
-  filename: string
-  sections: string[]
-}
+import YAML from 'yaml'
+import {
+  GovernanceReference,
+  validateFeatureHardening,
+} from '../shared/ArtifactValidation'
 
 /**
  * Schema for value-based Feature output
@@ -73,80 +69,71 @@ export class FeatureValueDerivationAgent {
   }
 
   /**
-   * Validate Feature output against strict value-based schema
+   * Validate Feature output against strict hardening requirements
+   * 
+   * Enforces:
+   * - Feature ID format: <project>-<epic_id>-feature-<NN>
+   * - Business value is distinct and meaningful
+   * - Acceptance criteria are outcome-based (not generic)
+   * - Risk statements are present
+   * - Governance references with markdown paths
+   * - No prohibited Muse-internal descriptions
    */
-  private validateFeatureValueSchema(feature: any): asserts feature is FeatureValueSchema {
-    const errors: string[] = []
-
-    if (!feature.feature_id || typeof feature.feature_id !== 'string') {
-      errors.push('Missing or invalid feature_id')
+  private validateFeatureValueSchema(feature: unknown, epicText?: string): asserts feature is FeatureValueSchema {
+    if (typeof feature !== 'object' || feature === null) {
+      throw new FeatureValueValidationError('Feature must be an object')
     }
 
-    if (!feature.title || typeof feature.title !== 'string' || feature.title.length < 10) {
-      errors.push('Missing or invalid title (must be at least 10 characters)')
+    const f = feature as Record<string, unknown>
+
+    // Basic structure validation
+    if (!f.feature_id || typeof f.feature_id !== 'string') {
+      throw new FeatureValueValidationError('Missing or invalid feature_id')
     }
 
-    if (!feature.business_value || typeof feature.business_value !== 'string' || feature.business_value.length < 20) {
-      errors.push('Missing or invalid business_value (must be at least 20 characters)')
+    if (!f.title || typeof f.title !== 'string' || (f.title as string).length < 10) {
+      throw new FeatureValueValidationError('Missing or invalid title (must be at least 10 characters)')
     }
 
-    if (!feature.description || typeof feature.description !== 'string' || feature.description.length < 20) {
-      errors.push('Missing or invalid description (must be at least 20 characters)')
+    if (!f.business_value || typeof f.business_value !== 'string' || (f.business_value as string).length < 20) {
+      throw new FeatureValueValidationError('Missing or invalid business_value (must be at least 20 characters)')
     }
 
-    // Check for generic or tautological acceptance criteria
-    if (!feature.acceptance_criteria || !Array.isArray(feature.acceptance_criteria) || feature.acceptance_criteria.length === 0) {
-      errors.push('Missing or empty acceptance_criteria array')
-    } else {
-      const genericPatterns = [
-        /feature is implemented/i,
-        /system supports/i,
-        /as described/i,
-        /works correctly/i,
-        /functions properly/i
-      ]
-      
-      for (const criterion of feature.acceptance_criteria) {
-        if (typeof criterion !== 'string' || criterion.length < 15) {
-          errors.push('Acceptance criteria must be strings of at least 15 characters')
-          break
-        }
-        
-        for (const pattern of genericPatterns) {
-          if (pattern.test(criterion)) {
-            errors.push(`Generic acceptance criterion detected: "${criterion.substring(0, 50)}..."`)
-            break
-          }
-        }
-      }
+    if (!f.description || typeof f.description !== 'string' || (f.description as string).length < 20) {
+      throw new FeatureValueValidationError('Missing or invalid description (must be at least 20 characters)')
     }
 
-    // Validate risk_of_not_delivering
-    if (!feature.risk_of_not_delivering || !Array.isArray(feature.risk_of_not_delivering) || feature.risk_of_not_delivering.length === 0) {
-      errors.push('Missing or empty risk_of_not_delivering array (REQUIRED)')
-    } else {
-      for (const risk of feature.risk_of_not_delivering) {
-        if (typeof risk !== 'string' || risk.length < 15) {
-          errors.push('Risk statements must be strings of at least 15 characters')
-          break
-        }
-      }
+    if (!Array.isArray(f.acceptance_criteria) || f.acceptance_criteria.length === 0) {
+      throw new FeatureValueValidationError('Missing or empty acceptance_criteria array')
     }
 
-    // Validate governance_references
-    if (!feature.governance_references || !Array.isArray(feature.governance_references) || feature.governance_references.length === 0) {
-      errors.push('Missing or empty governance_references array (REQUIRED)')
-    } else {
-      for (const ref of feature.governance_references) {
-        if (!ref.document_id || !ref.filename || !Array.isArray(ref.sections) || ref.sections.length === 0) {
-          errors.push('Each governance reference must include document_id, filename, and non-empty sections array')
-          break
-        }
-      }
+    if (!Array.isArray(f.risk_of_not_delivering) || f.risk_of_not_delivering.length === 0) {
+      throw new FeatureValueValidationError('Missing or empty risk_of_not_delivering array (REQUIRED)')
     }
 
-    if (!feature.derived_from_epic || typeof feature.derived_from_epic !== 'string') {
-      errors.push('Missing or invalid derived_from_epic')
+    if (!Array.isArray(f.governance_references) || f.governance_references.length === 0) {
+      throw new FeatureValueValidationError('Missing or empty governance_references array (REQUIRED)')
+    }
+
+    if (!f.derived_from_epic || typeof f.derived_from_epic !== 'string') {
+      throw new FeatureValueValidationError('Missing or invalid derived_from_epic')
+    }
+
+    // Use comprehensive hardening validator
+    const hardeningReport = validateFeatureHardening({
+      feature_id: f.feature_id as string,
+      title: f.title as string,
+      business_value: f.business_value as string,
+      description: f.description as string,
+      acceptance_criteria: f.acceptance_criteria as string[],
+      risk_of_not_delivering: f.risk_of_not_delivering as string[],
+      governance_references: f.governance_references,
+      derived_from_epic: f.derived_from_epic as string,
+      epic_text: epicText,
+    })
+
+    if (!hardeningReport.valid) {
+      throw new FeatureValueValidationError(`Feature hardening validation failed:\n${hardeningReport.errors.join('\n')}`)
     }
 
     // Check for prohibited descriptions (Muse internals)
@@ -158,16 +145,32 @@ export class FeatureValueDerivationAgent {
       /markdown generation/i
     ]
     
-    const descriptionText = `${feature.title} ${feature.description} ${feature.business_value}`
+    const titleStr = f.title as string
+    const descStr = f.description as string
+    const valueStr = f.business_value as string
+    const descriptionText = `${titleStr} ${descStr} ${valueStr}`
+    
     for (const pattern of prohibitedPatterns) {
       if (pattern.test(descriptionText)) {
-        errors.push(`Feature describes Muse internals (prohibited): matched pattern ${pattern}`)
-        break
+        throw new FeatureValueValidationError(
+          `Feature describes Muse internals (prohibited): matched pattern ${pattern}`
+        )
       }
     }
 
-    if (errors.length > 0) {
-      throw new FeatureValueValidationError(`Feature validation failed:\n${errors.join('\n')}`)
+    // Validate governance references have markdown paths
+    for (const ref of f.governance_references as unknown[]) {
+      const refObj = ref as Record<string, unknown>
+      if (!refObj.document_id || !refObj.filename || !Array.isArray(refObj.sections) || refObj.sections.length === 0) {
+        throw new FeatureValueValidationError(
+          'Each governance reference must include document_id, filename, and non-empty sections array'
+        )
+      }
+      if (!refObj.markdown_path || typeof refObj.markdown_path !== 'string') {
+        throw new FeatureValueValidationError(
+          'Each governance reference must include markdown_path (full path to markdown file)'
+        )
+      }
     }
   }
 
@@ -359,7 +362,6 @@ Document metadata:
       const yamlText = yamlMatch ? yamlMatch[1] : content.text
 
       // Parse YAML response
-      const YAML = require('yaml')
       const parsed = YAML.parse(yamlText)
 
       if (!parsed || !parsed.features || !Array.isArray(parsed.features)) {
