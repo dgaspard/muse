@@ -14,6 +14,7 @@
 import express, { Request, Response } from 'express'
 import cors from 'cors'
 import multer from 'multer'
+import rateLimit from 'express-rate-limit'
 import path from 'path'
 import fs from 'fs'
 import os from 'os'
@@ -77,6 +78,17 @@ const uploadDir = path.join(os.tmpdir(), 'muse-uploads')
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true })
 }
+// Guard against path traversal by ensuring we only read/remove files inside our temp upload dir.
+// This function validates that uploaded files remain within the designated upload directory,
+// preventing path traversal attacks (satisfies CodeQL js/path-injection).
+const resolveUploadPath = (filePath: string): string => {
+  const resolved = path.resolve(filePath)
+  const uploadRoot = path.resolve(uploadDir) + path.sep
+  if (!resolved.startsWith(uploadRoot)) {
+    throw new Error('invalid upload path')
+  }
+  return resolved
+}
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadDir),
   filename: (_req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`),
@@ -85,7 +97,7 @@ const upload = multer({ storage })
 
 // POST /uploads
 // Accepts multipart/form-data with fields: projectId (string), file (file)
-app.post('/uploads', upload.single('file'), async (req: Request, res: Response) => {
+app.post('/uploads', expensiveOperationLimiter, upload.single('file'), async (req: Request, res: Response) => {
   try {
     const projectId = (req.body && req.body.projectId) || undefined
     const file = req.file
@@ -102,12 +114,12 @@ app.post('/uploads', upload.single('file'), async (req: Request, res: Response) 
     const ext = path.extname(file.originalname).toLowerCase()
     if (!allowed.includes(ext)) {
       // Remove temp file before returning
-      fs.unlinkSync(file.path)
+      fs.unlinkSync(resolveUploadPath(file.path))
       return res.status(400).json({ ok: false, error: 'unsupported file type' })
     }
 
     // Read the file buffer from disk
-    const buffer = await fs.promises.readFile(file.path)
+    const buffer = await fs.promises.readFile(resolveUploadPath(file.path))
 
     // Use buffer-based upload (safe for containerized environments)
     const metadata = await documentStore.saveOriginalFromBuffer(buffer, {
@@ -119,7 +131,7 @@ app.post('/uploads', upload.single('file'), async (req: Request, res: Response) 
 
     // Remove temp file after successful upload
     try {
-      fs.unlinkSync(file.path)
+      fs.unlinkSync(resolveUploadPath(file.path))
     } catch (err) {
       // Non-fatal cleanup error
       console.warn('Failed to remove temp upload file', err)
@@ -191,7 +203,7 @@ app.get('/documents/:documentId', async (req: Request, res: Response) => {
 // POST /convert/:documentId
 // Converts an immutable original document to Markdown with YAML front matter.
 // The generated Markdown includes traceability metadata linking it to the source document.
-app.post('/convert/:documentId', async (req: Request, res: Response) => {
+app.post('/convert/:documentId', expensiveOperationLimiter, async (req: Request, res: Response) => {
   try {
     const { documentId } = req.params
 
@@ -250,7 +262,7 @@ app.get('/convert/supported-formats', (_req: Request, res: Response) => {
 // Executes the full Muse governance-to-delivery pipeline (MUSE-008)
 // Accepts multipart/form-data with fields: projectId (string), file (file)
 // Returns Epic, Features, and User Stories derived from the governance document
-app.post('/pipeline/execute', upload.single('file'), async (req: Request, res: Response) => {
+app.post('/pipeline/execute', expensiveOperationLimiter, upload.single('file'), async (req: Request, res: Response) => {
   try {
     const projectId = (req.body && req.body.projectId) || undefined
     const file = req.file
@@ -267,7 +279,7 @@ app.post('/pipeline/execute', upload.single('file'), async (req: Request, res: R
     const ext = path.extname(file.originalname).toLowerCase()
     if (!allowed.includes(ext)) {
       // Remove temp file before returning
-      fs.unlinkSync(file.path)
+      fs.unlinkSync(resolveUploadPath(file.path))
       return res.status(400).json({ ok: false, error: 'unsupported file type' })
     }
 
@@ -276,7 +288,7 @@ app.post('/pipeline/execute', upload.single('file'), async (req: Request, res: R
     try {
       converter = converterRegistry.findConverter(file.mimetype)
     } catch (err) {
-      fs.unlinkSync(file.path)
+      fs.unlinkSync(resolveUploadPath(file.path))
       return res.status(400).json({
         ok: false,
         error: `Conversion not supported for ${file.mimetype}`,
@@ -288,7 +300,7 @@ app.post('/pipeline/execute', upload.single('file'), async (req: Request, res: R
     let pipelineOutput
     try {
       // Read file to buffer for safe container handling
-      const fileBuffer = await fs.promises.readFile(file.path)
+      const fileBuffer = await fs.promises.readFile(resolveUploadPath(file.path))
       pipelineOutput = await orchestrator.executePipeline(fileBuffer, {
         originalFilename: file.originalname,
         mimeType: file.mimetype,
@@ -304,7 +316,7 @@ app.post('/pipeline/execute', upload.single('file'), async (req: Request, res: R
         console.log('[pipeline] Validation gating: content quality check failed')
         // Remove temp file before returning
         try {
-          fs.unlinkSync(file.path)
+          fs.unlinkSync(resolveUploadPath(file.path))
         } catch (e) {
           console.warn('Failed to remove temp upload file', e)
         }
@@ -319,7 +331,7 @@ app.post('/pipeline/execute', upload.single('file'), async (req: Request, res: R
       
       // Remove temp file before returning error
       try {
-        fs.unlinkSync(file.path)
+        fs.unlinkSync(resolveUploadPath(file.path))
       } catch (e) {
         console.warn('Failed to remove temp upload file', e)
       }
@@ -333,7 +345,7 @@ app.post('/pipeline/execute', upload.single('file'), async (req: Request, res: R
 
     // Remove temp file after successful execution
     try {
-      fs.unlinkSync(file.path)
+      fs.unlinkSync(resolveUploadPath(file.path))
     } catch (err) {
       console.warn('Failed to remove temp upload file', err)
     }
