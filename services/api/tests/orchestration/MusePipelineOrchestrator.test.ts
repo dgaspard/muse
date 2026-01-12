@@ -33,6 +33,20 @@ describe('MusePipelineOrchestrator', () => {
           projectId: input.projectId,
         }
       },
+      async saveOriginalFromBuffer(_buffer: Buffer, input: any): Promise<DocumentMetadata> {
+        return {
+          documentId: 'test-doc-123',
+          checksumSha256: 'abc123',
+          originalFilename: input.originalFilename,
+          mimeType: input.mimeType,
+          sizeBytes: input.sizeBytes,
+          uploadedAtUtc: new Date().toISOString(),
+          storageUri: 's3://bucket/test',
+          originalObjectKey: 'test-key',
+          metadataObjectKey: 'test-meta',
+          projectId: input.projectId,
+        }
+      },
       async getOriginal(_documentId: string) {
         const content = 'Mock document content'
         const stream = Readable.from([content])
@@ -473,6 +487,20 @@ original_filename: ${metadata.originalFilename}
 
       const mockDocStore: DocumentStore = {
         async saveOriginalFromPath(_filePath: string, input: any): Promise<DocumentMetadata> {
+          return {
+            documentId: 'test-doc-123',
+            checksumSha256: 'abc123',
+            originalFilename: input.originalFilename,
+            mimeType: input.mimeType,
+            sizeBytes: input.sizeBytes,
+            uploadedAtUtc: new Date().toISOString(),
+            storageUri: 's3://bucket/test',
+            originalObjectKey: 'test-key',
+            metadataObjectKey: 'test-meta',
+            projectId: input.projectId,
+          }
+        },
+        async saveOriginalFromBuffer(_buffer: Buffer, input: any): Promise<DocumentMetadata> {
           return {
             documentId: 'test-doc-123',
             checksumSha256: 'abc123',
