@@ -13,8 +13,8 @@ export interface StoryArtifact {
 
 interface MuseYaml {
   artifacts?: {
-    epics?: any[]
-    features?: any[]
+    epics?: Record<string, unknown>[]
+    features?: Record<string, unknown>[]
     stories?: StoryArtifact[]
   }
 }
@@ -60,9 +60,9 @@ export class StoryDerivationWorkflow {
   async deriveStoriesFromFeatures(
     featureMarkdownPath: string,
     governanceMarkdownPath: string,
-    options: { outputDir?: string } = {},
+    options: { outputDir?: string; projectId?: string } = {},
   ): Promise<StoryArtifact[]> {
-    const { outputDir = path.join(this.repoRoot, 'docs/stories') } = options
+    const { outputDir = path.join(this.repoRoot, 'docs/stories'), projectId = 'default' } = options
 
     const absoluteFeaturePath = path.isAbsolute(featureMarkdownPath)
       ? featureMarkdownPath
@@ -75,7 +75,8 @@ export class StoryDerivationWorkflow {
     const { stories, storyPath } = await this.agent.deriveAndWriteStories(
       absoluteFeaturePath,
       absoluteGovernancePath,
-      undefined,
+      projectId,
+      '',
       outputDir,
     )
 
