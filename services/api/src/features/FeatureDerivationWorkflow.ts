@@ -3,7 +3,7 @@ import path from 'path'
 import YAML from 'yaml'
 import matter from 'gray-matter'
 import { FeatureDerivationAgent } from './FeatureDerivationAgent'
-import { EpicDecompositionAgent } from './EpicDecompositionAgent'
+import { FeatureValueDerivationAgent } from './FeatureValueDerivationAgent'
 
 export interface FeatureArtifact {
   feature_id: string
@@ -22,13 +22,13 @@ interface MuseYaml {
 
 export class FeatureDerivationWorkflow {
   private agent: FeatureDerivationAgent
-  private aiAgent: EpicDecompositionAgent
+  private valueAgent: FeatureValueDerivationAgent
   private repoRoot: string
 
   constructor(repoRoot: string = process.cwd()) {
     this.repoRoot = repoRoot
     this.agent = new FeatureDerivationAgent()
-    this.aiAgent = new EpicDecompositionAgent()
+    this.valueAgent = new FeatureValueDerivationAgent()
   }
 
   private getMuseYamlPath(): string {
@@ -60,9 +60,9 @@ export class FeatureDerivationWorkflow {
 
   async deriveFeaturesFromEpic(
     epicMarkdownPath: string,
-    options: { outputDir?: string; useAI?: boolean } = {}
+    options: { outputDir?: string; useAI?: boolean; governancePath?: string } = {}
   ): Promise<FeatureArtifact[]> {
-    const { outputDir = path.join(this.repoRoot, 'docs/features'), useAI = true } = options
+    const { outputDir = path.join(this.repoRoot, 'docs/features'), useAI = true, governancePath } = options
 
     const absoluteEpicPath = path.isAbsolute(epicMarkdownPath)
       ? epicMarkdownPath
@@ -71,7 +71,7 @@ export class FeatureDerivationWorkflow {
     // Try AI-powered derivation first if enabled
     if (useAI && process.env.ANTHROPIC_API_KEY) {
       try {
-        console.log('[FeatureDerivationWorkflow] Using AI-powered feature derivation')
+        console.log('[FeatureDerivationWorkflow] Using AI-powered value-based feature derivation')
         
         // Read epic markdown to extract Epic data
         const epicContent = fs.readFileSync(absoluteEpicPath, 'utf-8')
@@ -102,8 +102,51 @@ export class FeatureDerivationWorkflow {
           success_criteria: successCriteria
         }
         
-        // Call AI agent
-        const aiFeatures = await this.aiAgent.deriveFeatures(epicData)
+        // Determine governance path
+        let governanceContent = ''
+        let documentId = parsed.data.document_id || parsed.data.epic_id.split('-')[0]
+        let governanceFilename = 'governance.md'
+        let absoluteGovernancePath = ''
+        
+        if (governancePath) {
+          absoluteGovernancePath = path.isAbsolute(governancePath) 
+            ? governancePath 
+            : path.join(this.repoRoot, governancePath)
+        } else {
+          // Look for governance markdown in docs/governance
+          const govDir = path.join(this.repoRoot, 'docs', 'governance')
+          if (fs.existsSync(govDir)) {
+            const files = fs.readdirSync(govDir)
+            const govFile = files.find(f => f.endsWith('.md'))
+            if (govFile) {
+              absoluteGovernancePath = path.join(govDir, govFile)
+            }
+          }
+        }
+        
+        if (!absoluteGovernancePath || !fs.existsSync(absoluteGovernancePath)) {
+          throw new Error('Governance markdown not found - required for value-based feature derivation')
+        }
+        
+        governanceContent = fs.readFileSync(absoluteGovernancePath, 'utf-8')
+        governanceFilename = path.basename(absoluteGovernancePath)
+        
+        // Extract document_id from governance front matter if available
+        const govParsed = matter(governanceContent)
+        if (govParsed.data.document_id) {
+          documentId = govParsed.data.document_id
+        }
+        
+        // Call value-based AI agent
+        const aiFeatures = await this.valueAgent.deriveFeatures(
+          epicData,
+          governanceContent,
+          {
+            document_id: documentId,
+            filename: governanceFilename,
+            governance_path: path.relative(this.repoRoot, absoluteGovernancePath)
+          }
+        )
         
         // Write features to markdown files
         const featurePaths: string[] = []
@@ -117,12 +160,17 @@ export class FeatureDerivationWorkflow {
             fs.mkdirSync(outputDir, { recursive: true })
           }
           
-          // Write feature markdown
+          // Write feature markdown with all value-based fields
           const frontMatter = {
             feature_id: feature.feature_id,
             epic_id: feature.derived_from_epic,
             generated_at: feature.generated_at
           }
+          
+          const govRefsFormatted = feature.governance_references
+            .map(ref => `  - document: ${ref.document_id}\n    filename: ${ref.filename}\n    sections:\n${ref.sections.map(s => `      - ${s}`).join('\n')}`)
+            .join('\n')
+          
           const content = [
             '---',
             ...Object.entries(frontMatter).map(([k, v]) => `${k}: ${v}`),
@@ -130,13 +178,25 @@ export class FeatureDerivationWorkflow {
             '',
             `# Feature: ${feature.title}`,
             '',
+            '## Business Value',
+            '',
+            feature.business_value,
+            '',
             '## Description',
             '',
             feature.description,
             '',
             '## Acceptance Criteria',
             '',
-            '- Feature is implemented as described',
+            ...feature.acceptance_criteria.map(c => `- ${c}`),
+            '',
+            '## Risk of Not Delivering',
+            '',
+            ...feature.risk_of_not_delivering.map(r => `- ${r}`),
+            '',
+            '## Governance References',
+            '',
+            govRefsFormatted,
             ''
           ].join('\n')
           
