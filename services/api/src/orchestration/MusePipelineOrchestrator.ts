@@ -369,12 +369,12 @@ export class MusePipelineOrchestrator {
         inRisks = false
         inGovernanceRefs = false
       } else if (currentFeature) {
-        if (inDescripRisks && line.startsWith('- ')) {
-          currentFeature.risk_of_not_delivering!.push(line.replace('- ', '').trim())
-        } else if (intion && line.trim() && !line.startsWith('##')) {
+        if (inDescription && line.trim() && !line.startsWith('##')) {
           currentFeature.description = (currentFeature.description || '') + line.trim() + ' '
         } else if (inCriteria && line.startsWith('- ')) {
           currentFeature.acceptance_criteria!.push(line.replace('- ', '').trim())
+        } else if (inRisks && line.startsWith('- ')) {
+          currentFeature.risk_of_not_delivering!.push(line.replace('- ', '').trim())
         } else if (inGovernanceRefs && line.startsWith('- ')) {
           currentFeature.governance_references!.push(line.replace('- ', '').trim())
         }

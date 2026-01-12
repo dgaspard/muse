@@ -3,7 +3,6 @@ import path from 'path'
 import YAML from 'yaml'
 import matter from 'gray-matter'
 import { FeatureDerivationAgent } from './FeatureDerivationAgent'
-import { EpicDecompositionAgent } from './EpicDecompositionAgent'
 import { FeatureValueDerivationAgent } from './FeatureValueDerivationAgent'
 
 export interface FeatureArtifact {
@@ -23,14 +22,12 @@ interface MuseYaml {
 
 export class FeatureDerivationWorkflow {
   private agent: FeatureDerivationAgent
-  private aiAgent: EpicDecompositionAgent
   private valueAgent: FeatureValueDerivationAgent
   private repoRoot: string
 
   constructor(repoRoot: string = process.cwd()) {
     this.repoRoot = repoRoot
     this.agent = new FeatureDerivationAgent()
-    this.aiAgent = new EpicDecompositionAgent()
     this.valueAgent = new FeatureValueDerivationAgent()
   }
 
