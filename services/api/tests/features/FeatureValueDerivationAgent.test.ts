@@ -11,6 +11,11 @@ describe('FeatureValueDerivationAgent', () => {
     agent = new FeatureValueDerivationAgent()
   })
 
+  // Helper to access private method for testing
+  const validateSchema = (feature: any) => {
+    return (agent as any).validateFeatureValueSchema(feature)
+  }
+
   describe('Agent Initialization', () => {
     it('should initialize without API key (fails gracefully on derive)', () => {
       const originalKey = process.env.ANTHROPIC_API_KEY
@@ -48,8 +53,7 @@ describe('FeatureValueDerivationAgent', () => {
       }
 
       expect(() => {
-        // @ts-expect-error Testing validation
-        agent['validateFeatureValueSchema'](mockFeature)
+        validateSchema(mockFeature)
       }).toThrow('business_value')
     })
 
@@ -70,7 +74,7 @@ describe('FeatureValueDerivationAgent', () => {
       }
 
       expect(() => {
-        agent['validateFeatureValueSchema'](mockFeature)
+        validateSchema(mockFeature)
       }).toThrow('Generic acceptance criterion detected')
     })
 
@@ -91,7 +95,7 @@ describe('FeatureValueDerivationAgent', () => {
       }
 
       expect(() => {
-        agent['validateFeatureValueSchema'](mockFeature)
+        validateSchema(mockFeature)
       }).toThrow('risk_of_not_delivering')
     })
 
@@ -108,7 +112,7 @@ describe('FeatureValueDerivationAgent', () => {
       }
 
       expect(() => {
-        agent['validateFeatureValueSchema'](mockFeature)
+        validateSchema(mockFeature)
       }).toThrow('governance_references')
     })
 
@@ -129,7 +133,7 @@ describe('FeatureValueDerivationAgent', () => {
       }
 
       expect(() => {
-        agent['validateFeatureValueSchema'](mockFeature)
+        validateSchema(mockFeature)
       }).toThrow('Muse internals')
     })
 
@@ -156,7 +160,7 @@ describe('FeatureValueDerivationAgent', () => {
       }
 
       expect(() => {
-        agent['validateFeatureValueSchema'](mockFeature)
+        validateSchema(mockFeature)
       }).not.toThrow()
     })
   })
@@ -214,7 +218,7 @@ describe('FeatureValueDerivationAgent', () => {
       }
 
       try {
-        agent['validateFeatureValueSchema'](invalidFeature)
+        validateSchema(invalidFeature)
         expect.fail('Should have thrown validation error')
       } catch (error) {
         expect(error).toBeInstanceOf(FeatureValueValidationError)
@@ -241,7 +245,7 @@ describe('FeatureValueDerivationAgent', () => {
       }
 
       expect(() => {
-        agent['validateFeatureValueSchema'](shortTitleFeature)
+        validateSchema(shortTitleFeature)
       }).toThrow('title')
     })
 
@@ -262,7 +266,7 @@ describe('FeatureValueDerivationAgent', () => {
       }
 
       expect(() => {
-        agent['validateFeatureValueSchema'](shortCriteriaFeature)
+        validateSchema(shortCriteriaFeature)
       }).toThrow('Acceptance criteria must be strings of at least 15 characters')
     })
 
@@ -283,7 +287,7 @@ describe('FeatureValueDerivationAgent', () => {
       }
 
       expect(() => {
-        agent['validateFeatureValueSchema'](shortRiskFeature)
+        validateSchema(shortRiskFeature)
       }).toThrow('Risk statements must be strings of at least 15 characters')
     })
   })
@@ -305,8 +309,7 @@ describe('FeatureValueDerivationAgent', () => {
       }
 
       expect(() => {
-        // @ts-expect-error Testing validation
-        agent['validateFeatureValueSchema'](invalidRefFeature)
+        validateSchema(invalidRefFeature)
       }).toThrow('governance reference')
     })
 
@@ -327,7 +330,7 @@ describe('FeatureValueDerivationAgent', () => {
       }
 
       expect(() => {
-        agent['validateFeatureValueSchema'](noSectionsFeature)
+        validateSchema(noSectionsFeature)
       }).toThrow('sections array')
     })
   })
