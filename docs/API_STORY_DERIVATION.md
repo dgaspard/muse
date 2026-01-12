@@ -2,7 +2,7 @@
 
 ## Endpoint
 
-```
+```json
 POST /api/stories/derive-from-documents
 ```
 
@@ -11,14 +11,15 @@ Derives user stories from feature and governance markdown documents stored in Mi
 ## Request
 
 ### Headers
-```
+
+```json
 Content-Type: application/json
 ```
 
 ### Body Parameters
 
 | Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
+| --------- | ---- | -------- | ----------- |
 | `featureDocumentId` | string | Yes | Document ID of the feature markdown file in MinIO |
 | `governanceDocumentId` | string | Yes | Document ID of the governance markdown file in MinIO |
 | `projectId` | string | Yes | Project identifier (e.g., "myproject") |
@@ -47,18 +48,18 @@ curl -X POST http://localhost:4000/api/stories/derive-from-documents \
   "storiesGenerated": 5,
   "stories": [
     {
-      "story_id": "test-test-project-test-epic-01-feature-01-story-01-user-can-navigate-to-the-login-page",
+      "story_id": "myproject-myproject-epic-01-feature-01-story-01-user-can-navigate-to-login",
       "title": "User can navigate to the login page",
       "role": "user",
       "capability": "User can navigate to the login page",
       "benefit": "Users need a secure way to log in to the system using their email and password credentials.",
-      "derived_from_feature": "test-project-test-epic-feature-01",
-      "derived_from_epic": "test-epic-01",
+      "derived_from_feature": "myproject-epic-01-feature-01",
+      "derived_from_epic": "epic-4c989d68",
       "governance_references": [
         {
-          "document_id": "test-epic-01",
+          "document_id": "a417e7cbf252089728b55a9aa0c119261285c79e6272c54a21c586bc3ac719ca",
           "filename": "governance.md",
-          "markdown_path": "governance.md",
+          "markdown_path": "docs/governance/a417e7cbf2520897...e719ca.md",
           "sections": ["Requirements"]
         }
       ],
@@ -75,7 +76,9 @@ curl -X POST http://localhost:4000/api/stories/derive-from-documents \
 ### Error Responses
 
 #### 400 Bad Request
+
 Missing or invalid parameters:
+
 ```json
 {
   "error": "featureDocumentId is required"
@@ -83,7 +86,9 @@ Missing or invalid parameters:
 ```
 
 #### 500 Internal Server Error
+
 Document not found or processing error:
+
 ```json
 {
   "error": "Failed to derive stories",
@@ -121,19 +126,28 @@ Detailed description of the feature and its business value.
 
 ## Story ID Format
 
-Stories are named using the pattern:
-```
-<project>-<epic_id>-<feature_id>-story-<number>-<short-capability-name>
+Stories use the canonical pattern:
+
+```xml
+<project>-<feature_id>-story-<NN>-<short-capability-name>
 ```
 
+Notes:
+
+- `<project>` is the first segment in `feature_id`
+- `NN` is a zero-padded incremental number starting at 01
+- `<short-capability-name>` is a kebab-cased summary of the capability
+
 Example:
-```
-test-test-project-test-epic-01-feature-01-story-01-user-can-navigate-to-the-login-page
+
+```text
+myproject-myproject-epic-01-feature-01-story-01-user-can-navigate-to-login
 ```
 
 ## How to Get Document IDs
 
 ### Option 1: Upload a new document
+
 ```bash
 curl -X POST http://localhost:4000/uploads \
   -F "projectId=myproject" \
@@ -141,6 +155,7 @@ curl -X POST http://localhost:4000/uploads \
 ```
 
 Returns:
+
 ```json
 {
   "ok": true,
@@ -151,6 +166,7 @@ Returns:
 ```
 
 ### Option 2: Query existing document metadata
+
 ```bash
 curl http://localhost:4000/documents/{documentId}/metadata
 ```
@@ -183,20 +199,15 @@ curl -X POST http://localhost:4000/api/stories/derive-from-documents \
 
 ## Testing
 
-Run the end-to-end test:
-```bash
-bash scripts/test_story_derivation.sh
-```
+To validate story derivation locally:
 
-This script:
-1. Creates sample feature and governance markdown
-2. Uploads them to MinIO
-3. Calls the story derivation endpoint
-4. Validates the generated stories
+- Use the workflow example above to upload documents and call the endpoint.
+- Confirm the response contains `success: true` and `storiesGenerated` > 0.
+- Inspect API logs via `docker compose logs -f api` for validation messages.
 
 ## Notes
 
 - Document IDs are SHA-256 checksums of the file content
-- Markdown files must use `.txt`, `.pdf`, or `.docx` extensions to upload
-- Stories are generated in-memory and not persisted to database (prototype phase)
-- Epic ID can be provided in request or extracted from feature front matter
+- The upload route accepts markdown or text files for prototype testing
+- Stories are generated in-memory and returned by the API (no DB persistence in prototype)
+- `epicId` can be provided in the request or inferred from the feature front matter (`epic_id`)
