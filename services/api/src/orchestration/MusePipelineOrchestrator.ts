@@ -24,8 +24,10 @@ export interface EpicData {
 export interface FeatureData {
   feature_id: string
   title: string
+  business_value: string
   description: string
   acceptance_criteria: string[]
+  risk_of_not_delivering: string[]
   epic_id: string
   governance_references: string[]
 }
@@ -162,7 +164,8 @@ export class MusePipelineOrchestrator {
     // Step 5: Derive Features from Epic (MUSE-006)
     const featureWorkflow = new FeatureDerivationWorkflow(this.repoRoot)
     const featureArtifacts = await featureWorkflow.deriveFeaturesFromEpic(
-      epicArtifact.epic_path
+      epicArtifact.epic_path,
+      { governancePath: governanceMarkdownPath }
     )
 
     const featuresData: FeatureData[] = []
@@ -302,6 +305,7 @@ export class MusePipelineOrchestrator {
     let currentFeature: Partial<FeatureData> | null = null
     let inDescription = false
     let inCriteria = false
+    let inRisks = false
     let inGovernanceRefs = false
 
     for (let i = 0; i < lines.length; i++) {
@@ -319,33 +323,55 @@ export class MusePipelineOrchestrator {
         currentFeature = {
           feature_id: featureId,
           title: title.replace(/\([^)]+\)/, '').trim(),
+          business_value: '',
           description: '',
           acceptance_criteria: [],
+          risk_of_not_delivering: [],
           epic_id: frontMatter.derived_from_epic || frontMatter.epic_id,
           governance_references: [],
         }
 
         inDescription = false
         inCriteria = false
+        inRisks = false
         inGovernanceRefs = false
+      } else if (line.startsWith('## Business Value')) {
+        inDescription = false
+        inCriteria = false
+        inGovernanceRefs = false
+        // Next line contains business value
+        if (i + 1 < lines.length && lines[i + 1].trim()) {
+          currentFeature!.business_value = lines[i + 1].trim()
+        }
       } else if (line.startsWith('## Description')) {
         inDescription = true
         inCriteria = false
+        inRisks = false
         inGovernanceRefs = false
       } else if (line.startsWith('## Acceptance Criteria')) {
         inDescription = false
         inCriteria = true
+        inRisks = false
+        inGovernanceRefs = false
+      } else if (line.startsWith('## Risk of Not Delivering')) {
+        inDescription = false
+        inCriteria = false
+        inRisks = true
         inGovernanceRefs = false
       } else if (line.startsWith('## Governance References')) {
         inDescription = false
         inCriteria = false
+        inRisks = false
         inGovernanceRefs = true
       } else if (line.startsWith('##')) {
         inDescription = false
         inCriteria = false
+        inRisks = false
         inGovernanceRefs = false
       } else if (currentFeature) {
-        if (inDescription && line.trim() && !line.startsWith('##')) {
+        if (inDescripRisks && line.startsWith('- ')) {
+          currentFeature.risk_of_not_delivering!.push(line.replace('- ', '').trim())
+        } else if (intion && line.trim() && !line.startsWith('##')) {
           currentFeature.description = (currentFeature.description || '') + line.trim() + ' '
         } else if (inCriteria && line.startsWith('- ')) {
           currentFeature.acceptance_criteria!.push(line.replace('- ', '').trim())

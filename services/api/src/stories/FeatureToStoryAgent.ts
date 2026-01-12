@@ -159,6 +159,14 @@ export class FeatureToStoryAgent {
 
   /**
    * Derive INVEST-compliant user stories from Feature markdown.
+   * 
+   * IMPORTANT: Each User Story MUST:
+   * - Deliver a portion of the Feature's stated business value
+   * - Reference the Feature's acceptance criteria it supports
+   * - Be named using the convention: <project>-<feature_id>-<short_capability_name>
+   * 
+   * If a Feature has no actionable acceptance criteria, you MUST FAIL instead of generating stories.
+   * 
    * Strategy: one story per acceptance criterion (or feature if no criteria).
    */
   async deriveStories(
