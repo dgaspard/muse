@@ -188,7 +188,6 @@ describe('FeatureValueDerivationAgent', () => {
           {
             document_id: 'doc-123',
             filename: 'governance.md',
-          markdown_path: 'docs/governance/governance.md',
             governance_path: 'docs/governance/governance.md'
           }
         )
