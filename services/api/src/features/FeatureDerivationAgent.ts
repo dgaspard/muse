@@ -16,6 +16,7 @@ export interface FeatureSchema {
   title: string
   description: string
   acceptance_criteria: string[]
+  parent_feature_id?: string
 }
 
 export interface FeatureOutput extends FeatureSchema {
@@ -54,7 +55,7 @@ export class FeatureDerivationAgent {
     if (!Array.isArray(f.acceptance_criteria) || f.acceptance_criteria.length === 0) {
       errors.push('Missing or invalid acceptance_criteria (must be non-empty array)')
     }
-    const allowed = ['feature_id', 'epic_id', 'title', 'description', 'acceptance_criteria']
+    const allowed = ['feature_id', 'epic_id', 'title', 'description', 'acceptance_criteria', 'parent_feature_id']
     const extras = Object.keys(f).filter(k => !allowed.includes(k))
     if (extras.length > 0) errors.push(`Unexpected fields: ${extras.join(', ')}`)
 
@@ -62,10 +63,13 @@ export class FeatureDerivationAgent {
   }
 
   private generateFeatureMarkdown(feature: FeatureOutput): string {
-    const frontMatter = {
+    const frontMatter: Record<string, string> = {
       feature_id: feature.feature_id,
       epic_id: feature.epic_id,
       generated_at: feature.generated_at
+    }
+    if (feature.parent_feature_id) {
+      frontMatter.parent_feature_id = feature.parent_feature_id
     }
     const lines: string[] = []
     lines.push('---')
@@ -128,19 +132,75 @@ export class FeatureDerivationAgent {
 
     const projectSlug = projectId ? slugify(projectId) : 'project'
 
-    const outputs: FeatureOutput[] = selected.map((criterion, idx) => {
-      const featureIndex = String(idx + 1).padStart(2, '0')
-      const featureId = `${projectSlug}-${effectiveEpicId}-feature-${featureIndex}`
+    // Rule-based approach: Create features with multiple acceptance criteria
+    // Strategy: Group related criteria together to create richer features
+    // For small Epic (1-2 criteria): One feature with all criteria
+    // For medium Epic (3-4 criteria): Group pairs
+    // For large Epic (5+ criteria): Create 2-3 features with distributed criteria
+    
+    const outputs: FeatureOutput[] = []
+    
+    if (selected.length <= 2) {
+      // Small Epic: Single feature with all criteria
+      const featureId = `${projectSlug}-${effectiveEpicId}-feature-01`
       const feature: FeatureSchema = {
         feature_id: featureId,
         epic_id: effectiveEpicId,
-        title: criterion.substring(0, 120),
+        title: selected[0].substring(0, 120),
         description: descriptionBase,
-        acceptance_criteria: [criterion]
+        acceptance_criteria: selected
       }
       this.validateFeatureSchema(feature)
-      return { ...feature, generated_at: new Date().toISOString() }
-    })
+      outputs.push({ ...feature, generated_at: new Date().toISOString() })
+    } else if (selected.length <= 4) {
+      // Medium Epic: 2 features with criteria pairs
+      const midpoint = Math.ceil(selected.length / 2)
+      for (let groupIdx = 0; groupIdx < 2; groupIdx++) {
+        const start = groupIdx * midpoint
+        const end = Math.min(start + midpoint, selected.length)
+        const groupCriteria = selected.slice(start, end)
+        
+        if (groupCriteria.length > 0) {
+          const featureIndex = String(groupIdx + 1).padStart(2, '0')
+          const featureId = `${projectSlug}-${effectiveEpicId}-feature-${featureIndex}`
+          const feature: FeatureSchema = {
+            feature_id: featureId,
+            epic_id: effectiveEpicId,
+            title: groupCriteria[0].substring(0, 120),
+            description: descriptionBase,
+            acceptance_criteria: groupCriteria
+          }
+          this.validateFeatureSchema(feature)
+          outputs.push({ ...feature, generated_at: new Date().toISOString() })
+        }
+      }
+    } else {
+      // Large Epic (5 criteria): 3 features with distributed criteria
+      // Feature 1: criteria[0,1], Feature 2: criteria[2,3], Feature 3: criteria[4]
+      const distribution = [
+        [0, 1],
+        [2, 3],
+        [4]
+      ]
+      
+      distribution.forEach((indices, groupIdx) => {
+        const groupCriteria = indices.map(i => selected[i]).filter(Boolean)
+        
+        if (groupCriteria.length > 0) {
+          const featureIndex = String(groupIdx + 1).padStart(2, '0')
+          const featureId = `${projectSlug}-${effectiveEpicId}-feature-${featureIndex}`
+          const feature: FeatureSchema = {
+            feature_id: featureId,
+            epic_id: effectiveEpicId,
+            title: groupCriteria[0].substring(0, 120),
+            description: descriptionBase,
+            acceptance_criteria: groupCriteria
+          }
+          this.validateFeatureSchema(feature)
+          outputs.push({ ...feature, generated_at: new Date().toISOString() })
+        }
+      })
+    }
 
     return outputs
   }

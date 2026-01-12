@@ -3,6 +3,7 @@ import YAML from 'yaml'
 import {
   GovernanceReference,
   validateFeatureHardening,
+  validateSubFeatureIdFormat
 } from '../shared/ArtifactValidation'
 
 /**
@@ -17,6 +18,7 @@ export interface FeatureValueSchema {
   risk_of_not_delivering: string[]
   governance_references: GovernanceReference[]
   derived_from_epic: string
+  parent_feature_id?: string
 }
 
 /**
@@ -117,6 +119,23 @@ export class FeatureValueDerivationAgent {
 
     if (!f.derived_from_epic || typeof f.derived_from_epic !== 'string') {
       throw new FeatureValueValidationError('Missing or invalid derived_from_epic')
+    }
+
+    if (f.parent_feature_id) {
+      if (typeof f.parent_feature_id !== 'string') {
+        throw new FeatureValueValidationError('parent_feature_id must be a string when provided')
+      }
+
+      const isValidSubFeatureId = validateSubFeatureIdFormat(
+        f.feature_id as string,
+        f.parent_feature_id as string
+      )
+
+      if (!isValidSubFeatureId) {
+        throw new FeatureValueValidationError(
+          `Sub-Feature ID format invalid: "${f.feature_id}". Expected pattern: <parent_feature_id>-subfeature-<NN>`
+        )
+      }
     }
 
     // Use comprehensive hardening validator
@@ -277,6 +296,7 @@ features:
       - <outcome-based criterion>
       - <outcome-based criterion>
     risk_of_not_delivering:
+    parent_feature_id?: string
       - <risk>
       - <risk>
     governance_references:

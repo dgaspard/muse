@@ -8,6 +8,7 @@ import { EpicDerivationWorkflow } from '../governance/EpicDerivationWorkflow'
 import { FeatureDerivationWorkflow } from '../features/FeatureDerivationWorkflow'
 import { FeatureToStoryAgent } from '../stories/FeatureToStoryAgent'
 import { getDocumentStore } from '../storage/documentStoreFactory'
+import { validateArtifactHierarchy } from '../shared/ArtifactValidation'
 
 /**
  * Epic data structure returned by the pipeline
@@ -30,6 +31,7 @@ export interface FeatureData {
   description: string
   acceptance_criteria: string[]
   risk_of_not_delivering: string[]
+    parent_feature_id?: string
   epic_id: string
   governance_references: string[]
 }
@@ -232,6 +234,26 @@ export class MusePipelineOrchestrator {
 
     console.log(`[Pipeline] Total stories generated: ${storiesData.length}`)
 
+    // Step 7: Validate hierarchy (Epics → Features → Stories)
+    const hierarchyReport = validateArtifactHierarchy({
+      epics: [{ epic_id: epicArtifact.epic_id, document_id: documentMetadata.documentId }],
+      features: featuresData.map(f => ({
+        feature_id: f.feature_id,
+        derived_from_epic: f.epic_id,
+        parent_feature_id: f.parent_feature_id,
+      })),
+      stories: storiesData.map(s => ({
+        story_id: s.story_id,
+        derived_from_feature: s.derived_from_feature,
+      })),
+    })
+
+    if (!hierarchyReport.valid) {
+      throw new Error(
+        'Hierarchy validation failed:\n' + hierarchyReport.errors.join('\n')
+      )
+    }
+
     // Return structured output with validation status
     return {
       document: {
@@ -371,6 +393,7 @@ export class MusePipelineOrchestrator {
           risk_of_not_delivering: [],
           epic_id: frontMatter.derived_from_epic || frontMatter.epic_id,
           governance_references: [],
+          parent_feature_id: frontMatter.parent_feature_id,
         }
 
         inDescription = false

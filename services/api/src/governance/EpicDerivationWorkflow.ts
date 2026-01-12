@@ -3,6 +3,7 @@ import path from 'path'
 import YAML from 'yaml'
 import { GovernanceIntentAgent } from './GovernanceIntentAgent'
 import { GovernanceCommitService } from './GovernanceCommitService'
+import { validateEpicFeatureCount, ValidationReport } from '../shared/ArtifactValidation'
 
 /**
  * Epic artifact record in muse.yaml
@@ -22,6 +23,7 @@ interface MuseYaml {
   artifacts?: {
     governance_markdown?: Record<string, unknown>[]
     epics?: EpicArtifact[]
+    features?: Record<string, unknown>[]
   }
 }
 
@@ -51,6 +53,15 @@ export class EpicDerivationWorkflow {
       // Git service optional if not in a Git repo
       this.gitService = null
     }
+  }
+
+  /**
+   * Validate that an Epic has 1-5 Features using muse.yaml
+   */
+  validateFeatureCounts(epicId: string): ValidationReport {
+    const data = this.loadMuseYaml()
+    const features = data.artifacts?.features || []
+    return validateEpicFeatureCount(epicId, features)
   }
 
   /**

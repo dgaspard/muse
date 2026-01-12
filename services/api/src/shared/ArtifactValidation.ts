@@ -33,8 +33,9 @@ export function validateEpicIdFormat(epicId: string, documentId: string): boolea
  * Example: project1-epic-doc123-feature-01
  */
 export function validateFeatureIdFormat(featureId: string): boolean {
-  const pattern = /^[\w-]+-feature-\d{2}$/
-  return pattern.test(featureId)
+  const featurePattern = /^[\w-]+-feature-\d{2}$/
+  const subFeaturePattern = /^[\w-]+-feature-\d{2}-subfeature-\d{2}$/
+  return featurePattern.test(featureId) || subFeaturePattern.test(featureId)
 }
 
 /**
@@ -371,6 +372,221 @@ export function validateStoryHardening(story: {
       'Missing or invalid governance_references. ' +
       'Each reference must have: document_id, filename, markdown_path, and non-empty sections array'
     )
+  }
+  
+  return {
+    valid: errors.length === 0,
+    errors,
+    warnings
+  }
+}
+
+/**
+ * Enhanced Hierarchy Validation
+ * Per Prompt-muse-Increased-Feature-User-Story-Rules.md
+ */
+
+/**
+ * Validate Epic has 1-5 Features (no more, no less)
+ */
+export function validateEpicFeatureCount(
+  epicId: string,
+  features: Array<{ derived_from_epic?: string; epic_id?: string }>
+): ValidationReport {
+  const errors: string[] = []
+  const warnings: string[] = []
+  
+  const epicFeatures = features.filter(
+    f => f.derived_from_epic === epicId || f.epic_id === epicId
+  )
+  const count = epicFeatures.length
+  
+  if (count < 1) {
+    errors.push(
+      `Epic "${epicId}" has no Features. Every Epic must have 1-5 Features.`
+    )
+  } else if (count > 5) {
+    errors.push(
+      `Epic "${epicId}" has ${count} Features, exceeding maximum of 5. ` +
+      `Consider splitting this Epic or consolidating Features.`
+    )
+  }
+  
+  if (count === 1) {
+    warnings.push(
+      `Epic "${epicId}" has only 1 Feature. Verify this Epic is properly scoped.`
+    )
+  }
+  
+  return {
+    valid: errors.length === 0,
+    errors,
+    warnings
+  }
+}
+
+/**
+ * Validate Feature hierarchy: must have either Sub-Features OR Stories (not both, not neither)
+ */
+export function validateFeatureHierarchy(
+  featureId: string,
+  allFeatures: Array<{ feature_id: string; parent_feature_id?: string }>,
+  stories: Array<{ derived_from_feature: string }>
+): ValidationReport {
+  const errors: string[] = []
+  const warnings: string[] = []
+  
+  // Find Sub-Features (features that have this feature as parent)
+  const subFeatures = allFeatures.filter(f => f.parent_feature_id === featureId)
+  
+  // Find direct Stories
+  const directStories = stories.filter(s => s.derived_from_feature === featureId)
+  
+  const hasSubFeatures = subFeatures.length > 0
+  const hasStories = directStories.length > 0
+  
+  if (!hasSubFeatures && !hasStories) {
+    errors.push(
+      `Feature "${featureId}" has neither Sub-Features nor Stories. ` +
+      `Every Feature must have either Sub-Features or Stories.`
+    )
+  } else if (hasSubFeatures && hasStories) {
+    errors.push(
+      `Feature "${featureId}" has both Sub-Features and direct Stories. ` +
+      `A Feature must have either Sub-Features (which contain Stories) OR direct Stories, not both.`
+    )
+  }
+  
+  return {
+    valid: errors.length === 0,
+    errors,
+    warnings
+  }
+}
+
+/**
+ * Validate Sub-Feature ID format
+ * Expected: <project>-<epic_id>-feature-<NN>-subfeature-<MM>
+ */
+export function validateSubFeatureIdFormat(subFeatureId: string, parentFeatureId: string): boolean {
+  // Sub-Feature ID should be: parent_feature_id + "-subfeature-<MM>"
+  const pattern = new RegExp(`^${parentFeatureId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-subfeature-\\d{2}$`)
+  return pattern.test(subFeatureId)
+}
+
+/**
+ * Detect orphaned artifacts (Features without Epic, Stories without Feature)
+ */
+export function detectOrphanedArtifacts(
+  epics: Array<{ epic_id: string }>,
+  features: Array<{ feature_id: string; derived_from_epic: string; parent_feature_id?: string }>,
+  stories: Array<{ story_id: string; derived_from_feature: string }>
+): ValidationReport {
+  const errors: string[] = []
+  const warnings: string[] = []
+  
+  // Build ID sets
+  const epicIds = new Set(epics.map(e => e.epic_id))
+  const featureIds = new Set(features.map(f => f.feature_id))
+  
+  // Check for orphaned Features
+  const orphanedFeatures = features.filter(f => {
+    // Only check top-level Features (no parent)
+    if (f.parent_feature_id) return false
+    return !epicIds.has(f.derived_from_epic)
+  })
+  
+  if (orphanedFeatures.length > 0) {
+    errors.push(
+      `Found ${orphanedFeatures.length} orphaned Feature(s) with non-existent Epic:\n` +
+      orphanedFeatures.map(f => `  - ${f.feature_id} → Epic "${f.derived_from_epic}"`).join('\n')
+    )
+  }
+  
+  // Check for orphaned Sub-Features
+  const orphanedSubFeatures = features.filter(f => {
+    if (!f.parent_feature_id) return false
+    return !featureIds.has(f.parent_feature_id)
+  })
+  
+  if (orphanedSubFeatures.length > 0) {
+    errors.push(
+      `Found ${orphanedSubFeatures.length} orphaned Sub-Feature(s) with non-existent parent Feature:\n` +
+      orphanedSubFeatures.map(f => `  - ${f.feature_id} → Parent "${f.parent_feature_id}"`).join('\n')
+    )
+  }
+  
+  // Check for orphaned Stories
+  const orphanedStories = stories.filter(s => !featureIds.has(s.derived_from_feature))
+  
+  if (orphanedStories.length > 0) {
+    errors.push(
+      `Found ${orphanedStories.length} orphaned Story/Stories with non-existent Feature:\n` +
+      orphanedStories.map(s => `  - ${s.story_id} → Feature "${s.derived_from_feature}"`).join('\n')
+    )
+  }
+  
+  return {
+    valid: errors.length === 0,
+    errors,
+    warnings
+  }
+}
+
+/**
+ * Comprehensive hierarchy validation for entire artifact set
+ */
+export function validateArtifactHierarchy(hierarchy: {
+  epics: Array<{ epic_id: string; document_id: string }>
+  features: Array<{ 
+    feature_id: string
+    derived_from_epic: string
+    parent_feature_id?: string
+  }>
+  stories: Array<{ 
+    story_id: string
+    derived_from_feature: string
+  }>
+}): ValidationReport {
+  const errors: string[] = []
+  const warnings: string[] = []
+  
+  // 1. Check for orphaned artifacts
+  const orphanReport = detectOrphanedArtifacts(hierarchy.epics, hierarchy.features, hierarchy.stories)
+  errors.push(...orphanReport.errors)
+  warnings.push(...orphanReport.warnings)
+  
+  // 2. Validate each Epic has 1-5 Features
+  for (const epic of hierarchy.epics) {
+    const featureCountReport = validateEpicFeatureCount(epic.epic_id, hierarchy.features)
+    errors.push(...featureCountReport.errors)
+    warnings.push(...featureCountReport.warnings)
+  }
+  
+  // 3. Validate each top-level Feature has either Sub-Features or Stories
+  const topLevelFeatures = hierarchy.features.filter(f => !f.parent_feature_id)
+  for (const feature of topLevelFeatures) {
+    const hierarchyReport = validateFeatureHierarchy(
+      feature.feature_id,
+      hierarchy.features,
+      hierarchy.stories
+    )
+    errors.push(...hierarchyReport.errors)
+    warnings.push(...hierarchyReport.warnings)
+  }
+  
+  // 4. Validate each Sub-Feature has Stories
+  const subFeatures = hierarchy.features.filter(f => f.parent_feature_id)
+  for (const subFeature of subFeatures) {
+    const subFeatureStories = hierarchy.stories.filter(
+      s => s.derived_from_feature === subFeature.feature_id
+    )
+    if (subFeatureStories.length === 0) {
+      errors.push(
+        `Sub-Feature "${subFeature.feature_id}" has no Stories. ` +
+        `Every Sub-Feature must have at least one Story.`
+      )
+    }
   }
   
   return {

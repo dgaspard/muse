@@ -58,6 +58,48 @@ describe('FeatureValueDerivationAgent', () => {
       }).toThrow('business_value')
     })
 
+    it('should validate Sub-Feature ID matches parent_feature_id pattern', () => {
+      const mockFeature = {
+        feature_id: 'proj-epic-01-feature-01-subfeature-01',
+        parent_feature_id: 'proj-epic-01-feature-01',
+        title: 'Sub-Feature Title with length',
+        business_value: 'Clear business value statement here with enough length',
+        description: 'A sub-feature description with sufficient length for validation',
+        acceptance_criteria: ['Criterion 1 with sufficient length'],
+        risk_of_not_delivering: ['Risk 1 with sufficient length'],
+        governance_references: [{
+          document_id: 'doc-123',
+          filename: 'governance.md',
+          markdown_path: 'docs/governance/governance.md',
+          sections: ['Section 1']
+        }],
+        derived_from_epic: 'epic-doc-123'
+      }
+
+      expect(() => validateSchema(mockFeature)).not.toThrow()
+    })
+
+    it('should reject Sub-Feature ID that does not match parent_feature_id pattern', () => {
+      const mockFeature = {
+        feature_id: 'proj-epic-01-feature-02-subfeature-01',
+        parent_feature_id: 'proj-epic-01-feature-01',
+        title: 'Sub-Feature Title with length',
+        business_value: 'Clear business value statement here with enough length',
+        description: 'A sub-feature description with sufficient length for validation',
+        acceptance_criteria: ['Criterion 1 with sufficient length'],
+        risk_of_not_delivering: ['Risk 1 with sufficient length'],
+        governance_references: [{
+          document_id: 'doc-123',
+          filename: 'governance.md',
+          markdown_path: 'docs/governance/governance.md',
+          sections: ['Section 1']
+        }],
+        derived_from_epic: 'epic-doc-123'
+      }
+
+      expect(() => validateSchema(mockFeature)).toThrow('Sub-Feature ID format invalid')
+    })
+
     it('should reject features with generic acceptance criteria', async () => {
       const mockFeature = {
         feature_id: 'testproject-epic-01-feature-01',
