@@ -1,8 +1,18 @@
 import { Router, Request, Response } from 'express'
+import rateLimit from 'express-rate-limit'
 import { FeatureToStoryAgent } from './FeatureToStoryAgent'
 import { getDocumentStore } from '../storage/documentStoreFactory'
 
 const router = Router()
+
+// Rate limit for expensive story derivation operations
+const storyDerivationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // limit each IP to 10 story derivations per windowMs
+  message: 'Too many story derivation requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+})
 
 /**
  * POST /api/stories/derive-from-documents
@@ -17,7 +27,7 @@ const router = Router()
  *   "epicId": "myproject-epic-01" // optional
  * }
  */
-router.post('/derive-from-documents', async (req: Request, res: Response): Promise<void> => {
+router.post('/derive-from-documents', storyDerivationLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const { featureDocumentId, governanceDocumentId, projectId, epicId } = req.body
 
