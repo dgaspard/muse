@@ -25,6 +25,7 @@ import {
 } from './storage/documentStore'
 import { ConverterRegistry } from './conversion/documentToMarkdownConverter'
 import { MusePipelineOrchestrator } from './orchestration/MusePipelineOrchestrator'
+import storyRoutes from './stories/storyRoutes'
 
 const app = express()
 
@@ -66,6 +67,9 @@ app.get('/health', (_req: Request, res: Response) => {
 
 // Simple ping route useful during manual checks
 app.get('/ping', (_req: Request, res: Response) => res.send('pong'))
+
+// Register story routes
+app.use('/api/stories', storyRoutes)
 
 // Configure multer to write uploads to disk to avoid buffering large files in memory.
 // Files will be streamed from disk into MinIO and removed after upload.
@@ -339,6 +343,132 @@ app.post('/pipeline/execute', upload.single('file'), async (req: Request, res: R
   } catch (err) {
     console.error('Pipeline execution failed', err)
     return res.status(500).json({ ok: false, error: 'pipeline execution failed', details: (err as Error).message })
+  }
+})
+
+// POST /features/:featureId/stories
+// Derive user stories from a specific feature on-demand (MinIO-based)
+// Requires: featurePath and governancePath in request body
+app.post('/features/:featureId/stories', async (req: Request, res: Response) => {
+  try {
+    const { featureId } = req.params
+    const { featurePath, governancePath, projectId, epicId } = req.body
+
+    console.log(`[stories] Request for feature=${featureId}`)
+    console.log(`[stories] featurePath=${featurePath}`)
+    console.log(`[stories] governancePath=${governancePath}`)
+    console.log(`[stories] projectId=${projectId}`)
+    console.log(`[stories] epicId=${epicId}`)
+
+    if (!featurePath || !governancePath) {
+      return res.status(400).json({
+        ok: false,
+        error: 'featurePath and governancePath are required',
+      })
+    }
+
+    if (!projectId) {
+      return res.status(400).json({
+        ok: false,
+        error: 'projectId is required',
+      })
+    }
+
+    // Import MinIO-based story agent
+    const { FeatureToStoryAgent } = await import('./stories/FeatureToStoryAgent')
+    const { getDocumentStore } = await import('./storage/documentStoreFactory')
+    
+    const absoluteFeaturePath = path.isAbsolute(featurePath) ? featurePath : path.join(process.cwd(), featurePath)
+    const absoluteGovernancePath = path.isAbsolute(governancePath) ? governancePath : path.join(process.cwd(), governancePath)
+    
+    console.log(`[stories] Storing feature in MinIO: ${absoluteFeaturePath}`)
+    
+    // Store feature and governance in MinIO first
+    const documentStore = getDocumentStore()
+    const featureStats = await fs.promises.stat(absoluteFeaturePath)
+    const governanceStats = await fs.promises.stat(absoluteGovernancePath)
+    
+    const featureDoc = await documentStore.saveOriginalFromPath(absoluteFeaturePath, {
+      originalFilename: path.basename(featurePath),
+      mimeType: 'text/markdown',
+      sizeBytes: featureStats.size,
+      projectId,
+    })
+    
+    const governanceDoc = await documentStore.saveOriginalFromPath(absoluteGovernancePath, {
+      originalFilename: path.basename(governancePath),
+      mimeType: 'text/markdown',
+      sizeBytes: governanceStats.size,
+      projectId,
+    })
+    
+    console.log(`[stories] Feature document ID: ${featureDoc.documentId}`)
+    console.log(`[stories] Governance document ID: ${governanceDoc.documentId}`)
+    console.log(`[stories] Calling MinIO-based story derivation...`)
+    
+    // Use MinIO-based story derivation
+    const storyAgent = new FeatureToStoryAgent()
+    const stories = await storyAgent.deriveStoriesFromDocuments(
+      featureDoc.documentId,
+      governanceDoc.documentId,
+      projectId,
+      epicId,
+      documentStore
+    )
+
+    console.log(`[stories] Total stories generated: ${stories.length}`)
+
+    return res.json({
+      ok: true,
+      featureId,
+      stories,
+    })
+  } catch (err) {
+    console.error('Story generation failed', err)
+    return res.status(500).json({
+      ok: false,
+      error: 'story generation failed',
+      details: (err as Error).message,
+    })
+  }
+})
+
+// DELETE /features/:featureId/stories
+// Delete generated stories for a feature
+app.delete('/features/:featureId/stories', async (req: Request, res: Response) => {
+  try {
+    const { featureId } = req.params
+    const { storyPath } = req.body
+
+    if (!storyPath) {
+      return res.status(400).json({
+        ok: false,
+        error: 'storyPath is required',
+      })
+    }
+
+    const fullPath = path.join(process.cwd(), storyPath)
+    
+    if (fs.existsSync(fullPath)) {
+      fs.unlinkSync(fullPath)
+      console.log(`[stories] deleted stories for feature=${featureId}`)
+      return res.json({
+        ok: true,
+        message: 'stories deleted',
+      })
+    } else {
+      return res.status(404).json({
+        ok: false,
+        error: 'story file not found',
+      })
+    }
+  } catch (err) {
+    console.error('Story deletion failed', err)
+    return res.status(500).json({
+      ok: false,
+      error: 'story deletion failed',
+      details: (err as Error).message,
+    })
   }
 })
 

@@ -1,11 +1,13 @@
 import fs from 'fs'
 import path from 'path'
+import YAML from 'yaml'
 import { DocumentStore, SaveOriginalInput } from '../storage/documentStore'
 import { DocumentToMarkdownConverter, MarkdownOutput } from '../conversion/documentToMarkdownConverter'
 import { GovernanceMarkdownValidator } from '../conversion/governanceMarkdownValidator'
 import { EpicDerivationWorkflow } from '../governance/EpicDerivationWorkflow'
 import { FeatureDerivationWorkflow } from '../features/FeatureDerivationWorkflow'
-import { StoryDerivationWorkflow } from '../stories/StoryDerivationWorkflow'
+import { FeatureToStoryAgent } from '../stories/FeatureToStoryAgent'
+import { getDocumentStore } from '../storage/documentStoreFactory'
 
 /**
  * Epic data structure returned by the pipeline
@@ -175,20 +177,60 @@ export class MusePipelineOrchestrator {
     }
 
     // Step 6: Derive User Stories from Features (MUSE-007)
-    const storyWorkflow = new StoryDerivationWorkflow(this.repoRoot)
-    const allStories: StoryData[] = []
+    console.log('[Pipeline] Deriving user stories from features...')
+    const storyAgent = new FeatureToStoryAgent()
+    const minioStore = getDocumentStore()
+    const storiesData: StoryData[] = []
 
     for (const featureArtifact of featureArtifacts) {
-      const storyArtifacts = await storyWorkflow.deriveStoriesFromFeatures(
-        featureArtifact.feature_path,
-        governanceMarkdownPath
-      )
+      const featurePath = path.join(this.repoRoot, featureArtifact.feature_path)
+      
+      try {
+        // Store feature markdown in MinIO using file path
+        const featureStats = await fs.promises.stat(featurePath)
+        const featureFilename = path.basename(featurePath)
+        
+        const featureDoc = await minioStore.saveOriginalFromPath(featurePath, {
+          originalFilename: featureFilename,
+          mimeType: 'text/markdown',
+          sizeBytes: featureStats.size,
+          projectId: input.projectId || 'project',
+        })
 
-      for (const storyArtifact of storyArtifacts) {
-        const storyData = await this.loadStoryData(path.join(this.repoRoot, storyArtifact.story_path))
-        allStories.push(storyData)
+        // Use MinIO-based story derivation
+        const stories = await storyAgent.deriveStoriesFromDocuments(
+          featureDoc.documentId,
+          documentMetadata.documentId,
+          input.projectId || 'project',
+          featureArtifact.epic_id,
+          minioStore
+        )
+
+        // Convert generated stories to StoryData format
+        for (const story of stories) {
+          storiesData.push({
+            story_id: story.story_id,
+            title: story.title,
+            role: story.role,
+            capability: story.capability,
+            benefit: story.benefit,
+            acceptance_criteria: story.acceptance_criteria,
+            derived_from_feature: story.derived_from_feature,
+            derived_from_epic: story.derived_from_epic,
+            governance_references: story.governance_references?.map(ref => 
+              typeof ref === 'string' ? ref : ref.document_id
+            ) || [],
+          })
+        }
+
+        console.log(`[Pipeline] Generated ${stories.length} stories for feature ${featureArtifact.feature_id}`)
+      } catch (error) {
+        console.warn(`[Pipeline] Failed to derive stories for feature ${featureArtifact.feature_id}:`, error)
+        // Continue with other features instead of failing the entire pipeline
       }
     }
+
+    console.log(`[Pipeline] Total stories generated: ${storiesData.length}`)
 
     // Return structured output with validation status
     return {
@@ -208,7 +250,7 @@ export class MusePipelineOrchestrator {
       },
       epic: epicData,
       features: featuresData,
-      stories: allStories,
+      stories: storiesData,
     }
   }
 
@@ -239,8 +281,7 @@ export class MusePipelineOrchestrator {
       throw new Error('Invalid epic markdown: missing front matter')
     }
 
-    const yaml = require('yaml')
-    const frontMatter = yaml.parse(frontMatterMatch[1])
+    const frontMatter = YAML.parse(frontMatterMatch[1])
 
     // Extract epic data from content
     const lines = content.split('\n')
@@ -296,8 +337,7 @@ export class MusePipelineOrchestrator {
       throw new Error('Invalid feature markdown: missing front matter')
     }
 
-    const yaml = require('yaml')
-    const frontMatter = yaml.parse(frontMatterMatch[1])
+    const frontMatter = YAML.parse(frontMatterMatch[1])
 
     const features: FeatureData[] = []
     const lines = content.split('\n')
@@ -317,8 +357,10 @@ export class MusePipelineOrchestrator {
         }
 
         const title = line.replace('# Feature:', '').trim()
-        const featureIdMatch = title.match(/\(([^)]+)\)/)
-        const featureId = featureIdMatch ? featureIdMatch[1] : `feature-${features.length + 1}`
+        // Use feature_id from front matter if available, otherwise extract from title or generate
+        const featureId = frontMatter.feature_id || 
+          (title.match(/\(([^)]+)\)/) ? title.match(/\(([^)]+)\)/)?.[1] : undefined) ||
+          `feature-${features.length + 1}`
 
         currentFeature = {
           feature_id: featureId,
@@ -391,78 +433,5 @@ export class MusePipelineOrchestrator {
   /**
    * Load Story data from markdown file
    */
-  private async loadStoryData(storyPath: string): Promise<StoryData> {
-    const content = await fs.promises.readFile(storyPath, 'utf-8')
-    
-    // Parse YAML front matter
-    const frontMatterMatch = content.match(/^---\n([\s\S]+?)\n---/)
-    if (!frontMatterMatch) {
-      throw new Error('Invalid story markdown: missing front matter')
-    }
 
-    const yaml = require('yaml')
-    const frontMatter = yaml.parse(frontMatterMatch[1])
-
-    const lines = content.split('\n')
-    let title = ''
-    let role = ''
-    let capability = ''
-    let benefit = ''
-    const acceptanceCriteria: string[] = []
-    const governanceReferences: string[] = []
-
-    let inStory = false
-    let inCriteria = false
-    let inGovernanceRefs = false
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]
-
-      if (line.startsWith('## User Story:')) {
-        title = line.replace('## User Story:', '').trim()
-        inStory = true  // Start parsing story details
-        inCriteria = false
-        inGovernanceRefs = false
-      } else if (line.startsWith('### Acceptance Criteria')) {
-        inStory = false
-        inCriteria = true
-        inGovernanceRefs = false
-      } else if (line.startsWith('### Governance References')) {
-        inStory = false
-        inCriteria = false
-        inGovernanceRefs = true
-      } else if (line.startsWith('##')) {
-        // Another story section - don't reset inStory yet
-        if (!line.startsWith('## User Story:')) {
-          inStory = false
-        }
-        inCriteria = false
-        inGovernanceRefs = false
-      } else if (inStory) {
-        if (line.startsWith('**As a**')) {
-          role = line.replace('**As a**', '').replace(/,?\s*$/, '').trim()
-        } else if (line.startsWith('**I want**')) {
-          capability = line.replace('**I want**', '').replace(/,?\s*$/, '').trim()
-        } else if (line.startsWith('**So that**')) {
-          benefit = line.replace('**So that**', '').replace(/\.\s*$/, '').trim()
-        }
-      } else if (inCriteria && line.startsWith('- ')) {
-        acceptanceCriteria.push(line.replace('- ', '').trim())
-      } else if (inGovernanceRefs && line.startsWith('- ')) {
-        governanceReferences.push(line.replace('- ', '').trim())
-      }
-    }
-
-    return {
-      story_id: frontMatter.story_id,
-      title,
-      role,
-      capability,
-      benefit,
-      acceptance_criteria: acceptanceCriteria,
-      derived_from_feature: frontMatter.derived_from_feature,
-      derived_from_epic: frontMatter.derived_from_epic,
-      governance_references: governanceReferences,
-    }
-  }
 }
