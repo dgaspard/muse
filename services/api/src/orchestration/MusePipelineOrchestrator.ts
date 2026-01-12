@@ -112,17 +112,17 @@ export class MusePipelineOrchestrator {
   /**
    * Execute the full pipeline from uploaded file to derived artifacts
    * 
-   * @param filePath - Path to uploaded governance document
+   * @param fileBuffer - Buffer of uploaded governance document
    * @param input - Metadata for the original document
    * @returns PipelineOutput - Structured data for UI rendering
    * @throws Error if any step fails, including validation failures
    */
   async executePipeline(
-    filePath: string,
+    fileBuffer: Buffer,
     input: SaveOriginalInput
   ): Promise<PipelineOutput> {
     // Step 1: Persist original document (MUSE-002)
-    const documentMetadata = await this.documentStore.saveOriginalFromPath(filePath, input)
+    const documentMetadata = await this.documentStore.saveOriginalFromBuffer(fileBuffer, input)
 
     // Step 2: Convert to governance Markdown (MUSE-003)
     const { stream } = await this.documentStore.getOriginal(documentMetadata.documentId)

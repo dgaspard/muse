@@ -287,7 +287,9 @@ app.post('/pipeline/execute', upload.single('file'), async (req: Request, res: R
     const orchestrator = new MusePipelineOrchestrator(documentStore, converter, process.cwd())
     let pipelineOutput
     try {
-      pipelineOutput = await orchestrator.executePipeline(file.path, {
+      // Read file to buffer for safe container handling
+      const fileBuffer = await fs.promises.readFile(file.path)
+      pipelineOutput = await orchestrator.executePipeline(fileBuffer, {
         originalFilename: file.originalname,
         mimeType: file.mimetype,
         sizeBytes: file.size,

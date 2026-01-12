@@ -296,7 +296,7 @@ export class FileSystemDocumentStore implements DocumentStore {
     await fs.promises.mkdir(`${this.rootDir}/metadata`, { recursive: true })
 
     try {
-      await fs.promises.writeFile(originalPath, buffer, { flag: 'wx' })
+      await fs.promises.writeFile(originalPath, new Uint8Array(buffer), { flag: 'wx' })
     } catch (err: unknown) {
       const error = err as Record<string, unknown>
       if ((error as Record<string, unknown>)?.code !== 'EEXIST') {
