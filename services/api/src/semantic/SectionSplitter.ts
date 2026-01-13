@@ -81,7 +81,7 @@ export class SectionSplitter {
     const sections: Section[] = []
     let currentTitle = 'Introduction'
     let currentStart = 1
-    let hasSeenSemanticAnchor = false
+    let semanticAnchorCount = 0
 
     const flush = (start: number, end: number, title: string, idx: number) => {
       const content = lines.slice(start - 1, end).join('\n').trim()
@@ -105,19 +105,19 @@ export class SectionSplitter {
         // STEP 1: Check if this is a semantic anchor
         if (this.isSemanticAnchor(headerTitle)) {
           // Close previous section
-          if (lineNo - 1 >= currentStart && hasSeenSemanticAnchor) {
+          if (lineNo - 1 >= currentStart) {
             flush(currentStart, lineNo - 1, currentTitle, idx++)
           }
           currentTitle = headerTitle
           currentStart = lineNo + 1
-          hasSeenSemanticAnchor = true
+          semanticAnchorCount++
         }
         // Non-semantic headers are absorbed into current section
       }
     }
     
-    // Flush final section
-    if (currentStart <= lines.length && hasSeenSemanticAnchor) {
+    // Flush final section (allow it even if we have no semantic anchors found)
+    if (currentStart <= lines.length) {
       flush(currentStart, lines.length, currentTitle, idx++)
     }
 
