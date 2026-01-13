@@ -1,4 +1,4 @@
-import { Epic } from './EpicDerivationJob'
+import { Epic } from './EpicDerivationAgent'
 import { SectionSummary } from './SectionSummaryJob'
 
 export interface Feature {

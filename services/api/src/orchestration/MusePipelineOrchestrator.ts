@@ -11,7 +11,7 @@ import { getDocumentStore } from '../storage/documentStoreFactory'
 import { validateArtifactHierarchy } from '../shared/ArtifactValidation'
 import { SectionSplitter } from '../semantic/SectionSplitter'
 import { SectionSummaryJob, SectionSummary } from '../semantic/SectionSummaryJob'
-import { EpicDerivationJob } from '../semantic/EpicDerivationJob'
+import { EpicDerivationAgent } from '../semantic/EpicDerivationAgent'
 import { FeatureDerivationJob } from '../semantic/FeatureDerivationJob'
 import { RateLimiter, retryWithBackoff } from '../semantic/RateLimiter'
 
@@ -190,20 +190,19 @@ export class MusePipelineOrchestrator {
         summaries.push(summary)
       }
 
-      // Epics
-      const epicJob = new EpicDerivationJob(documentMetadata.documentId)
-      const epics = epicJob.run(summaries)
+      // Epics (AI-powered derivation with rule-based fallback)
+      const epicAgent = new EpicDerivationAgent(documentMetadata.documentId)
+      const epics = await epicAgent.run(summaries)
       // Persist epics for UI consumption via existing loaders
       const epicsDir = path.join(this.repoRoot, 'docs', 'epics')
       await fs.promises.mkdir(epicsDir, { recursive: true })
       const epicsDataFromFiles: EpicData[] = []
       for (let i = 0; i < epics.length; i++) {
         const e = epics[i]
-        const epicTitle = `Epic ${String(i + 1).padStart(2, '0')}`
         const epicPath = path.join(epicsDir, `${e.epic_id}.md`)
         await this.writeSemanticEpic(epicPath, {
           epic_id: e.epic_id,
-          title: epicTitle,
+          title: e.title,
           objective: e.objective,
           success_criteria: e.success_criteria,
           governance_references: e.source_sections,
@@ -583,8 +582,9 @@ export class MusePipelineOrchestrator {
 
         const title = line.replace('# Feature:', '').trim()
         // Use feature_id from front matter if available, otherwise extract from title or generate
+        const titleMatch = title.match(/\(([^)]+)\)/)
         const featureId = frontMatter.feature_id || 
-          (title.match(/\(([^)]+)\)/) ? title.match(/\(([^)]+)\)/)?.[1] : undefined) ||
+          (titleMatch ? titleMatch[1] : undefined) ||
           `feature-${features.length + 1}`
 
         currentFeature = {

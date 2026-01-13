@@ -27,6 +27,8 @@ import {
 import { ConverterRegistry } from './conversion/documentToMarkdownConverter'
 import { MusePipelineOrchestrator } from './orchestration/MusePipelineOrchestrator'
 import storyRoutes from './stories/storyRoutes'
+import { FeatureGenerationAgent } from './semantic/FeatureGenerationAgent'
+import { UserStoryGenerationAgent } from './semantic/UserStoryGenerationAgent'
 
 const app = express()
 
@@ -34,7 +36,8 @@ const app = express()
 const converterRegistry = new ConverterRegistry()
 
 // Parse JSON request bodies for future endpoints
-app.use(express.json())
+// Increased limit to 50MB to handle large governance documents
+app.use(express.json({ limit: '50mb' }))
 // Allow cross-origin requests in prototype mode (no auth)
 app.use(cors())
 
@@ -401,71 +404,48 @@ app.post('/pipeline/execute', expensiveOperationLimiter, upload.single('file'), 
 app.post('/features/:featureId/stories', expensiveOperationLimiter, async (req: Request, res: Response) => {
   try {
     const { featureId } = req.params
-    const { featurePath, governancePath, projectId, epicId } = req.body
+    const { feature, epic, governanceContent, projectId } = req.body
 
-    console.log(`[stories] Request for feature=${featureId}`)
-    console.log(`[stories] featurePath=${featurePath}`)
-    console.log(`[stories] governancePath=${governancePath}`)
-    console.log(`[stories] projectId=${projectId}`)
-    console.log(`[stories] epicId=${epicId}`)
+    console.log(`[UserStories] Request for feature=${featureId}`)
+    console.log(`[UserStories] epic=${epic?.epic_id}`)
+    console.log(`[UserStories] projectId=${projectId}`)
 
-    if (!featurePath || !governancePath) {
+    // Validate inputs
+    if (!feature || typeof feature !== 'object') {
       return res.status(400).json({
         ok: false,
-        error: 'featurePath and governancePath are required',
+        error: 'feature object is required in request body',
+      })
+    }
+
+    if (!epic || typeof epic !== 'object') {
+      return res.status(400).json({
+        ok: false,
+        error: 'epic object is required in request body',
+      })
+    }
+
+    if (!governanceContent || typeof governanceContent !== 'string') {
+      return res.status(400).json({
+        ok: false,
+        error: 'governanceContent string is required in request body',
       })
     }
 
     if (!projectId) {
       return res.status(400).json({
         ok: false,
-        error: 'projectId is required',
+        error: 'projectId is required in request body',
       })
     }
 
-    // Import MinIO-based story agent
-    const { FeatureToStoryAgent } = await import('./stories/FeatureToStoryAgent')
-    const { getDocumentStore } = await import('./storage/documentStoreFactory')
-    
-    const absoluteFeaturePath = path.isAbsolute(featurePath) ? featurePath : path.join(process.cwd(), featurePath)
-    const absoluteGovernancePath = path.isAbsolute(governancePath) ? governancePath : path.join(process.cwd(), governancePath)
-    
-    console.log(`[stories] Storing feature in MinIO: ${absoluteFeaturePath}`)
-    
-    // Store feature and governance in MinIO first
-    const documentStore = getDocumentStore()
-    const featureStats = await fs.promises.stat(absoluteFeaturePath)
-    const governanceStats = await fs.promises.stat(absoluteGovernancePath)
-    
-    const featureDoc = await documentStore.saveOriginalFromPath(absoluteFeaturePath, {
-      originalFilename: path.basename(featurePath),
-      mimeType: 'text/markdown',
-      sizeBytes: featureStats.size,
-      projectId,
-    })
-    
-    const governanceDoc = await documentStore.saveOriginalFromPath(absoluteGovernancePath, {
-      originalFilename: path.basename(governancePath),
-      mimeType: 'text/markdown',
-      sizeBytes: governanceStats.size,
-      projectId,
-    })
-    
-    console.log(`[stories] Feature document ID: ${featureDoc.documentId}`)
-    console.log(`[stories] Governance document ID: ${governanceDoc.documentId}`)
-    console.log(`[stories] Calling MinIO-based story derivation...`)
-    
-    // Use MinIO-based story derivation
-    const storyAgent = new FeatureToStoryAgent()
-    const stories = await storyAgent.deriveStoriesFromDocuments(
-      featureDoc.documentId,
-      governanceDoc.documentId,
-      projectId,
-      epicId,
-      documentStore
-    )
+    console.log(`[UserStories] Generating user stories using UserStoryGenerationAgent`)
 
-    console.log(`[stories] Total stories generated: ${stories.length}`)
+    // Use UserStoryGenerationAgent with strict prompt
+    const agent = new UserStoryGenerationAgent()
+    const stories = await agent.run(feature, epic, governanceContent)
+
+    console.log(`[UserStories] Generated ${stories.length} stories for feature=${featureId}`)
 
     return res.json({
       ok: true,
@@ -473,7 +453,7 @@ app.post('/features/:featureId/stories', expensiveOperationLimiter, async (req: 
       stories,
     })
   } catch (err) {
-    console.error('Story generation failed', err)
+    console.error('[UserStories] Story generation failed', err)
     return res.status(500).json({
       ok: false,
       error: 'story generation failed',
@@ -517,6 +497,60 @@ app.delete('/features/:featureId/stories', expensiveOperationLimiter, async (req
       ok: false,
       error: 'story deletion failed',
       details: (err as Error).message,
+    })
+  }
+})
+
+// POST /epics/:epicId/generate-features
+// On-demand feature generation from an approved Epic
+// Request body must include epic and governance summaries
+app.post('/epics/:epicId/generate-features', async (req: Request, res: Response) => {
+  try {
+    const { epicId } = req.params
+    const { epic, summaries } = req.body
+
+    if (!epic) {
+      return res.status(400).json({
+        ok: false,
+        error: 'epic object is required in request body',
+      })
+    }
+
+    if (!summaries || !Array.isArray(summaries)) {
+      return res.status(400).json({
+        ok: false,
+        error: 'summaries array is required in request body',
+      })
+    }
+
+    if (epic.epic_id !== epicId) {
+      return res.status(400).json({
+        ok: false,
+        error: 'epic.epic_id does not match URL parameter epicId',
+      })
+    }
+
+    console.log(`[FeatureGeneration] Generating features for epic=${epicId} from ${summaries.length} summaries`)
+
+    const agent = new FeatureGenerationAgent()
+    const features = await agent.run(epic, summaries)
+
+    console.log(
+      `[FeatureGeneration] Generated ${features.length} features for epic=${epicId}`,
+    )
+
+    return res.json({
+      ok: true,
+      epic_id: epicId,
+      feature_count: features.length,
+      features,
+    })
+  } catch (error) {
+    console.error('[FeatureGeneration] Error generating features:', error)
+    return res.status(500).json({
+      ok: false,
+      error: 'feature generation failed',
+      details: (error as Error).message,
     })
   }
 })
