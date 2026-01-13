@@ -37,7 +37,7 @@ interface StoryWithPrompt extends StoryData {
 }
 
 interface FeatureWithStories extends FeatureData {
-  stories?: StoryData[]
+  stories?: StoryWithPrompt[]
   storiesLoading?: boolean
   storiesError?: string
 }
