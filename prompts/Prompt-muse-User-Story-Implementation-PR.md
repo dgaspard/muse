@@ -115,14 +115,14 @@ Use clear, scoped commits with format:
 <optional detailed explanation>
 ```plaintext
 
-Example (using the actual story ID):
+Example (using the actual story ID provided above):
 
 ```plaintext
-MUSE-001: Add user authentication to API
+{{user_story_id}}: implement requested functionality
 
-- Implement JWT token generation and validation
-- Add middleware for protected routes
-- Include refresh token support for long sessions
+- Implement all acceptance criteria
+- Add required tests
+- Document any assumptions
 ```plaintext
 
 ### 7. OPEN A PULL REQUEST

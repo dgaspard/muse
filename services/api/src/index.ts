@@ -565,6 +565,12 @@ app.post('/stories/:storyId/generate-prompt', async (req: Request, res: Response
       ? governanceMarkdown.slice(0, 2000) + (governanceMarkdown.length > 2000 ? '\n\n[... content truncated ...]' : '')
       : 'No governance context provided'
 
+    // Normalize user story role (prevent reserved 'system' value)
+    let normalizedRole = story.role || 'user'
+    if (normalizedRole.toLowerCase() === 'system') {
+      normalizedRole = 'authorized system service'
+    }
+
     // Interpolate template variables
     const variables: Record<string, string> = {
       repo_url: repoUrl || 'https://github.com/dgaspard/muse',
@@ -572,7 +578,7 @@ app.post('/stories/:storyId/generate-prompt', async (req: Request, res: Response
       current_branch: `muse/${storyId}-implementation`,
       user_story_id: story.story_id || storyId,
       user_story_title: story.title || 'Untitled Story',
-      user_story_role: story.role || 'user',
+      user_story_role: normalizedRole,
       user_story_capability: story.capability || 'N/A',
       user_story_benefit: story.benefit || 'N/A',
       acceptance_criteria: acceptanceCriteria,
