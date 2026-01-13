@@ -512,7 +512,6 @@ app.post('/stories/:storyId/generate-prompt', async (req: Request, res: Response
       feature,
       epic,
       governanceMarkdown,
-      projectId,
       repoUrl,
       defaultBranch,
     } = req.body
@@ -545,13 +544,13 @@ app.post('/stories/:storyId/generate-prompt', async (req: Request, res: Response
 
     // Extract acceptance criteria from story
     const acceptanceCriteria = Array.isArray(story.acceptance_criteria)
-      ? story.acceptance_criteria.map((c, i) => `${i + 1}. ${c}`).join('\n')
+      ? story.acceptance_criteria.map((c: string, i: number) => `${i + 1}. ${c}`).join('\n')
       : 'N/A'
 
     // Format governance references
     const governanceReferences = Array.isArray(story.governance_references)
       ? story.governance_references
-          .map((ref) => {
+          .map((ref: any) => {
             if (typeof ref === 'object' && ref !== null) {
               const r = ref as Record<string, unknown>
               return `- ${r.filename} (#${r.document_id})`
