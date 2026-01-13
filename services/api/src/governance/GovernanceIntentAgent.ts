@@ -81,6 +81,36 @@ export class GovernanceIntentAgent {
   }
 
   /**
+   * Retry helper with exponential backoff for rate limit errors
+   * @param fn Function to retry
+   * @param maxRetries Maximum number of retry attempts
+   * @param baseDelay Initial delay in milliseconds (doubles on each retry)
+   */
+  private async retryWithBackoff<T>(
+    fn: () => Promise<T>,
+    maxRetries: number = 3,
+    baseDelay: number = 2000
+  ): Promise<T> {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await fn()
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        const isRateLimit = errorMessage.includes('rate_limit_error') || errorMessage.includes('RateLimitError')
+        
+        if (!isRateLimit || attempt === maxRetries) {
+          throw error
+        }
+        
+        const delay = baseDelay * Math.pow(2, attempt)
+        console.warn(`[GovernanceIntentAgent] Rate limit hit (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay}ms`)
+        await new Promise(resolve => setTimeout(resolve, delay))
+      }
+    }
+    throw new Error('Retry logic failed unexpectedly')
+  }
+
+  /**
    * Read and parse governance Markdown
    */
   private readGovernanceMarkdown(markdownPath: string): { content: string; frontMatter: Record<string, unknown> } {
@@ -212,18 +242,21 @@ No prose. No explanations. Only YAML.`
     const userPrompt = `Governance Markdown content:\n\n${governanceContent}\n\nDocument metadata:\n- document_id: ${documentId}\n- filename: ${markdownPath}`
 
     try {
-      const response = await this.anthropic.messages.create({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1024,
-        temperature: 0,
-        system: systemPrompt,
-        messages: [
-          {
-            role: 'user',
-            content: userPrompt,
-          },
-        ],
-      })
+      // Wrap Anthropic API call with retry logic for rate limits
+      const response = await this.retryWithBackoff(async () => {
+        return await this.anthropic!.messages.create({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1024,
+          temperature: 0,
+          system: systemPrompt,
+          messages: [
+            {
+              role: 'user',
+              content: userPrompt,
+            },
+          ],
+        })
+      }, 3, 2000)
 
       const content = response.content[0]
       if (content.type !== 'text') {
@@ -254,7 +287,17 @@ No prose. No explanations. Only YAML.`
       if (error instanceof AgentValidationError) {
         throw error
       }
-      console.error('[GovernanceIntentAgent] AI derivation failed:', error)
+      
+      // Check if this is a rate limit error that should be retried
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      if (errorMessage.includes('rate_limit_error') || errorMessage.includes('RateLimitError')) {
+        console.warn('[GovernanceIntentAgent] Rate limit hit during Epic derivation')
+        console.warn('[GovernanceIntentAgent] Consider implementing retry logic or reducing document size')
+        // For now, fall back to rule-based - caller can implement retry at higher level
+      } else {
+        console.error('[GovernanceIntentAgent] AI derivation failed:', error)
+      }
+      
       console.warn('[GovernanceIntentAgent] Falling back to rule-based extraction')
       return this.ruleBasedExtractEpic(governanceContent, documentId, markdownPath, epicId)
     }
@@ -478,13 +521,16 @@ ${governanceContent.length > 15000 ? '\n\n[... content truncated for analysis ..
 --- END DOCUMENT ---`
 
     try {
-      const response = await this.anthropic.messages.create({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 2048,
-        temperature: 0,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }],
-      })
+      // Wrap Anthropic API call with retry logic for rate limits
+      const response = await this.retryWithBackoff(async () => {
+        return await this.anthropic!.messages.create({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 2048,
+          temperature: 0,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userPrompt }],
+        })
+      }, 3, 2000)
 
       const content = response.content[0]
       if (content.type !== 'text') {
@@ -568,18 +614,20 @@ epic:
 
 No prose. No explanations. Only YAML.`
 
-        const response = await this.anthropic!.messages.create({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1024,
-          temperature: 0,
-          system: focusedPrompt,
-          messages: [
-            {
-              role: 'user',
-              content: `Governance document content:\n\n${content}\n\nExtract Epic for: ${boundary.title}`,
-            },
-          ],
-        })
+        const response = await this.retryWithBackoff(async () => {
+          return await this.anthropic!.messages.create({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 1024,
+            temperature: 0,
+            system: focusedPrompt,
+            messages: [
+              {
+                role: 'user',
+                content: `Governance document content:\n\n${content}\n\nExtract Epic for: ${boundary.title}`,
+              },
+            ],
+          })
+        }, 3, 2000)
 
         const responseContent = response.content[0]
         if (responseContent.type !== 'text') {
