@@ -18,7 +18,7 @@ const outputs: FeatureOutput[] = selected.map((criterion, idx) => {
   }
   return { ...feature, generated_at: new Date().toISOString() }
 })
-```
+```plaintext
 
 ## Solution
 
@@ -37,9 +37,11 @@ Updated FeatureDerivationAgent to **group Epic success criteria** into Features 
 **Epic with 5 Success Criteria:**
 
 **BEFORE:**
+
 - 5 Features × 1 criterion = 5 stories total
 
 **AFTER:**
+
 - Feature 1: 2 criteria → 2 stories
 - Feature 2: 2 criteria → 2 stories  
 - Feature 3: 1 criterion → 1 story

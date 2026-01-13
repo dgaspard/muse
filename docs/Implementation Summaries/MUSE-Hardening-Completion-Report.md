@@ -61,7 +61,7 @@ interface GovernanceReference {
   section: string
   path: string
 }
-```
+```plaintext
 
 **After (Standardized):**
 
@@ -73,7 +73,7 @@ interface GovernanceReference {
   markdown_path: string  // Full path to markdown file
   sections: string[]     // Referenced sections (non-empty)
 }
-```
+```plaintext
 
 ### 3. Enhanced FeatureValueDerivationAgent
 
@@ -86,7 +86,7 @@ interface GovernanceReference {
 private validateFeatureValueSchema(feature: unknown): asserts feature is FeatureValueSchema {
   // Simple if/else checks for each field
 }
-```
+```plaintext
 
 **After:**
 
@@ -98,7 +98,7 @@ private validateFeatureValueSchema(feature: unknown, epicText?: string): asserts
   // Explicit markdown_path requirement in governance references
   // Prohibited content detection (Muse internals)
 }
-```
+```plaintext
 
 **Enforces:**
 
@@ -130,7 +130,7 @@ governance_references: [
     path: path.relative(process.cwd(), governanceMarkdownPath),
   },
 ]
-```
+```plaintext
 
 **Story Creation - After:**
 
@@ -143,7 +143,7 @@ governance_references: [
     sections: ['Requirements'],
   },
 ]
-```
+```plaintext
 
 **Enforces:**
 
@@ -236,7 +236,7 @@ Input Artifact (Feature/Story)
   └───────┬───────┘
           ↓
   ✅ Valid / ❌ Error with detailed report
-```
+```plaintext
 
 ## Testing & Verification
 
@@ -245,7 +245,7 @@ Input Artifact (Feature/Story)
 ```bash
 npx tsc --noEmit
 # Result: No errors
-```
+```plaintext
 
 ### ✅ ESLint Validation
 
@@ -254,14 +254,14 @@ npx eslint src/shared/ArtifactValidation.ts \
            src/features/FeatureValueDerivationAgent.ts \
            src/stories/FeatureToStoryAgent.ts
 # Result: No errors
-```
+```plaintext
 
 ### ✅ Build Success
 
 ```bash
 npm run build
 # Result: ✓ Build successful
-```
+```plaintext
 
 ## Code Quality Metrics
 
@@ -314,7 +314,7 @@ const feature = {
   derived_from_epic: 'epic-doc123'
 }
 // ✅ Passes hardening validation
-```
+```plaintext
 
 ### Validation Example 2: Feature with Generic Criteria (FAILS)
 
@@ -332,7 +332,7 @@ const feature = {
 }
 // ❌ Fails hardening validation
 // Error: Generic acceptance criterion detected: "Feature is implemented"
-```
+```plaintext
 
 ## Documentation Generated
 

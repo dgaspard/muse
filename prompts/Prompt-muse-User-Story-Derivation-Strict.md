@@ -12,12 +12,14 @@ You are defining small, testable units of behavior that collectively implement t
 You will be provided with:
 
 A single Feature, including:
+
 - Feature ID
 - Description
 - Acceptance Criteria
 - Governance References
 
 The parent Epic, including:
+
 - Epic ID
 - Objective
 - Success Criteria
@@ -31,6 +33,7 @@ These governance summaries are the authoritative source of compliance intent.
 Derive a complete but minimal set of User Stories that, collectively, implement the Feature while honoring the Epic's intent and applicable governance requirements.
 
 Each User Story must be:
+
 - Independently implementable
 - Testable
 - Traceable to governance intent
@@ -57,23 +60,25 @@ If fewer stories are sufficient, generate fewer
 
 Each User Story must follow this format:
 
-```
+```plaintext
 As a <role>,
 I want <system behavior>,
 so that <measurable outcome>.
-```
+```plaintext
 
 Roles must be realistic (e.g., system, HR specialist, records manager, auditor).
 
 ### 4. Acceptance Criteria Quality
 
 Acceptance Criteria must:
+
 - Describe observable system behavior
 - Be written in clear, complete sentences
 - Avoid policy citations, section numbers, or agency lists
 - Be testable by an engineer or QA analyst
 
 🚫 Invalid acceptance criteria include:
+
 - "Meets OMB guidance"
 - "Ensures compliance"
 - "According to Section X"
@@ -90,7 +95,7 @@ Do not embed citations in story text or acceptance criteria
 
 For each User Story:
 
-```
+```plaintext
 ### User Story: <Concise behavioral title>
 
 ID: <feature-id>-story-<nn>
@@ -108,7 +113,7 @@ Epic: <epic-id>
 
 #### Governance References
 - <governance section id(s)>
-```
+```plaintext
 
 ## Self-Validation (Required Before Responding)
 

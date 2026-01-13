@@ -31,7 +31,7 @@ epic:
     - <string>
     - <string>
   derived_from: <document_id>
-```
+```plaintext
 
 **Fallback:** If `ANTHROPIC_API_KEY` is not set, falls back to rule-based extraction.
 
@@ -61,7 +61,7 @@ features:
     title: <string>
     description: <string>
     derived_from_epic: <epic_id>
-```
+```plaintext
 
 **Validation:** Features are validated for presence of behavioral verbs and domain nouns. Fails explicitly if features are vague or generic.
 
@@ -84,7 +84,7 @@ Add to your `.env` file:
 ```bash
 # Required for AI-powered Epic and Feature derivation
 ANTHROPIC_API_KEY=your_api_key_here
-```
+```plaintext
 
 ### Getting an API Key
 
@@ -106,7 +106,7 @@ docker-compose up -d
 
 # Upload a governance document via web UI
 # Navigate to http://localhost:3000/governance
-```
+```plaintext
 
 The pipeline will automatically:
 
@@ -163,7 +163,7 @@ If `ANTHROPIC_API_KEY` is not set:
 ```bash
 # View API logs to see which agent mode was used
 docker-compose logs api | grep "GovernanceIntentAgent\|FeatureDerivationWorkflow"
-```
+```plaintext
 
 Example output:
 
@@ -171,14 +171,14 @@ Example output:
 api-1 | [GovernanceIntentAgent] Using AI-powered epic derivation
 api-1 | [FeatureDerivationWorkflow] Using AI-powered feature derivation
 api-1 | [FeatureDerivationWorkflow] Successfully derived 4 features using AI
-```
+```plaintext
 
 ### Fallback Indicators
 
 ```text
 api-1 | [GovernanceIntentAgent] ANTHROPIC_API_KEY not set, using rule-based extraction
 api-1 | [FeatureDerivationWorkflow] AI derivation failed, falling back to rule-based
-```
+```plaintext
 
 ## Testing
 
@@ -204,7 +204,7 @@ curl -F "file=@your_document.pdf" \
      http://localhost:4000/api/pipeline/execute
 
 # 3. Check output for AI-derived Epic and Features
-```
+```plaintext
 
 ## Cost Considerations
 

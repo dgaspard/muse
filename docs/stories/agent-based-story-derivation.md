@@ -5,6 +5,7 @@
 MUSE-007 completes the governance-to-delivery decomposition loop by translating Features into **clear, testable, INVEST-compliant user stories** that developers can implement.
 
 This document explains:
+
 - Why INVEST matters for AI-generated requirements
 - How product owners should review stories
 - How governance traceability flows into delivery
@@ -26,12 +27,14 @@ INVEST is an acronym representing six qualities of well-formed user stories:
 ### Why AI-Generated Stories Need INVEST
 
 Without INVEST constraints, AI-generated requirements can:
+
 - Leak technical implementation details (violating "Negotiable")
 - Create massive, unscoped epics (violating "Small")
 - Generate vague aspirations with no measurable outcome (violating "Testable")
 - Invent features not implied by governance (violating traceability)
 
 MUSE enforces INVEST compliance through:
+
 1. **Schema validation** — Stories must have role, capability, benefit, and acceptance criteria
 2. **INVEST validation** — Stories are checked for implementation leakage, vague benefits, and missing testability
 3. **Hard failure** — Invalid stories fail the workflow; no silent correction
@@ -70,6 +73,7 @@ Before accepting AI-generated stories, verify:
 ### Rejection Criteria
 
 Reject a story if:
+
 - Title contains implementation detail ("Implement X", "Code Y")
 - Benefit is too vague to understand value
 - Acceptance criteria are missing or untestable
@@ -82,7 +86,7 @@ Reject a story if:
 
 Muse maintains an explicit traceability chain from governance intent to delivered code:
 
-```
+```plaintext
 Governance Document (Immutable)
   ↓
 Governance Markdown (MUSE-003)
@@ -94,16 +98,18 @@ Features (MUSE-006)
 User Stories (MUSE-007)
   ↓
 Implementation (Developer)
-```
+```plaintext
 
 ### Traceability Artifacts
 
 Every story includes:
+
 - `derived_from_feature` — Feature ID
 - `derived_from_epic` — Epic ID
 - `governance_references` — List of governance sections
 
 These references appear in:
+
 1. **Story Markdown front matter** — Machine-readable YAML
 2. **Story body** — Human-readable governance references section
 3. **muse.yaml** — Centralized artifact registry
@@ -111,11 +117,13 @@ These references appear in:
 ### Why This Matters
 
 In regulated environments:
+
 - Auditors need proof that delivered code satisfies governance requirements
 - Traceability must survive refactoring and re-derivation
 - Every artifact must reference its source of authority
 
 Muse ensures traceability is:
+
 - **Explicit** — No inferred or assumed references
 - **Immutable** — Governance documents are never modified
 - **Auditable** — muse.yaml provides a complete artifact lineage
@@ -127,6 +135,7 @@ Muse ensures traceability is:
 ### What is Requirement Hallucination?
 
 Requirement hallucination occurs when AI:
+
 - Invents features not present in governance
 - Infers unstated user needs
 - Adds technical implementation detail
@@ -171,6 +180,7 @@ Requirement hallucination occurs when AI:
 > As a developer, I want to implement OAuth2 with JWT tokens, so that we have secure authentication.
 
 **Why Rejected:**
+
 - Role is "developer" (not user-facing)
 - Title contains implementation detail ("implement OAuth2")
 - Governance does not specify OAuth2 or JWT
@@ -212,7 +222,7 @@ generated_at: 2026-01-11T12:00:00Z
 - User can enter username and password
 - System validates credentials
 - User receives appropriate feedback
-```
+```plaintext
 
 ---
 
@@ -225,9 +235,10 @@ Story derivation can be automated in CI:
 ```bash
 # services/api/src/stories/StoryDerivationWorkflow.ts
 npm run muse:derive-stories
-```
+```plaintext
 
 CI should:
+
 1. Run story derivation from Features
 2. Validate schema and INVEST compliance
 3. Run unit tests
@@ -237,6 +248,7 @@ CI should:
 ### Pull Request Requirements
 
 PRs that include stories should:
+
 - Include story Markdown files
 - Update muse.yaml
 - Pass all tests
@@ -266,6 +278,7 @@ A: Typically 1-3 stories per Feature. Features with many acceptance criteria may
 ## Summary
 
 MUSE-007 translates Features into INVEST-compliant user stories with:
+
 - Strict schema validation
 - INVEST compliance checks
 - Governance traceability

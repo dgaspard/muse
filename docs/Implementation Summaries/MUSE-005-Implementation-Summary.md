@@ -38,6 +38,7 @@ MUSE-005 implements the **first interpretive step** in Muse: a bounded AI agent 
   - No additional fields allowed in output (prevents hallucination)
 
 **Example Output:**
+
 ```yaml
 epic_id: epic-doc-7f3a
 derived_from: doc-7f3a5d2b
@@ -48,7 +49,7 @@ success_criteria:
   - Original files are preserved without modification
   - Metadata includes upload timestamp and user
   - Documents are retrievable by identifier
-```
+```plaintext
 
 ### 2. **EpicDerivationWorkflow Orchestrator**
 
@@ -116,6 +117,7 @@ success_criteria:
 **File Structure:** `docs/epics/<document_id>-epic.md`
 
 **Example:**
+
 ```markdown
 ---
 epic_id: epic-doc-7f3a
@@ -136,11 +138,12 @@ Enable secure upload and immutable storage of governance documents with unique i
 - Original files are preserved without modification in object storage
 - Metadata includes upload timestamp, user, and document properties
 - Documents are retrievable by identifier through API or interface
-```
+```plaintext
 
 ### 6. **Artifact Traceability in muse.yaml**
 
 **Sample muse.yaml:**
+
 ```yaml
 artifacts:
   governance_markdown:
@@ -157,7 +160,7 @@ artifacts:
       source_markdown: docs/governance/doc-7f3a5d2b.md
       epic_path: docs/epics/doc-7f3a5d2b-epic.md
       generated_at: 2026-01-11T10:15:00Z
-```
+```plaintext
 
 ### 7. **Documentation - Bounded Agents**
 
@@ -189,7 +192,7 @@ artifacts:
 
 The GovernanceIntentAgent follows a **bounded agent pattern**:
 
-```
+```plaintext
 Input: Governance Markdown (read-only)
   ↓
 [Parse YAML front matter]
@@ -201,13 +204,13 @@ Input: Governance Markdown (read-only)
 [Fail hard if invalid, retry once]
   ↓
 Output: EpicOutput (strictly validated)
-```
+```plaintext
 
 **Key Constraint:** No additional fields allowed in output. Prevents hallucination and model drift.
 
 ### Workflow Integration
 
-```
+```plaintext
 EpicDerivationWorkflow orchestrates:
 
 1. Load governance Markdown
@@ -216,7 +219,7 @@ EpicDerivationWorkflow orchestrates:
 4. Write Epic Markdown
 5. Update muse.yaml ← Non-destructive (preserves existing artifacts)
 6. (TODO) Commit to Git
-```
+```plaintext
 
 ### Schema Validation
 
@@ -236,7 +239,7 @@ interface EpicSchema {
 // ✗ Empty success_criteria → AgentValidationError
 // ✓ Retry once on failure
 // ✗ Hard failure on second attempt
-```
+```plaintext
 
 ---
 
@@ -244,7 +247,7 @@ interface EpicSchema {
 
 **All 55 tests passing:**
 
-```
+```plaintext
 ✓ tests/conversion/documentToMarkdownConverter.test.ts (18 tests)
 ✓ tests/governance/GovernanceIntentAgent.test.ts (8 tests)
 ✓ tests/governance/EpicDerivationWorkflow.test.ts (12 tests)
@@ -252,7 +255,7 @@ interface EpicSchema {
 
 Test Files: 4 passed
 Tests: 55 passed
-```
+```plaintext
 
 ---
 
@@ -320,7 +323,7 @@ Tests: 55 passed
    - Currently ignored with warning
    - TODO comment: Implement `git checkout -b` logic
 
-### None of these block acceptance — all are documented for next phase.
+### None of these block acceptance — all are documented for next phase
 
 ---
 
@@ -340,7 +343,7 @@ app.post('/governance/derive-epic', async (req, res) => {
   })
   res.json(artifact)
 })
-```
+```plaintext
 
 ---
 

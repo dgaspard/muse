@@ -4,7 +4,7 @@
 
 ```json
 POST /api/stories/derive-from-documents
-```
+```plaintext
 
 Derives user stories from feature and governance markdown documents stored in MinIO.
 
@@ -14,7 +14,7 @@ Derives user stories from feature and governance markdown documents stored in Mi
 
 ```json
 Content-Type: application/json
-```
+```plaintext
 
 ### Body Parameters
 
@@ -36,7 +36,7 @@ curl -X POST http://localhost:4000/api/stories/derive-from-documents \
     "projectId": "test-project",
     "epicId": "test-epic-01"
   }'
-```
+```plaintext
 
 ## Response
 
@@ -71,7 +71,7 @@ curl -X POST http://localhost:4000/api/stories/derive-from-documents \
     // ... more stories
   ]
 }
-```
+```plaintext
 
 ### Error Responses
 
@@ -83,7 +83,7 @@ Missing or invalid parameters:
 {
   "error": "featureDocumentId is required"
 }
-```
+```plaintext
 
 #### 500 Internal Server Error
 
@@ -94,7 +94,7 @@ Document not found or processing error:
   "error": "Failed to derive stories",
   "message": "The specified key does not exist."
 }
-```
+```plaintext
 
 ## Feature Markdown Format
 
@@ -115,7 +115,7 @@ Detailed description of the feature and its business value.
 - First acceptance criterion
 - Second acceptance criterion
 - Third acceptance criterion
-```
+```plaintext
 
 ## Story Generation Rules
 
@@ -130,7 +130,7 @@ Stories use the canonical pattern:
 
 ```xml
 <project>-<feature_id>-story-<NN>-<short-capability-name>
-```
+```plaintext
 
 Notes:
 
@@ -142,7 +142,7 @@ Example:
 
 ```text
 myproject-myproject-epic-01-feature-01-story-01-user-can-navigate-to-login
-```
+```plaintext
 
 ## How to Get Document IDs
 
@@ -152,7 +152,7 @@ myproject-myproject-epic-01-feature-01-story-01-user-can-navigate-to-login
 curl -X POST http://localhost:4000/uploads \
   -F "projectId=myproject" \
   -F "file=@feature.txt"
-```
+```plaintext
 
 Returns:
 
@@ -163,13 +163,13 @@ Returns:
   "checksumSha256": "9f4fb6b6ed8107b96aa12e5038da6a02...",
   "metadata": { ... }
 }
-```
+```plaintext
 
 ### Option 2: Query existing document metadata
 
 ```bash
 curl http://localhost:4000/documents/{documentId}/metadata
-```
+```plaintext
 
 ## Complete Workflow Example
 
@@ -195,7 +195,7 @@ curl -X POST http://localhost:4000/api/stories/derive-from-documents \
     \"projectId\": \"myproject\",
     \"epicId\": \"myproject-epic-01\"
   }" | jq '.'
-```
+```plaintext
 
 ## Testing
 

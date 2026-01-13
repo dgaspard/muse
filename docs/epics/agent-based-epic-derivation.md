@@ -99,7 +99,7 @@ epic:
   success_criteria:
     - string (measurable criterion)
     - string (measurable criterion)
-```
+```plaintext
 
 ### Validation Rules
 
@@ -130,6 +130,7 @@ epic:
 - ✅ Epic objective matches intent expressed in source document
 
 **Red Flags**:
+
 - Epic references a document that doesn't exist
 - Epic includes details not present in source
 - Epic contradicts source document
@@ -141,6 +142,7 @@ epic:
 - ✅ Success criteria are **measurable** but not technical
 
 **Good Example**:
+
 ```markdown
 ## Objective
 Enable traceable governance document processing through automated conversion and version control.
@@ -149,9 +151,10 @@ Enable traceable governance document processing through automated conversion and
 - All governance documents are stored immutably with unique identifiers
 - Document changes are tracked in version control with approval workflows
 - Audit trails demonstrate compliance with regulatory requirements
-```
+```plaintext
 
 **Bad Example** (too implementation-specific):
+
 ```markdown
 ## Objective
 Build a FastAPI service that converts PDFs using Pandoc.
@@ -160,7 +163,7 @@ Build a FastAPI service that converts PDFs using Pandoc.
 - API endpoint `/convert` accepts multipart/form-data
 - Uses Pandoc 2.18 or later
 - Returns JSON with conversion status
-```
+```plaintext
 
 #### 3. Completeness
 
@@ -169,6 +172,7 @@ Build a FastAPI service that converts PDFs using Pandoc.
 - ✅ All criteria align with the objective
 
 **Questions to Ask**:
+
 - Can we measure whether these criteria are met?
 - Are we missing critical success criteria from the source document?
 - Is the objective broad enough to encompass all requirements?
@@ -226,7 +230,7 @@ graph TD
     D --> G[Update muse.yaml]
     G --> H[Commit to Git]
     H --> I[Open Pull Request]
-```
+```plaintext
 
 ### Implementation Notes
 
@@ -306,6 +310,7 @@ Re-run Epic derivation when:
 ### Example 1: Document Upload Policy
 
 **Source Governance Markdown** (`docs/governance/doc-upload-policy.md`):
+
 ```markdown
 ---
 document_id: doc-7f3a5d2b
@@ -321,9 +326,10 @@ All governance documents must be uploaded through a secure interface and stored 
 - Original files must be preserved without modification
 - Metadata must include upload timestamp and user
 - Documents must be retrievable by identifier
-```
+```plaintext
 
 **Generated Epic** (`docs/epics/doc-7f3a5d2b-epic.md`):
+
 ```markdown
 ---
 epic_id: epic-doc-7f3a
@@ -344,11 +350,12 @@ Enable secure upload and immutable storage of governance documents with unique i
 - Original files are preserved without modification in object storage
 - Metadata includes upload timestamp, user, and document properties
 - Documents are retrievable by identifier through API or interface
-```
+```plaintext
 
 ### Example 2: Git Governance Workflow
 
 **Source Governance Markdown** (`docs/governance/git-workflow.md`):
+
 ```markdown
 ---
 document_id: doc-a1b2c3d4
@@ -364,9 +371,10 @@ Governance changes must follow the same review process as code changes.
 - Changes are reviewed through Pull Requests
 - Approvals are tracked in Git history
 - Audit trails are maintained through Git log
-```
+```plaintext
 
 **Generated Epic** (`docs/epics/doc-a1b2c3d4-epic.md`):
+
 ```markdown
 ---
 epic_id: epic-doc-a1b2
@@ -387,7 +395,7 @@ Implement Git-based workflow for governance changes to enable transparent review
 - All changes require Pull Request review before merge
 - Approvals are captured in Git commit history and metadata
 - Audit trails demonstrate compliance through Git log analysis
-```
+```plaintext
 
 ---
 

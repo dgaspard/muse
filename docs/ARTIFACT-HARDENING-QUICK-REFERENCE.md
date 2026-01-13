@@ -25,7 +25,7 @@ All governance references now follow this structure:
   markdown_path: string   // Path to markdown file
   sections: string[]      // Section headers referenced
 }
-```
+```plaintext
 
 ### 3. **Enhanced Agent Validation**
 
@@ -39,14 +39,14 @@ All governance references now follow this structure:
 ```yaml
 Format: <project>-<epic_id>-feature-<NN>
 Example: demo-project-epic-doc123-feature-01
-```
+```plaintext
 
 ### Story IDs
 
 ```yaml
 Format: <project>-<feature_id>-story-<NN>-<short-name>
 Example: demo-project-epic-doc123-feature-01-story-01-user-auth
-```
+```plaintext
 
 ## Validation Rules
 
@@ -84,7 +84,7 @@ If you have existing code that creates GovernanceReferences:
 
 ```typescript
 { section: 'X', path: './file.md' }
-```
+```plaintext
 
 **NEW:**
 
@@ -95,7 +95,7 @@ If you have existing code that creates GovernanceReferences:
   markdown_path: './file.md',
   sections: ['X']
 }
-```
+```plaintext
 
 ## Files Modified
 

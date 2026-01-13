@@ -1,4 +1,4 @@
-#AI Prompt: Epic → Feature → User Story Derivation with Governance Coverage
+# AI Prompt: Epic → Feature → User Story Derivation with Governance Coverage
 
 Role
 You are an expert product engineer and governance-aware system designer working inside the Muse governance-to-delivery pipeline.

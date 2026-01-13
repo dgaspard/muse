@@ -13,5 +13,7 @@
     "smoke": "bash ./scripts/smoke_test.sh",
     "e2e-upload": "bash ./scripts/e2e_upload.sh"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "markdownlint-cli": "^0.47.0"
+  }
 }

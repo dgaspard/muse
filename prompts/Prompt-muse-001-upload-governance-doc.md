@@ -7,7 +7,7 @@ Prompt ID: PROMPT-MUSE-001
 Associated Story ID: MUSE-001
 Prompt Type: implementation
 Target System: muse-web + muse-api
-```
+```plaintext
 
 ---
 
@@ -20,7 +20,7 @@ Target System: muse-web + muse-api
 
 ### Derived From
 - User Story: MUSE-001 — Upload governance document via web UI
-```
+```plaintext
 
 ---
 
@@ -50,7 +50,7 @@ workflow and must be simple, explicit, and reliable.
 - Do not perform downstream processing (no conversion, no AI analysis)
 - Preserve the original file exactly as uploaded
 - Associate each upload with a project identifier
-```
+```plaintext
 
 ---
 
@@ -70,7 +70,7 @@ workflow and must be simple, explicit, and reliable.
 7. Do not introduce authentication, authorization, or role
    enforcement (prototype mode)
 8. Favor explicit, readable code over abstractions
-```
+```plaintext
 
 ---
 
@@ -84,7 +84,7 @@ workflow and must be simple, explicit, and reliable.
 ### Assumptions
 - A project already exists or a placeholder project ID is acceptable
 - Object storage (e.g., S3-compatible) is already configured
-```
+```plaintext
 
 ---
 
@@ -96,7 +96,7 @@ workflow and must be simple, explicit, and reliable.
 - Backend API endpoint (POST) to receive uploads
 - Clear JSON response confirming upload success
 - Basic logging that includes project ID and document ID
-```
+```plaintext
 
 ---
 
@@ -108,7 +108,7 @@ workflow and must be simple, explicit, and reliable.
 - Do not log sensitive document data
 - Do not modify tests to make failures pass
 - Do not add speculative features beyond the user story
-```
+```plaintext
 
 ---
 
@@ -120,7 +120,7 @@ workflow and must be simple, explicit, and reliable.
 - [ ] Backend successfully receives and stores the file
 - [ ] User receives a clear confirmation of upload completion
 - [ ] No downstream processing is triggered
-```
+```plaintext
 
 ---
 
@@ -136,7 +136,7 @@ workflow and must be simple, explicit, and reliable.
     "ui_framework_change"
   ]
 }
-```
+```plaintext
 
 ---
 

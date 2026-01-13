@@ -501,6 +501,116 @@ app.delete('/features/:featureId/stories', expensiveOperationLimiter, async (req
   }
 })
 
+// POST /stories/:storyId/generate-prompt
+// Generate implementation PR prompt from a user story
+// Returns interpolated prompt template with story data
+app.post('/stories/:storyId/generate-prompt', async (req: Request, res: Response) => {
+  try {
+    const { storyId } = req.params
+    const {
+      story,
+      feature,
+      epic,
+      governanceMarkdown,
+      repoUrl,
+      defaultBranch,
+    } = req.body
+
+    // Validate inputs
+    if (!story || typeof story !== 'object') {
+      return res.status(400).json({
+        ok: false,
+        error: 'story object is required',
+      })
+    }
+
+    // Read prompt template
+    const promptTemplatePath = path.join(
+      process.cwd(),
+      '..',
+      '..',
+      'prompts',
+      'Prompt-muse-User-Story-Implementation-PR.md'
+    )
+
+    if (!fs.existsSync(promptTemplatePath)) {
+      return res.status(404).json({
+        ok: false,
+        error: 'Prompt template not found',
+      })
+    }
+
+    let template = fs.readFileSync(promptTemplatePath, 'utf-8')
+
+    // Extract acceptance criteria from story
+    const acceptanceCriteria = Array.isArray(story.acceptance_criteria)
+      ? story.acceptance_criteria.map((c: string, i: number) => `${i + 1}. ${c}`).join('\n')
+      : 'N/A'
+
+    // Format governance references
+    const governanceReferences = Array.isArray(story.governance_references)
+      ? story.governance_references
+          .map((ref: any) => {
+            if (typeof ref === 'object' && ref !== null) {
+              const r = ref as Record<string, unknown>
+              return `- ${r.filename} (#${r.document_id})`
+            }
+            return `- ${ref}`
+          })
+          .join('\n')
+      : 'N/A'
+
+    // Extract governance excerpt (first 2000 chars)
+    const governanceExcerpt = governanceMarkdown
+      ? governanceMarkdown.slice(0, 2000) + (governanceMarkdown.length > 2000 ? '\n\n[... content truncated ...]' : '')
+      : 'No governance context provided'
+
+    // Interpolate template variables
+    const variables: Record<string, string> = {
+      repo_url: repoUrl || 'https://github.com/dgaspard/muse',
+      default_branch: defaultBranch || 'main',
+      current_branch: `muse/${storyId}-implementation`,
+      user_story_id: story.story_id || storyId,
+      user_story_title: story.title || 'Untitled Story',
+      user_story_role: story.role || 'user',
+      user_story_capability: story.capability || 'N/A',
+      user_story_benefit: story.benefit || 'N/A',
+      acceptance_criteria: acceptanceCriteria,
+      feature_id: feature?.feature_id || 'N/A',
+      feature_title: feature?.title || 'N/A',
+      epic_id: epic?.epic_id || 'N/A',
+      epic_title: epic?.title || 'N/A',
+      governance_references: governanceReferences,
+      governance_markdown_excerpt: governanceExcerpt,
+      languages: 'TypeScript, Python',
+      frameworks: 'Next.js, Express.js, FastAPI',
+      test_frameworks: 'Vitest, Jest, Pytest',
+    }
+
+    // Replace all {{variable}} placeholders
+    let interpolated = template
+    for (const [key, value] of Object.entries(variables)) {
+      const placeholder = new RegExp(`{{${key}}}`, 'g')
+      interpolated = interpolated.replace(placeholder, value)
+    }
+
+    console.log(`[Prompt] Generated implementation prompt for story=${storyId}`)
+
+    return res.json({
+      ok: true,
+      storyId,
+      prompt: interpolated,
+    })
+  } catch (err) {
+    console.error('[Prompt] Prompt generation failed', err)
+    return res.status(500).json({
+      ok: false,
+      error: 'prompt generation failed',
+      details: (err as Error).message,
+    })
+  }
+})
+
 // POST /epics/:epicId/generate-features
 // On-demand feature generation from an approved Epic
 // Request body must include epic and governance summaries

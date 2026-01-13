@@ -36,7 +36,7 @@ Successfully implemented the ability to derive user stories from feature and gov
   "projectId": "test-project",
   "epicId": "test-epic-01"  // optional
 }
-```
+```plaintext
 
 **Response:**
 
@@ -46,7 +46,7 @@ Successfully implemented the ability to derive user stories from feature and gov
   "storiesGenerated": 5,
   "stories": [...]
 }
-```
+```plaintext
 
 ### 3. Created `documentStoreFactory.ts`
 
@@ -92,7 +92,7 @@ curl -X POST http://localhost:4000/api/stories/derive-from-documents \
     "projectId": "myproject",
     "epicId": "myproject-epic-01"
   }'
-```
+```plaintext
 
 ## Architecture
 
@@ -110,7 +110,7 @@ User → API (/api/stories/derive-from-documents)
    deriveStoriesFromContent()
        ↓
    Returns StoryOutput[]
-```
+```plaintext
 
 ## Compliance with Project Constraints
 

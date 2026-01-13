@@ -39,6 +39,7 @@ The governance content is the ONLY source of truth.
 Each Feature MUST include:
 
 ### 1. Business Value
+
 - Clearly state WHY the feature matters
 - Frame value in terms of:
   - compliance

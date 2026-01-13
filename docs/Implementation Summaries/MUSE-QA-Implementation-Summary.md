@@ -42,7 +42,7 @@ Created a `GovernanceMarkdownValidator` class that enforces content quality gate
   contentLength: number
   headingCount: number
 }
-```
+```plaintext
 
 ---
 
@@ -54,7 +54,7 @@ Updated `DocumentToMarkdownConverter` interface to include:
 
 ```typescript
 getSupportedMimeTypes(): string[]
-```
+```plaintext
 
 **Why:** Enables converters to declare their capabilities at runtime, improving flexibility for adding new converters (DOCX, images, etc.) without modifying registry logic.
 
@@ -101,7 +101,7 @@ Updated `BasicPdfToMarkdownConverter` and `ConverterRegistry` implementations to
   features: [ ... ]
   stories: [ ... ]
 }
-```
+```plaintext
 
 ---
 
@@ -175,7 +175,7 @@ Updated `BasicPdfToMarkdownConverter` and `ConverterRegistry` implementations to
 ---
 Test Files  11 passed (11)
 Tests       87 passed (87)
-```
+```plaintext
 
 ---
 
@@ -194,7 +194,7 @@ Verifies:
 
 ```bash
 bash scripts/e2e_content_quality.sh
-```
+```plaintext
 
 ---
 
@@ -269,13 +269,13 @@ bash scripts/e2e_content_quality.sh
 ```bash
 cd services/api
 npm test
-```
+```plaintext
 
 ### Run E2E Validation Test
 
 ```bash
 bash scripts/e2e_content_quality.sh
-```
+```plaintext
 
 ### Manual API Testing
 
@@ -285,7 +285,7 @@ bash scripts/e2e_content_quality.sh
 curl -X POST http://localhost:4000/pipeline/execute \
   -F "projectId=test-proj" \
   -F "file=@path/to/real-governance.pdf"
-```
+```plaintext
 
 **Expected:** HTTP 200 with validation status, epic, features, stories
 
@@ -297,7 +297,7 @@ Create a PDF with placeholder text:
 # The API will convert it to markdown with placeholder markers
 # Validator will reject it
 # Response: HTTP 422 with validation errors
-```
+```plaintext
 
 ---
 

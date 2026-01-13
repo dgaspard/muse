@@ -46,7 +46,7 @@ findDuplicateFeatureIds(features): string[]
 findDuplicateStoryIds(stories): string[]
 validateFeatureHardening(feature): ValidationReport
 validateStoryHardening(story): ValidationReport
-```
+```plaintext
 
 ### 2. Standardized GovernanceReference Type
 
@@ -56,7 +56,7 @@ validateStoryHardening(story): ValidationReport
 // Different in different files
 { section: string; path: string }
 { document_id: string; filename: string; sections: string[] }
-```
+```plaintext
 
 **New Standardized Format:**
 
@@ -67,7 +67,7 @@ export interface GovernanceReference {
   markdown_path: string    // Full path to markdown file (relative to cwd)
   sections: string[]       // Section headers referenced (non-empty)
 }
-```
+```plaintext
 
 ### 3. Updated Schema Interfaces
 
@@ -125,7 +125,7 @@ governance_references: [
     path: path.relative(process.cwd(), governanceMarkdownPath),
   },
 ]
-```
+```plaintext
 
 **New Format:**
 
@@ -138,7 +138,7 @@ governance_references: [
     sections: ['Requirements'],
   },
 ]
-```
+```plaintext
 
 ## ID Format Enforcement
 

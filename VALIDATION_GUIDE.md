@@ -73,7 +73,7 @@ To test the pipeline end-to-end:
 ```bash
 # Use the test script to create and upload a sample governance document
 bash ./scripts/smoke_test.sh
-```
+```plaintext
 
 The smoke test includes a sample governance document that passes validation.
 
@@ -90,7 +90,7 @@ The smoke test includes a sample governance document that passes validation.
   "features": [ /* derived features */ ],
   "user_stories": [ /* derived user stories */ ]
 }
-```
+```plaintext
 
 ### Validation Failure (422 Unprocessable Entity)
 
@@ -101,7 +101,7 @@ The smoke test includes a sample governance document that passes validation.
   "details": "[NO_STRUCTURE] Content has no section headings. Found 0, minimum required: 1.",
   "validationBlockedPipeline": true
 }
-```
+```plaintext
 
 The web UI now displays the full validation error message to help you understand what went wrong.
 
