@@ -186,7 +186,7 @@ export class MusePipelineOrchestrator {
 
       const summaries: SectionSummary[] = []
       for (const sec of sections) {
-        const summary = await limiter.run(() => retryWithBackoff(() => summaryJob.run(sec.id, sec.content)))
+        const summary = await limiter.run(() => retryWithBackoff(() => summaryJob.run(sec.id, sec.title, sec.content)))
         summaries.push(summary)
       }
 
