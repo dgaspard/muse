@@ -17,27 +17,62 @@ interface FeatureData {
   governance_references: string[]
 }
 
+/**
+ * StoryData: Pure product artifact describing what users want.
+ * MUST NOT contain:
+ * - Execution instructions
+ * - AI role language ("you are")
+ * - Implementation steps
+ * References are optional and used for traceability only.
+ */
 interface StoryData {
   story_id: string
   title: string
-  role: string
-  capability: string
-  benefit: string
+  role: string // "As a..."
+  capability: string // "I want to..."
+  benefit: string // "So that..."
   acceptance_criteria: string[]
   derived_from_feature: string
   derived_from_epic: string
   governance_references: string[]
 }
 
-interface StoryWithPrompt extends StoryData {
-  prompt?: string
-  promptLoading?: boolean
-  promptError?: string
-  promptExpanded?: boolean
+/**
+ * AIPrompt: Executable instructions for AI agents.
+ * MUST contain:
+ * - Explicit role declaration ("You are...")
+ * - Specific task ("Your task is...")
+ * - Output expectations
+ * - Story references by ID (not duplication)
+ * References are resolved and validated.
+ */
+interface AIPrompt {
+  prompt_id: string // Unique identifier for this prompt
+  story_id: string // References the story by ID
+  feature_id?: string // Optional: resolved feature reference
+  epic_id?: string // Optional: resolved epic reference
+  content: string // Full interpolated prompt text
+  role: string // AI role (e.g., "Software Engineer")
+  task: string // Primary task (e.g., "Implement PR from story")
+  generated_at: string // ISO timestamp
+  template: string // Which template was used
+}
+
+/**
+ * StoryWithPrompts: UI state binding story to its generated prompts.
+ * Note: A story can have multiple prompts (implementation, analysis, etc.)
+ * This keeps UI state while maintaining artifact separation.
+ */
+interface StoryWithPrompts extends StoryData {
+  prompts?: AIPrompt[] // Array of generated prompts
+  activePromptId?: string // Currently displayed prompt
+  promptsLoading?: boolean
+  promptsError?: string
+  promptsExpanded?: boolean
 }
 
 interface FeatureWithStories extends FeatureData {
-  stories?: StoryWithPrompt[]
+  stories?: StoryWithPrompts[]
   storiesLoading?: boolean
   storiesError?: string
 }
@@ -258,8 +293,19 @@ export default function GovernanceWorkflowPage(): JSX.Element {
     }
   }
 
-  const generatePromptForStory = async (story: StoryWithPrompt, feature: FeatureWithStories, epic: EpicData) => {
+  const generatePromptForStory = async (story: StoryWithPrompts, feature: FeatureWithStories, epic: EpicData) => {
     if (!output) return
+
+    // Validation: Ensure Epic and Feature references are resolved (not undefined)
+    if (!epic || !epic.epic_id) {
+      alert('Error: Epic reference is missing. Cannot generate prompt without proper context.')
+      return
+    }
+
+    if (!feature || !feature.feature_id) {
+      alert('Error: Feature reference is missing. Cannot generate prompt without proper context.')
+      return
+    }
 
     // Update story state to loading in featuresByEpic
     const updatedFeaturesByEpic = new Map(featuresByEpic)
@@ -272,7 +318,7 @@ export default function GovernanceWorkflowPage(): JSX.Element {
               ...f,
               stories: (f.stories || []).map(s =>
                 s.story_id === story.story_id
-                  ? { ...s, promptLoading: true, promptError: undefined }
+                  ? { ...s, promptsLoading: true, promptsError: undefined }
                   : s
               ),
             }
@@ -287,10 +333,15 @@ export default function GovernanceWorkflowPage(): JSX.Element {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           story,
-          feature,
-          epic,
+          feature: {
+            feature_id: feature.feature_id,
+            title: feature.title,
+          },
+          epic: {
+            epic_id: epic.epic_id,
+            title: epic.title,
+          },
           governanceMarkdown: output.markdown.content,
-          projectId,
           repoUrl: 'https://github.com/dgaspard/muse',
           defaultBranch: 'main',
         }),
@@ -302,7 +353,20 @@ export default function GovernanceWorkflowPage(): JSX.Element {
         throw new Error(data.error || 'Failed to generate prompt')
       }
 
-      // Update story with generated prompt in featuresByEpic
+      // Create AIPrompt object (separate from story)
+      const newPrompt: AIPrompt = {
+        prompt_id: `prompt-${story.story_id}-${Date.now()}`,
+        story_id: story.story_id,
+        feature_id: feature.feature_id,
+        epic_id: epic.epic_id,
+        content: data.prompt,
+        role: 'Software Engineer', // Extract from template if needed
+        task: 'Implement feature from user story',
+        generated_at: new Date().toISOString(),
+        template: 'Prompt-muse-User-Story-Implementation-PR',
+      }
+
+      // Update story with new prompt in featuresByEpic
       const updatedFeaturesByEpic2 = new Map(featuresByEpic)
       const epicFeatures2 = updatedFeaturesByEpic2.get(epic.epic_id) || []
       updatedFeaturesByEpic2.set(
@@ -313,7 +377,14 @@ export default function GovernanceWorkflowPage(): JSX.Element {
                 ...f,
                 stories: (f.stories || []).map(s =>
                   s.story_id === story.story_id
-                    ? { ...s, prompt: data.prompt, promptLoading: false, promptError: undefined, promptExpanded: true }
+                    ? {
+                        ...s,
+                        prompts: [...(s.prompts || []), newPrompt],
+                        activePromptId: newPrompt.prompt_id,
+                        promptsLoading: false,
+                        promptsError: undefined,
+                        promptsExpanded: true,
+                      }
                     : s
                 ),
               }
@@ -333,7 +404,7 @@ export default function GovernanceWorkflowPage(): JSX.Element {
                 ...f,
                 stories: (f.stories || []).map(s =>
                   s.story_id === story.story_id
-                    ? { ...s, promptLoading: false, promptError: errorMsg }
+                    ? { ...s, promptsLoading: false, promptsError: errorMsg }
                     : s
                 ),
               }
@@ -735,77 +806,95 @@ ${story.governance_references.map(r => `- ${r}`).join('\n')}`
                                           📋 Copy
                                         </button>
                                         <button 
-                                          onClick={() => generatePromptForStory(story as StoryWithPrompt, feature, epic)}
-                                          disabled={(story as StoryWithPrompt).promptLoading}
+                                          onClick={() => generatePromptForStory(story as StoryWithPrompts, feature, epic)}
+                                          disabled={(story as StoryWithPrompts).promptsLoading}
                                           style={{ 
                                             padding: '3px 6px', 
                                             fontSize: 10,
-                                            backgroundColor: (story as StoryWithPrompt).promptLoading ? '#ccc' : '#4CAF50',
+                                            backgroundColor: (story as StoryWithPrompts).promptsLoading ? '#ccc' : '#4CAF50',
                                             color: 'white',
                                             border: 'none',
                                             borderRadius: 2,
-                                            cursor: (story as StoryWithPrompt).promptLoading ? 'not-allowed' : 'pointer',
+                                            cursor: (story as StoryWithPrompts).promptsLoading ? 'not-allowed' : 'pointer',
                                           }}
                                         >
-                                          {(story as StoryWithPrompt).promptLoading ? '⏳ Generating...' : '📝 Generate Prompt'}
+                                          {(story as StoryWithPrompts).promptsLoading ? '⏳ Generating...' : '📝 Generate AI Prompt'}
                                         </button>
                                       </div>
 
-                                      {(story as StoryWithPrompt).prompt && (
-                                        <div style={{ marginTop: 10 }}>
-                                          <button
-                                            onClick={() => {
-                                              const updatedFeaturesByEpic = new Map(featuresByEpic)
-                                              const epicFeatures = updatedFeaturesByEpic.get(feature.epic_id) || []
-                                              updatedFeaturesByEpic.set(
-                                                feature.epic_id,
-                                                epicFeatures.map(f =>
-                                                  f.feature_id === feature.feature_id
-                                                    ? {
-                                                        ...f,
-                                                        stories: (f.stories || []).map(s =>
-                                                          s.story_id === story.story_id
-                                                            ? { ...s, promptExpanded: !(s as StoryWithPrompt).promptExpanded }
-                                                            : s
-                                                        ),
-                                                      }
-                                                    : f
-                                                )
-                                              )
-                                              setFeaturesByEpic(updatedFeaturesByEpic)
-                                            }}
-                                            style={{
-                                              padding: '4px 8px',
-                                              backgroundColor: '#E3F2FD',
-                                              border: '1px solid #1976D2',
-                                              borderRadius: 2,
-                                              cursor: 'pointer',
-                                              fontSize: 10,
-                                              fontWeight: 'bold',
-                                              color: '#1976D2',
-                                              width: '100%',
-                                              textAlign: 'left',
-                                            }}
-                                          >
-                                            {(story as StoryWithPrompt).promptExpanded ? '▼ Hide Prompt' : '▶ Show Prompt'}
-                                          </button>
-                                          {(story as StoryWithPrompt).promptExpanded && (
-                                            <div style={{ marginTop: 8, padding: 10, backgroundColor: '#F5F5F5', borderRadius: 2, border: '1px solid #ddd', fontSize: 10, maxHeight: 400, overflowY: 'auto', fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                                              {(story as StoryWithPrompt).prompt}
+                                      {/* AI Prompts Section: Separate from Story artifact */}
+                                      {((story as StoryWithPrompts).prompts && (story as StoryWithPrompts).prompts!.length > 0) && (
+                                        <div style={{ marginTop: 12, padding: 8, backgroundColor: '#F9F9F9', border: '1px solid #2196F3', borderRadius: 2 }}>
+                                          <div style={{ fontSize: 11, fontWeight: 'bold', color: '#1976D2', marginBottom: 6 }}>
+                                            🤖 AI Prompts ({(story as StoryWithPrompts).prompts!.length})
+                                          </div>
+                                          {(story as StoryWithPrompts).prompts!.map((prompt, pIdx) => (
+                                            <div key={pIdx} style={{ marginBottom: 8, padding: 6, backgroundColor: '#FFF', border: '1px solid #90CAF9', borderRadius: 2 }}>
+                                              <div style={{ fontSize: 10, color: '#666', marginBottom: 4 }}>
+                                                <strong>Type:</strong> {prompt.template.replace('Prompt-muse-', '').replace('-', ' ')} 
+                                                {' '}
+                                                <span style={{ fontSize: 9, color: '#999' }}>({new Date(prompt.generated_at).toLocaleDateString()})</span>
+                                              </div>
+                                              <div style={{ fontSize: 10, color: '#666', marginBottom: 4 }}>
+                                                <strong>Role:</strong> {prompt.role} | <strong>Task:</strong> {prompt.task}
+                                              </div>
+                                              <button
+                                                onClick={() => {
+                                                  const updatedFeaturesByEpic = new Map(featuresByEpic)
+                                                  const epicFeatures = updatedFeaturesByEpic.get(feature.epic_id) || []
+                                                  updatedFeaturesByEpic.set(
+                                                    feature.epic_id,
+                                                    epicFeatures.map(f =>
+                                                      f.feature_id === feature.feature_id
+                                                        ? {
+                                                            ...f,
+                                                            stories: (f.stories || []).map(s =>
+                                                              s.story_id === story.story_id
+                                                                ? { 
+                                                                    ...s, 
+                                                                    promptsExpanded: (s as StoryWithPrompts).activePromptId === prompt.prompt_id ? false : true,
+                                                                    activePromptId: prompt.prompt_id
+                                                                  }
+                                                                : s
+                                                            ),
+                                                          }
+                                                        : f
+                                                    )
+                                                  )
+                                                  setFeaturesByEpic(updatedFeaturesByEpic)
+                                                }}
+                                                style={{
+                                                  padding: '3px 6px',
+                                                  backgroundColor: (story as StoryWithPrompts).activePromptId === prompt.prompt_id ? '#2196F3' : '#E3F2FD',
+                                                  border: '1px solid #1976D2',
+                                                  borderRadius: 2,
+                                                  cursor: 'pointer',
+                                                  fontSize: 9,
+                                                  fontWeight: 'bold',
+                                                  color: (story as StoryWithPrompts).activePromptId === prompt.prompt_id ? '#FFF' : '#1976D2',
+                                                }}
+                                              >
+                                                {(story as StoryWithPrompts).activePromptId === prompt.prompt_id ? '▼ Hide' : '▶ Show'}
+                                              </button>
+                                              <button 
+                                                onClick={() => copyToClipboard(prompt.content)} 
+                                                style={{ padding: '3px 6px', marginLeft: 4, fontSize: 9 }}
+                                              >
+                                                📋 Copy
+                                              </button>
+                                              {(story as StoryWithPrompts).activePromptId === prompt.prompt_id && (story as StoryWithPrompts).promptsExpanded && (
+                                                <div style={{ marginTop: 6, padding: 8, backgroundColor: '#F5F5F5', borderRadius: 2, border: '1px solid #ddd', fontSize: 9, maxHeight: 350, overflowY: 'auto', fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.4 }}>
+                                                  {prompt.content}
+                                                </div>
+                                              )}
                                             </div>
-                                          )}
-                                          <button 
-                                            onClick={() => copyToClipboard((story as StoryWithPrompt).prompt!)} 
-                                            style={{ padding: '3px 6px', marginTop: 6, fontSize: 10 }}
-                                          >
-                                            📋 Copy Prompt
-                                          </button>
+                                          ))}
                                         </div>
                                       )}
 
-                                      {(story as StoryWithPrompt).promptError && (
+                                      {(story as StoryWithPrompts).promptsError && (
                                         <div style={{ marginTop: 8, padding: 8, backgroundColor: '#FFEBEE', border: '1px solid #F44336', borderRadius: 2, color: '#C62828', fontSize: 10 }}>
-                                          <strong>Prompt Error:</strong> {(story as StoryWithPrompt).promptError}
+                                          <strong>Prompt Error:</strong> {(story as StoryWithPrompts).promptsError}
                                         </div>
                                       )}
                                     </div>
