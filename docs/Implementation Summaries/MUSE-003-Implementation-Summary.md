@@ -98,7 +98,7 @@ interface DocumentToMarkdownConverter {
   ): Promise<MarkdownOutput>
   supports(mimeType: string): boolean
 }
-```
+```plaintext
 
 ### YAML Front Matter
 
@@ -110,7 +110,7 @@ generated_at: <ISO-8601-timestamp>
 derived_artifact: governance_markdown
 original_filename: <original.pdf>
 ---
-```
+```plaintext
 
 ### Converter Registry Pattern
 
@@ -285,7 +285,7 @@ docs/governance/
 
 prompts/
 └── Prompt-muse-003-Convert-Uploaded-Document-to-Markdown.md  (Source prompt)
-```
+```plaintext
 
 ---
 
@@ -305,7 +305,7 @@ bash ./scripts/smoke_test.sh
 # Test convert endpoint
 curl http://localhost:4000/convert/supported-formats
 curl -X POST http://localhost:4000/convert/<documentId>
-```
+```plaintext
 
 ---
 

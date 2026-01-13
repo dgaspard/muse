@@ -9,31 +9,36 @@
 ## Executive Summary
 
 This document enforces the **hard boundary** between:
+
 1. **User Stories** — Pure product artifacts (what users want)
 2. **AI Prompts** — Executable instructions for AI agents (how to build it)
 
 ### Core Principle
-```
+
+```plaintext
 User Story ≠ AI Prompt
 
 A User Story describes intent.
 An AI Prompt describes execution.
 They must never be conflated.
-```
+```plaintext
 
 ---
 
 ## User Story Specification
 
 ### Definition
+
 A User Story is a **product artifact** that captures:
+
 - Who wants something (role)
 - What they want (capability/feature)
 - Why they want it (benefit)
 - When it's done (acceptance criteria)
 
 ### Valid User Story Example
-```
+
+```plaintext
 **ID:** story-epic-001-feature-001-01
 **Title:** View Account Balance in Dashboard
 
@@ -45,11 +50,12 @@ in the main dashboard, so that I can quickly check my funds.
 2. Displays in top-right corner
 3. Updates within 5 seconds of account changes
 4. Shows "Loading..." while fetching
-```
+```plaintext
 
 ### User Story Validation Rules (MUST ENFORCE)
 
 A User Story is **VALID** if it:
+
 - ✅ Contains **no imperative instructions** ("Do not implement...", "You must...")
 - ✅ Contains **no AI role language** ("You are a senior engineer...")
 - ✅ Contains **no implementation steps** ("First, connect to the database...")
@@ -59,6 +65,7 @@ A User Story is **VALID** if it:
 - ✅ References external artifacts by **ID only** (e.g., `governance-ref: SECTION-3.2`)
 
 A User Story is **INVALID** if it:
+
 - ❌ Declares an AI role ("You are an expert...")
 - ❌ Lists implementation tasks ("Create a new component...")
 - ❌ Contains execution syntax ("Call the API, then validate...")
@@ -84,14 +91,16 @@ interface StoryData {
 
 // Rendering always shows the story verbatim
 // No transformation, no instruction wrapping
-```
+```plaintext
 
 ---
 
 ## AI Prompt Specification
 
 ### Definition
+
 An AI Prompt is an **executable instruction set** for AI agents. It:
+
 - Declares a role ("You are...")
 - Declares a task ("Your task is...")
 - Declares output expectations
@@ -99,6 +108,7 @@ An AI Prompt is an **executable instruction set** for AI agents. It:
 - Is **generated on-demand**, not embedded in stories
 
 ### Valid AI Prompt Example
+
 ```markdown
 # Muse — User Story to Pull Request Implementation Agent
 
@@ -133,11 +143,12 @@ Implement the above user story as a pull request.
 Your output must:
 1. Pass all acceptance criteria tests
 2. Follow project conventions...
-```
+```plaintext
 
 ### AI Prompt Validation Rules (MUST ENFORCE)
 
 An AI Prompt is **VALID** if it:
+
 - ✅ Declares an **explicit AI role** ("You are...")
 - ✅ Declares a **specific task** ("Your task is...")
 - ✅ Declares **output expectations** (PR format, code style, test coverage)
@@ -148,6 +159,7 @@ An AI Prompt is **VALID** if it:
 - ✅ **Separates concerns** (story intent ≠ implementation details)
 
 An AI Prompt is **INVALID** if it:
+
 - ❌ **Duplicates** User Story text verbatim
 - ❌ **Lacks role declaration** (no "You are...")
 - ❌ **Lacks task declaration** (no clear objective)
@@ -184,7 +196,7 @@ interface StoryWithPrompts extends StoryData {
 // Rendering separates concerns:
 // 1. Story section: pure product artifact
 // 2. AI Prompts section: executable instructions (if generated)
-```
+```plaintext
 
 ---
 
@@ -229,7 +241,7 @@ stories: (s.stories || []).map(s =>
       }
     : s
 )
-```
+```plaintext
 
 ### At Render Time
 
@@ -258,7 +270,7 @@ stories: (s.stories || []).map(s =>
     ))}
   </div>
 )}
-```
+```plaintext
 
 ---
 
@@ -294,7 +306,7 @@ stories: (s.stories || []).map(s =>
 
 ### ✅ Correct User Story
 
-```
+```plaintext
 **Title:** Customer Can Export Statement as PDF
 
 As a customer, I want to export my account statement as a PDF, 
@@ -306,9 +318,10 @@ so that I can save it for my records.
 3. Includes account number, period, transactions
 4. File downloads with timestamp (statement_2026-01-13.pdf)
 5. Works for statements up to 2 years old
-```
+```plaintext
 
 **Why Valid:**
+
 - Pure intent (what, not how)
 - No tech details ("database query", "API call")
 - No role language ("you must implement")
@@ -355,9 +368,10 @@ Your output must be a GitHub pull request with:
 - Branch: feature/pdf-export
 - Commits: clean, descriptive messages
 - Tests: 100% coverage of new code paths
-```
+```plaintext
 
 **Why Valid:**
+
 - Explicit role ("You are a full-stack engineer")
 - Explicit task ("Implement the above user story")
 - References by ID (not duplication)
@@ -366,7 +380,7 @@ Your output must be a GitHub pull request with:
 
 ### ❌ Invalid: Story with Execution Language
 
-```
+```plaintext
 As a customer, I want to:
 1. Click an export button
 2. Select PDF format
@@ -378,25 +392,27 @@ THEN the system should:
 - Use jsPDF library to generate PDF
 - Save to MinIO bucket
 - Return download link
-```
+```plaintext
 
 **Why Invalid:**
+
 - Mixes intent ("export") with implementation ("Call /api", "use jsPDF")
 - Contains technical directives
 - Is not pure product artifact
 
 ### ❌ Invalid: Prompt Without References
 
-```
+```plaintext
 You are a senior engineer. Your task is to implement 
 the statement export feature. Here's what to do:
 
 As a customer, I want to export statements...
 
 [FULL STORY TEXT DUPLICATED]
-```
+```plaintext
 
 **Why Invalid:**
+
 - Duplicates story instead of referencing by ID
 - No explicit output expectations
 - No artifact reference IDs
@@ -406,15 +422,18 @@ As a customer, I want to export statements...
 ## Enforcement (CI/CD)
 
 ### Pre-Commit
+
 - [ ] TypeScript compilation (catches interface misuse)
 - [ ] Lint rule: No `prompt:` field on `StoryData` types
 
 ### Pre-Merge
+
 - [ ] Code review: Story text contains no "must", "implement", "code"
 - [ ] Code review: All `AIPrompt` objects have `story_id`, `role`, `task`
 - [ ] Code review: No auto-wrapped prompts (all generated on-demand)
 
 ### Post-Deployment
+
 - [ ] Monitor: Count of `AIPrompt` objects generated
 - [ ] Monitor: Validate references resolved (no "undefined" in prompts)
 
@@ -425,15 +444,17 @@ As a customer, I want to export statements...
 If you have code using old `StoryWithPrompt` type:
 
 **Before:**
+
 ```typescript
 interface StoryWithPrompt extends StoryData {
   prompt?: string // ❌ Conflates artifact with instruction
   promptLoading?: boolean
   promptError?: string
 }
-```
+```plaintext
 
 **After:**
+
 ```typescript
 interface StoryWithPrompts extends StoryData {
   prompts?: AIPrompt[] // ✅ Separate artifact
@@ -453,9 +474,10 @@ interface AIPrompt {
   generated_at: string
   template: string
 }
-```
+```plaintext
 
 ### Update Steps
+
 1. Replace type definitions
 2. Update `generatePromptForStory()` to create `AIPrompt` objects
 3. Update rendering to loop over `prompts` array
@@ -484,6 +506,7 @@ A: Validation prevents prompt generation (alert user). This is intentional—goo
 ---
 
 ## Related Documents
+
 - [Prompt Template: User Story Implementation](../prompts/Prompt-muse-User-Story-Implementation-PR.md)
 - [API Documentation: Story Endpoints](../docs/api/)
 - [UI Architecture: Governance Page](../apps/web/pages/governance.tsx)

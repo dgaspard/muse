@@ -3,6 +3,7 @@
 ## Changes Made
 
 ### 1. **Removed Automatic Feature Generation** from Pipeline
+
 - Removed `'deriving-features'` and `'deriving-stories'` from `PipelineStage` type
 - Updated `renderStageIndicator()` to only show: Uploading → Converting to Markdown → Deriving Epics
 - Pipeline execution now **only derives Epics** from governance documents
@@ -13,11 +14,13 @@
 **Location**: Inside each Epic card in the governance workflow page
 
 **UI**:
-```
+
+```plaintext
 [✨ Generate Features] [📋 Copy Epic]
-```
+```plaintext
 
 **Behavior**:
+
 - Shows "⏳ Generating..." while request is in progress
 - Button is disabled while generating
 - Works independently for each epic
@@ -26,6 +29,7 @@
 ### 3. **Inline Feature Display** Under Each Epic
 
 **When features are generated**:
+
 - Appears in a collapsible section under the epic
 - Shows count: "Generated Features (n)"
 - Styled with light blue background (#F5F9FF)
@@ -38,6 +42,7 @@
   - **Copy button** (📋) for each feature
 
 **Visual Design**:
+
 - Indented under Epic
 - Blue border + light blue background
 - Smaller font than Epic details
@@ -46,12 +51,14 @@
 ### 4. **Updated State Management**
 
 **New State Variables**:
+
 ```typescript
 const [generatingFeatures, setGeneratingFeatures] = useState<Set<string>>(new Set())
 const [featuresByEpic, setFeaturesByEpic] = useState<Map<string, FeatureWithStories[]>>(new Map())
-```
+```plaintext
 
 **Why**:
+
 - `generatingFeatures`: Track which epics are currently generating (one epic can generate while others are idle)
 - `featuresByEpic`: Store features grouped by epic ID for inline display under each epic
 
@@ -60,6 +67,7 @@ const [featuresByEpic, setFeaturesByEpic] = useState<Map<string, FeatureWithStor
 **Purpose**: Call the feature generation API for a single epic
 
 **Flow**:
+
 1. Mark epic as generating (disable button, show spinner)
 2. Fetch governance summaries referenced by epic
 3. POST to `/api/epics/:epicId/generate-features`
@@ -75,6 +83,7 @@ const [featuresByEpic, setFeaturesByEpic] = useState<Map<string, FeatureWithStor
 ### 6. **Epic Features Response Integration**
 
 **Response Format** (from backend API):
+
 ```typescript
 {
   ok: boolean
@@ -82,9 +91,10 @@ const [featuresByEpic, setFeaturesByEpic] = useState<Map<string, FeatureWithStor
   feature_count: number
   features: FeatureData[]
 }
-```
+```plaintext
 
 **Integration**:
+
 - Features added to both the flat `output.features` list (for overall stats)
 - AND the epic-grouped `featuresByEpic` map (for inline display)
 - This allows both top-level "Features" section AND epic-specific inline display
@@ -124,7 +134,8 @@ const [featuresByEpic, setFeaturesByEpic] = useState<Map<string, FeatureWithStor
 ## User Experience Flow
 
 ### Before (Old)
-```
+
+```plaintext
 1. User uploads governance document
 2. System automatically:
    - Converts to markdown
@@ -133,10 +144,11 @@ const [featuresByEpic, setFeaturesByEpic] = useState<Map<string, FeatureWithStor
    - Derives Stories (auto) ❌ NOT IDEAL
 3. User sees everything generated
 4. User must edit/delete if not happy
-```
+```plaintext
 
 ### After (New - Better UX)
-```
+
+```plaintext
 1. User uploads governance document
 2. System derives Epics (automatic)
 3. User reviews Epics
@@ -148,26 +160,29 @@ const [featuresByEpic, setFeaturesByEpic] = useState<Map<string, FeatureWithStor
    - Copy features to clipboard
    - Generate stories from features (if needed)
    - Or generate features for other epics
-```
+```plaintext
 
 ---
 
 ## Integration with Backend
 
 ### API Endpoint Used
-```
+
+```plaintext
 POST /api/epics/:epicId/generate-features
-```
+```plaintext
 
 ### Request Payload
+
 ```typescript
 {
   epic: Epic                    // The full epic object
   summaries: SectionSummary[]   // Governance summaries referenced by epic
 }
-```
+```plaintext
 
 ### Response
+
 ```typescript
 {
   ok: boolean
@@ -175,30 +190,34 @@ POST /api/epics/:epicId/generate-features
   feature_count: number
   features: FeatureData[]
 }
-```
+```plaintext
 
 ---
 
 ## Technical Details
 
 ### State Management Pattern
+
 - Uses `Set<string>` to track which epics are currently generating
 - Allows multiple epics to generate independently
 - Button disabled only for the epic being generated
 
 ### Feature Grouping
+
 - Features stored in `Map<string, FeatureWithStories[]>`
 - Key is epic ID, value is array of features for that epic
 - Allows inline display under correct epic
 - Also merged into flat `output.features` list for stats
 
 ### Error Handling
+
 - Try/catch around API call
 - Shows alert if generation fails
 - Returns button to enabled state on error
 - Does not affect other epics
 
 ### Styling
+
 - Inline features use blue color scheme (#2196F3, #1976D2, #90CAF9)
 - Light blue background (#F5F9FF) distinguishes from regular features
 - Matches existing UI patterns for consistency

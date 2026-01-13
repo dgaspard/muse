@@ -56,7 +56,7 @@ git show <commit-hash>:docs/governance/policy.md
 
 # Verify the current policy matches an approved commit
 git log -1 --oneline docs/governance/policy.md
-```
+```plaintext
 
 ---
 
@@ -126,7 +126,7 @@ index 0000000..abc1234
 +# Annual Compliance Policy 2026
 +
 +This document outlines the organization's compliance requirements...
-```
+```plaintext
 
 ---
 
@@ -206,14 +206,14 @@ index 0000000..abc1234
 
 ```bash
 git log --since="3 months ago" --oneline -- docs/governance/
-```
+```plaintext
 
 Output:
 
 ```text
 abc1234 docs(governance): add markdown derived from 7f3a5d2b
 def5678 docs(governance): add markdown derived from a1b2c3d4
-```
+```plaintext
 
 #### "Who approved this policy change?"
 
@@ -222,7 +222,7 @@ git log --pretty=format:"%h %an %ai %s" -- docs/governance/policy.md
 
 # With branch + tag info:
 git log --pretty=format:"%h %an %ai %d %s" -- docs/governance/policy.md
-```
+```plaintext
 
 #### "What did the policy say before the latest change?"
 
@@ -232,7 +232,7 @@ git show HEAD~1:docs/governance/policy.md
 
 # See full diff
 git diff HEAD~1 docs/governance/policy.md
-```
+```plaintext
 
 #### "Compare two policy versions"
 
@@ -242,20 +242,20 @@ git diff abc1234 def5678 -- docs/governance/policy.md
 
 # Between branches
 git diff main staging -- docs/governance/policy.md
-```
+```plaintext
 
 #### "Create an audit report of all governance changes"
 
 ```bash
 git log --pretty=format:"%h|%an|%ai|%s" -- docs/governance/ > audit_report.csv
-```
+```plaintext
 
 This produces:
 
 ```text
 abc1234|John Doe|2026-01-10 19:30:00 +0000|docs(governance): add markdown derived from 7f3a5d2b
 def5678|Jane Smith|2026-01-09 14:20:00 +0000|docs(governance): add markdown derived from a1b2c3d4
-```
+```plaintext
 
 ### Compliance Demonstrations
 
@@ -271,7 +271,7 @@ git log --oneline docs/governance/data-handling-policy.md
 # Verify it matches an approved commit
 git rev-parse HEAD
 # → abc1234 (matches approved release tag)
-```
+```plaintext
 
 #### For Regulators: "Show the entire chain of custody"
 
@@ -281,7 +281,7 @@ git log --reverse --pretty=format:"%h %ai %s" docs/governance/
 
 # For each version, show the original document reference
 git show abc1234:docs/governance/policy.md | grep -A5 "^---"
-```
+```plaintext
 
 #### For Legal: "Prove a policy change was not retroactively modified"
 
@@ -296,7 +296,7 @@ git rev-list --all | grep abc1234
 # Verify it has not been rewritten
 git fsck --lost-found
 # → no dangling commits
-```
+```plaintext
 
 ---
 
@@ -322,7 +322,7 @@ jobs:
           # Check if at least one reviewer from CODEOWNERS approved
           # (GitHub handles this via branch protection + CODEOWNERS)
           echo "Governance PR - approval from @governance-team required"
-```
+```plaintext
 
 #### 2. Add CODEOWNERS
 
@@ -334,7 +334,7 @@ docs/governance/  @governance-team @compliance-lead
 
 # muse.yaml artifact registry requires both governance and engineering
 muse.yaml  @governance-team @engineering-lead
-```
+```plaintext
 
 #### 3. Enforce No Squash Merges
 
@@ -344,7 +344,7 @@ squash_merge_commit: false
 allow_merge_commit: true
 allow_rebase_merge: false
 delete_branch_on_merge: true
-```
+```plaintext
 
 This preserves the governance commit history.
 

@@ -56,7 +56,7 @@ Governance Document
 [Derive User Stories (MUSE-007)]
         ↓
 [Render UI with Copy Actions]
-```
+```plaintext
 
 ## UI Design
 
@@ -119,7 +119,7 @@ Enable secure user authentication with multi-factor verification
 
 - Section 2: Access Control
 - Section 3: Audit Logging
-```
+```plaintext
 
 ## When to Use This Workflow
 
@@ -199,7 +199,7 @@ Accepts multipart/form-data:
 ```text
 projectId: string
 file: File (PDF, DOCX, TXT)
-```
+```plaintext
 
 Returns JSON:
 
@@ -212,7 +212,7 @@ Returns JSON:
   "features": [ { "feature_id": "...", "title": "...", ... } ],
   "stories": [ { "story_id": "...", "title": "...", ... } ]
 }
-```
+```plaintext
 
 ### Frontend - governance.tsx
 
@@ -273,7 +273,7 @@ Example:
 Error at Stage: Deriving User Stories
 Message: Story title contains implementation detail: "Implement login API"
 Action: Review governance document for policy clarity
-```
+```plaintext
 
 ## Testing
 

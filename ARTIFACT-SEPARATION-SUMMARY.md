@@ -9,12 +9,14 @@
 ## Executive Summary
 
 **Problem:** User Stories and AI Execution Prompts were conflated, causing:
+
 - Duplicate content
 - Undefined Epic/Feature references rendering as "undefined"
 - Ambiguous artifact boundaries
 - AI confusion between documentation and instructions
 
 **Solution:** Implemented hard architectural boundary with:
+
 1. Distinct `AIPrompt` type (separate from `StoryData`)
 2. Validation layer ensuring references resolve before generation
 3. Separate UI rendering sections for stories vs prompts
@@ -27,6 +29,7 @@
 ## Root Cause Analysis
 
 ### Problematic Pattern (Before)
+
 ```typescript
 // ❌ BEFORE: Conflation of concerns
 interface StoryWithPrompt extends StoryData {
@@ -40,9 +43,10 @@ interface StoryWithPrompt extends StoryData {
 {(story as StoryWithPrompt).prompt && (
   // Display prompt as if it's part of story artifact
 )}
-```
+```plaintext
 
 **Issues:**
+
 1. **Conflation**: Story object can contain prompt—unclear separation
 2. **No Metadata**: Prompt lacks role, task, or reference info
 3. **Unresolved References**: Epic/Feature IDs passed without validation
@@ -56,6 +60,7 @@ interface StoryWithPrompt extends StoryData {
 ### New Type Definitions
 
 **Artifact Type: `StoryData`** (Pure Product Intent)
+
 ```typescript
 /**
  * StoryData: Pure product artifact describing what users want.
@@ -76,9 +81,10 @@ interface StoryData {
   derived_from_epic: string
   governance_references: string[]
 }
-```
+```plaintext
 
 **Execution Type: `AIPrompt`** (Explicit Instructions)
+
 ```typescript
 /**
  * AIPrompt: Executable instructions for AI agents.
@@ -100,9 +106,10 @@ interface AIPrompt {
   generated_at: string // ISO timestamp
   template: string // Which template was used
 }
-```
+```plaintext
 
 **UI State Type: `StoryWithPrompts`** (Story + Generated Prompts)
+
 ```typescript
 /**
  * StoryWithPrompts: UI state binding story to its generated prompts.
@@ -116,7 +123,7 @@ interface StoryWithPrompts extends StoryData {
   promptsError?: string
   promptsExpanded?: boolean
 }
-```
+```plaintext
 
 ---
 
@@ -137,9 +144,10 @@ if (!feature || !feature.feature_id) {
   alert('Error: Feature reference is missing. Cannot generate prompt without proper context.')
   return
 }
-```
+```plaintext
 
 **Effect:**
+
 - ✅ Prevents generating prompts with undefined references
 - ✅ Users see clear error message
 - ✅ No "undefined" values in generated prompts
@@ -161,9 +169,10 @@ const newPrompt: AIPrompt = {
   generated_at: new Date().toISOString(),
   template: 'Prompt-muse-User-Story-Implementation-PR',
 }
-```
+```plaintext
 
 **Effect:**
+
 - ✅ Prompts are distinct artifacts with metadata
 - ✅ Support for multiple prompts per story (future: analysis, migration)
 - ✅ Each prompt references story by ID (no duplication)
@@ -173,14 +182,16 @@ const newPrompt: AIPrompt = {
 **File:** `apps/web/pages/governance.tsx` (lines 823-875)
 
 **Before:**
+
 ```tsx
 {/* Story and prompt mixed together */}
 {(story as StoryWithPrompt).prompt && (
   <div>Show prompt</div>
 )}
-```
+```plaintext
 
 **After:**
+
 ```tsx
 {/* Clear visual separation */}
 
@@ -196,9 +207,10 @@ const newPrompt: AIPrompt = {
     {/* Each prompt with metadata: role, task, references */}
   </div>
 )}
-```
+```plaintext
 
 **Effect:**
+
 - ✅ Clear visual hierarchy
 - ✅ Story always visible (it's the artifact)
 - ✅ Prompts rendered as child artifacts only when they exist
@@ -209,18 +221,21 @@ const newPrompt: AIPrompt = {
 ## Validation Rules (Enforced)
 
 ### User Story MUST
+
 - ✅ Use storytelling format ("As a..., I want..., so that...")
 - ✅ Contain functional acceptance criteria (not technical steps)
 - ✅ Have resolved Epic/Feature references (not "undefined")
 - ✅ Reference governance by section ID (not duplication)
 
 ### User Story MUST NOT
+
 - ❌ Contain imperative instructions ("Build...", "Implement...")
 - ❌ Contain AI role language ("You are...", "You should...")
 - ❌ Contain execution steps ("Call API...", "Database query...")
 - ❌ Render with undefined references
 
 ### AI Prompt MUST
+
 - ✅ Declare explicit role ("You are a Software Engineer")
 - ✅ Declare specific task ("Your task is to implement...")
 - ✅ Reference story by ID (story_id field)
@@ -228,6 +243,7 @@ const newPrompt: AIPrompt = {
 - ✅ Be generated only on explicit user action
 
 ### AI Prompt MUST NOT
+
 - ❌ Duplicate story text verbatim
 - ❌ Be auto-generated or auto-wrapped
 - ❌ Contain unresolved references
@@ -238,7 +254,9 @@ const newPrompt: AIPrompt = {
 ## Files Modified
 
 ### 1. `apps/web/pages/governance.tsx`
+
 **Changes:**
+
 - Added `AIPrompt` interface (lines 38-50)
 - Replaced `StoryWithPrompt` with `StoryWithPrompts` (lines 64-74)
 - Updated `generatePromptForStory()` function (lines 298-392):
@@ -251,12 +269,15 @@ const newPrompt: AIPrompt = {
   - Supports multiple prompts per story
 
 **Validation Changes:**
+
 - Epic/Feature validation before generation (lines 298-309)
 - Alert user if references missing (not silent "undefined")
 - Pass only resolved references to prompt generation
 
 ### 2. `docs/ARTIFACT-BOUNDARY-VALIDATION.md` (NEW)
+
 **Content:**
+
 - Definition of User Story vs AI Prompt
 - Validation rules with examples
 - Valid/invalid story examples
@@ -274,7 +295,7 @@ const newPrompt: AIPrompt = {
 **ID:** `story-epic-001-feature-001-01`  
 **Title:** View Account Balance in Dashboard
 
-```
+```plaintext
 As a customer, I want to see my account balance 
 in the main dashboard, so that I can quickly check my funds.
 
@@ -283,9 +304,10 @@ Acceptance Criteria:
 2. Displays in top-right corner
 3. Updates within 5 seconds of account changes
 4. Shows "Loading..." while fetching
-```
+```plaintext
 
 **Why Valid:**
+
 - Pure intent (what, not how)
 - No execution language
 - No tech details
@@ -324,9 +346,10 @@ You work inside an existing GitHub repository...
 ## Task
 
 Implement the above user story...
-```
+```plaintext
 
 **Why Valid:**
+
 - References story by ID (not duplication)
 - Explicit role and task
 - All references resolved (no "undefined")
@@ -338,16 +361,18 @@ Implement the above user story...
 ## Testing Validation
 
 ### Before This Fix
-```
+
+```plaintext
 Story Card (UI):
 ├─ Title: "View Account Balance"
 ├─ Story Text: "As a customer, I want..."
 └─ ❌ Prompt stored directly on story object
     └─ ❌ Epic/Feature shown as "undefined"
-```
+```plaintext
 
 ### After This Fix
-```
+
+```plaintext
 Story Card (UI):
 ├─ Title: "View Account Balance"
 ├─ Story Text: "As a customer, I want..."
@@ -365,9 +390,10 @@ Story Card (UI):
       │  ├─ Feature: feature-001 ✓
       │  └─ Epic: epic-001 ✓
       └─ [Show Prompt Content]
-```
+```plaintext
 
 **Improvements:**
+
 - ✅ Clear separation of story and prompt
 - ✅ Metadata visible (role, task, references)
 - ✅ No "undefined" references
@@ -379,29 +405,34 @@ Story Card (UI):
 ## Backward Compatibility
 
 ### What Changed
+
 - `StoryWithPrompt` type no longer exists
 - Prompt no longer stored as `prompt?: string`
 - Prompts stored as `prompts?: AIPrompt[]` array
 
 ### Migration Path
+
 For any code using old type:
 
 **Before:**
+
 ```typescript
 story.prompt // Single string
 story.promptLoading
 story.promptError
-```
+```plaintext
 
 **After:**
+
 ```typescript
 story.prompts // Array of AIPrompt objects
 story.activePromptId // Currently shown prompt
 story.promptsLoading
 story.promptsError
-```
+```plaintext
 
 **Update Steps:**
+
 1. Replace `StoryWithPrompt` with `StoryWithPrompts`
 2. Update code creating prompts to construct AIPrompt objects
 3. Update rendering to iterate over `prompts[]` array

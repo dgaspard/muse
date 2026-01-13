@@ -6,9 +6,9 @@ The Feature Generation API enables on-demand decomposition of an approved Epic i
 
 ## Endpoint
 
-```
+```plaintext
 POST /api/epics/:epicId/generate-features
-```
+```plaintext
 
 ## Request Body
 
@@ -62,7 +62,7 @@ POST /api/epics/:epicId/generate-features
     }
   ]
 }
-```
+```plaintext
 
 ## Response
 
@@ -112,7 +112,7 @@ POST /api/epics/:epicId/generate-features
     }
   ]
 }
-```
+```plaintext
 
 ### Error (400 Bad Request)
 
@@ -121,7 +121,7 @@ POST /api/epics/:epicId/generate-features
   "ok": false,
   "error": "epic object is required in request body"
 }
-```
+```plaintext
 
 ### Error (500 Internal Server Error)
 
@@ -131,7 +131,7 @@ POST /api/epics/:epicId/generate-features
   "error": "feature generation failed",
   "details": "Error message from agent"
 }
-```
+```plaintext
 
 ## How It Works
 
@@ -184,7 +184,7 @@ const generateFeatures = async (epic: Epic, summaries: SectionSummary[]) => {
   const { features } = await response.json()
   return features // GeneratedFeature[]
 }
-```
+```plaintext
 
 ## Testing the Endpoint
 
@@ -202,7 +202,7 @@ curl -X POST http://localhost:4000/api/epics/epic-test-01/generate-features \
     },
     "summaries": [...]
   }'
-```
+```plaintext
 
 ## Error Handling
 

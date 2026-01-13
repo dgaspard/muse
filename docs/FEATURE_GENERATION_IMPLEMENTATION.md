@@ -11,6 +11,7 @@ Implemented **on-demand, AI-powered feature generation** from approved Epics. Us
 **Purpose**: Translate governance summaries + Epic objectives into implementation-ready Features
 
 **Key Features**:
+
 - **AI Path** (when `ANTHROPIC_API_KEY` set):
   - Calls Claude Opus with production-quality prompt
   - Enforces 5 hard constraints:
@@ -29,6 +30,7 @@ Implemented **on-demand, AI-powered feature generation** from approved Epics. Us
   - Preserves governance section references
 
 **Interface**:
+
 ```typescript
 interface GeneratedFeature {
   feature_id: string           // epic-id-feature-NN
@@ -38,21 +40,23 @@ interface GeneratedFeature {
   acceptance_criteria: string[] // Observable outcomes
   governance_references: string[] // Section IDs
 }
-```
+```plaintext
 
 ### 2. API Endpoint (`POST /api/epics/:epicId/generate-features`)
 
 **Purpose**: Expose feature generation as REST API for UI integration
 
 **Request**:
+
 ```typescript
 {
   epic: Epic,                    // Epic object from UI
   summaries: SectionSummary[]   // Governance summaries referenced by Epic
 }
-```
+```plaintext
 
 **Response**:
+
 ```typescript
 {
   ok: boolean
@@ -60,15 +64,17 @@ interface GeneratedFeature {
   feature_count: number
   features: GeneratedFeature[]
 }
-```
+```plaintext
 
 **Error Handling**:
+
 - 400: Missing/invalid epic or summaries
 - 500: AI or fallback generation failure (returns error details)
 
 ### 3. Unit Tests (`tests/semantic/FeatureGenerationAgent.test.ts`)
 
 **Test Coverage**:
+
 1. ✅ Generates 3–7 features from epic + governance summaries
 2. ✅ Feature IDs follow pattern (epic-id-feature-NN)
 3. ✅ All governance sections referenced in output
@@ -80,6 +86,7 @@ interface GeneratedFeature {
 ### 4. Documentation (`docs/FEATURE_GENERATION_API.md`)
 
 **Includes**:
+
 - Endpoint specification
 - Request/response examples
 - Hard constraints explained
@@ -120,16 +127,19 @@ All generated features must satisfy:
 ## Testing & Validation
 
 ### Unit Tests
+
 - **Status**: ✅ All 164 tests passing (162 baseline + 2 new)
 - **TypeScript**: ✅ Zero errors, fully typed
 
 ### Semantic Pipeline Integration
+
 - Tested in context of existing semantic pipeline
 - EpicDerivationAgent + FeatureGenerationAgent work together
 - Governance summaries → Epics → Features workflow validated
 
 ### Example Output (Rule-Based Fallback)
-```
+
+```plaintext
 Epic: Document Management System
 Objective: Enable secure document processing with audit trails
 
@@ -148,11 +158,12 @@ Generated Features:
    - Description: System processes documents to produce indexed content
    - Acceptance Criteria: [extracts accurately, completes in 5min, indexed]
    - Governance References: [sec-001, sec-003]
-```
+```plaintext
 
 ## Workflow Integration
 
 ### UI Flow
+
 1. User views Epic in governance UI
 2. Clicks "Generate Features" button
 3. Frontend fetches epic + summaries from API
@@ -162,6 +173,7 @@ Generated Features:
 7. Features saved as markdown artifacts (future: stored in MinIO)
 
 ### API Call Example
+
 ```typescript
 const response = await fetch(
   `/api/epics/${epicId}/generate-features`,
@@ -172,11 +184,12 @@ const response = await fetch(
   }
 )
 const { features } = await response.json()
-```
+```plaintext
 
 ## Implementation Quality
 
 ✅ **Production-Ready**:
+
 - AI path with comprehensive prompt covering all constraints
 - Fallback mechanism ensures reliability without API key
 - Full error handling and logging
@@ -185,12 +198,14 @@ const { features } = await response.json()
 - Complete API documentation
 
 ✅ **Governance-Aligned**:
+
 - Preserves governance lineage (source_sections)
 - Governance context informs, but not copied
 - Observable, testable acceptance criteria
 - Compliance-focused constraints
 
 ✅ **User-Focused**:
+
 - 3–7 features: digestible scope for delivery
 - Clear titles and descriptions
 - Implementation-ready criteria
@@ -199,17 +214,19 @@ const { features } = await response.json()
 ## Files Modified/Created
 
 **New Files**:
+
 - `src/semantic/FeatureGenerationAgent.ts` (280 lines)
 - `tests/semantic/FeatureGenerationAgent.test.ts` (96 lines)
 - `docs/FEATURE_GENERATION_API.md` (Documentation)
 
 **Updated Files**:
+
 - `src/index.ts`: Added import + feature generation endpoint
 - No breaking changes to existing code
 
 ## Integration with Existing Pipeline
 
-```
+```plaintext
 Governance Markdown
         ↓
 [SectionSplitter] → Normalize & chunk
@@ -223,7 +240,7 @@ Governance Markdown
 [FeatureToStoryAgent] → User Stories from features
         ↓
 Artifacts in MinIO (governance/epics/features/stories)
-```
+```plaintext
 
 ## Next Steps
 
