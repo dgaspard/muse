@@ -1,0 +1,379 @@
+# Merge Summary: User Story / AI Prompt Boundary Separation
+
+**Date**: January 13, 2026  
+**Merge Commit**: `104b38a`  
+**Merged Branch**: `feature/semantic-pipeline-refactor` → `main`  
+**Status**: ✅ Complete and Pushed to Origin
+
+---
+
+## Overview
+
+This merge integrates a critical fix that enforces clean separation between **Product Artifacts** (User Stories) and **Execution Artifacts** (AI Prompts). This resolves the structural bug where User Stories were being treated as AI prompts, causing:
+
+- Duplicate rendering
+- Undefined Epic/Feature references
+- Ambiguous execution intent
+
+---
+
+## Root Cause Analysis
+
+### The Problem (Before Merge)
+
+User Stories and prompts were conflated in the type system:
+- Single `StoryData` interface served dual purposes (product + execution)
+- No distinct `AIPrompt` type existed
+- Epic/Feature references sometimes rendered as "undefined"
+- Stories rendered multiple times (as artifacts AND as prompts)
+
+### The Solution (After Merge)
+
+**Artifact Boundary Enforcement**:
+```
+┌─ User Story (Product Intent)       ┌─ AI Prompt (Execution Intent)
+│  - "As a user..."                  │  - "You are a Software Engineer..."
+│  - Pure product description        │  - Executable task instructions
+│  - Immutable intent                │  - Generated from stories
+│  - No execution steps              │  - Explicit role & task
+└────────────────────────────────────└──────────────────────────────────
+         Story ID (reference)  ←──────  AIPrompt.story_id
+```
+
+---
+
+## Key Changes Merged
+
+### 1. Type System (apps/web/pages/governance.tsx)
+
+#### ✅ StoryData (Pure Product Artifact)
+```typescript
+interface StoryData {
+  story_id: string
+  title: string
+  role: string           // "As a..."
+  capability: string     // "I want to..."
+  benefit: string        // "So that..."
+  acceptance_criteria: string[]
+  derived_from_feature: string
+  derived_from_epic: string
+  governance_references: string[]
+}
+```
+
+**MUST NOT contain**:
+- Execution instructions
+- AI role language ("you are")
+- Implementation steps
+
+#### ✅ AIPrompt (Execution Artifact)
+```typescript
+interface AIPrompt {
+  prompt_id: string
+  story_id: string           // References story by ID (not duplication)
+  feature_id?: string        // Resolved reference
+  epic_id?: string           // Resolved reference
+  content: string            // Full interpolated prompt
+  role: string               // E.g., "Software Engineer"
+  task: string               // E.g., "Implement PR from story"
+  generated_at: string       // ISO timestamp
+  template: string           // Template used (e.g., "Prompt-muse-User-Story-Implementation-PR")
+}
+```
+
+**MUST contain**:
+- Explicit role declaration
+- Specific task instructions
+- Output expectations
+- Story references by ID only
+
+#### ✅ StoryWithPrompts (UI State)
+```typescript
+interface StoryWithPrompts extends StoryData {
+  prompts?: AIPrompt[]       // Array of generated prompts (supports multiple)
+  activePromptId?: string    // Currently displayed prompt
+  promptsLoading?: boolean
+  promptsError?: string
+  promptsExpanded?: boolean
+}
+```
+
+### 2. UI Behavior (apps/web/pages/governance.tsx)
+
+#### New Button: "Generate AI Prompt"
+- Located on each User Story
+- Triggers prompt generation on-demand
+- Uses expand/collapse pattern (matches Epic → Features → Stories hierarchy)
+
+#### Rendering Separation
+```tsx
+{/* Story Section: Pure Product Artifact */}
+<StoryCard {...story} />
+
+{/* AI Prompts Section: Separate visual container */}
+{story.prompts && story.prompts.length > 0 && (
+  <AIPromptsContainer>
+    {story.prompts.map(prompt => (
+      <PromptCard 
+        role={prompt.role}
+        task={prompt.task}
+        content={prompt.content}
+        generatedAt={prompt.generated_at}
+      />
+    ))}
+  </AIPromptsContainer>
+)}
+```
+
+### 3. Validation Layer (apps/web/pages/governance.tsx)
+
+Before generating prompts, the system validates:
+```typescript
+// Epic/Feature references MUST exist before prompt generation
+if (!epic || !epic.epic_id) {
+  alert('Error: Epic reference is missing. Cannot generate prompt.')
+  return
+}
+
+if (!feature || !feature.feature_id) {
+  alert('Error: Feature reference is missing. Cannot generate prompt.')
+  return
+}
+```
+
+**Result**: No more "undefined" values in rendered prompts
+
+### 4. Documentation
+
+#### New Files
+- **ARTIFACT-SEPARATION-SUMMARY.md** (498 lines)
+  - Root cause analysis
+  - Solution architecture
+  - Before/after examples
+  - QA checklist
+  - Migration guide
+
+- **ARTIFACT-BOUNDARY-VALIDATION.md** (518 lines)
+  - Comprehensive specification
+  - User Story MUST/MUST NOT rules
+  - AI Prompt MUST/MUST NOT rules
+  - Valid/invalid examples
+  - Implementation patterns
+  - Validation checklist
+
+- **MARKDOWN-LINTING-SUMMARY.md** (92 lines)
+  - Linting configuration
+  - CI/CD integration guidance
+  - Remaining non-critical issues
+
+#### Infrastructure
+- **.markdownlintrc.yaml** - Markdown linting config
+- **docker-compose.yml** - Updated to include prompts directory
+- **services/api/Dockerfile** - Copies prompts from repo root
+
+### 5. API & Backend (services/api)
+
+#### Updated Endpoint
+```
+POST /stories/:storyId/generate-prompt
+```
+
+Accepts:
+```json
+{
+  "featurePath": "docs/features/...",
+  "governancePath": "docs/governance.md",
+  "projectId": "...",
+  "epicId": "...",
+  "featureId": "..."
+}
+```
+
+Returns:
+```json
+{
+  "ok": true,
+  "prompt": {
+    "prompt_id": "prompt-story-123-1673476800000",
+    "story_id": "story-123",
+    "content": "You are a Software Engineer...",
+    "role": "Software Engineer",
+    "task": "Implement feature from story",
+    "generated_at": "2026-01-13T...",
+    "template": "Prompt-muse-User-Story-Implementation-PR"
+  }
+}
+```
+
+---
+
+## Validation Rules Enforced
+
+### User Story Validation
+- ✅ Story ID exists
+- ✅ No execution language ("you are", "implement", "code")
+- ✅ Pure product intent (role/capability/benefit)
+- ✅ Optional but not "undefined" references
+
+### AI Prompt Validation
+- ✅ Prompt ID is unique
+- ✅ Story ID reference exists
+- ✅ Epic/Feature IDs resolved before generation
+- ✅ Role explicitly declared
+- ✅ Task explicitly described
+- ✅ Content does NOT duplicate story text
+
+### Rendering Validation
+- ✅ Stories rendered once in main section
+- ✅ Prompts rendered once in separate section
+- ✅ Expand/collapse behavior isolated per prompt
+- ✅ No "undefined" values in UI
+
+---
+
+## Files Modified (44 total)
+
+### Core Implementation
+- `apps/web/pages/governance.tsx` (+277 lines)
+  - Type definitions (AIPrompt, StoryWithPrompts)
+  - generatePromptForStory() function with validation
+  - Separated rendering logic (stories vs. prompts)
+
+### Infrastructure
+- `services/api/src/index.ts` (+110 lines)
+  - New prompt generation endpoint
+  - Reference validation before generation
+
+- `services/api/Dockerfile` (+7 lines)
+  - Copy prompts directory into image
+
+- `docker-compose.yml` (+3 lines)
+  - Updated build context for API service
+
+- `package.json` (+4 lines)
+  - markdownlint-cli dependency
+
+### Documentation
+- `.markdownlintrc.yaml` (NEW)
+- `ARTIFACT-SEPARATION-SUMMARY.md` (NEW)
+- `MARKDOWN-LINTING-SUMMARY.md` (NEW)
+- `docs/ARTIFACT-BOUNDARY-VALIDATION.md` (NEW)
+- Multiple existing docs updated with language specs
+
+---
+
+## Example: Before vs. After
+
+### BEFORE (Problematic)
+```tsx
+// No distinction between story and prompt
+interface StoryData {
+  story_id: string
+  title: string
+  prompt?: string  // ❌ Conflated: story contains prompt
+  epic_id?: string // ❌ Could be "undefined"
+}
+
+// Rendering duplicates story text
+<StorySection>{story.title}</StorySection>
+<PromptSection>{story.prompt}</PromptSection> {/* ❌ Same content */}
+```
+
+### AFTER (Correct)
+```tsx
+// Clear separation
+interface StoryData { 
+  /* Pure product artifact */ 
+  story_id: string
+  role: string
+  capability: string
+  benefit: string
+  // ✅ No prompts here
+}
+
+interface AIPrompt {
+  /* Execution artifact */
+  prompt_id: string
+  story_id: string  // ✅ References story by ID
+  role: string
+  task: string
+  content: string   // ✅ Different from story text
+}
+
+// Rendering is distinct
+<StorySection>{story}</StorySection>          {/* Once */}
+{story.prompts && (
+  <PromptsSection>{story.prompts}</PromptsSection>  {/* Once, separate */}
+)}
+```
+
+---
+
+## Guardrails Implemented
+
+### Type-Level Separation
+- User Story ≠ AI Prompt (distinct interfaces)
+- Prompts reference stories by ID only
+- No prompt field on StoryData
+
+### Validation Rules
+- Epic/Feature references validated before prompt generation
+- Prompts cannot exist without parent story ID
+- UI prevents rendering "undefined" values
+
+### Testing Coverage
+- Reference validation tests
+- Rendering separation tests
+- Prompt generation endpoint tests
+
+---
+
+## Non-Goals (NOT Changed)
+
+- ❌ No LangGraph or agent orchestration added
+- ❌ No changes to existing Epic/Feature/Story text
+- ❌ No new business requirements
+- ❌ No unrelated code refactoring
+- ❌ No changes to `/contracts` directory
+
+---
+
+## Next Steps (Optional Future Work)
+
+1. **Multiple Prompt Types**: Add Analysis, Migration, Testing prompt templates
+2. **Prompt Versioning**: Store and compare prompt iterations
+3. **CI/CD Hardening**: Add linting rules to enforce artifact boundaries
+4. **Custom Templates**: Allow user-defined prompt templates
+
+---
+
+## Verification Checklist
+
+- [x] AIPrompt type exists and is distinct from StoryData
+- [x] StoryWithPrompts supports multiple prompts per story
+- [x] "Generate AI Prompt" button appears on each story
+- [x] Reference validation prevents "undefined" rendering
+- [x] Stories rendered once; Prompts rendered once
+- [x] Expand/collapse behavior works per prompt
+- [x] API endpoint validates references before generation
+- [x] Documentation complete and comprehensive
+- [x] Docker/infrastructure updated for prompt generation
+- [x] TypeScript compilation passes
+- [x] All changes merged to main and pushed to origin
+
+---
+
+## Commits Included in Merge
+
+1. `9914d19` - Fix TypeScript compilation errors and Docker context
+2. `879c2eb` - Enforce clean separation between User Stories and AI Prompts
+3. `9fc758c` - Add comprehensive summary of artifact boundary enforcement
+4. `18cc74f` - Add markdown linting and fix code block language specs
+5. `048ef91` - Add markdown linting summary and configuration guide
+
+---
+
+**Merge Status**: ✅ **COMPLETE**
+
+The structural bug has been fixed. User Stories are now pure product artifacts, and AI Prompts are distinct execution artifacts. The boundary is enforced at the type level, validated at runtime, and clearly separated in the UI.
+
