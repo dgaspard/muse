@@ -16,6 +16,26 @@ export interface EpicSchema {
 }
 
 /**
+ * Epic boundary identified by AI analysis
+ */
+export interface EpicBoundary {
+  title: string
+  startLine?: number
+  endLine?: number
+  contentPreview: string
+  rationale: string
+}
+
+/**
+ * Multi-Epic analysis result
+ */
+export interface MultiEpicAnalysis {
+  shouldSplit: boolean
+  suggestedEpics: EpicBoundary[]
+  reasoning: string
+}
+
+/**
  * Agent output with metadata
  */
 export interface EpicOutput extends EpicSchema {
@@ -47,13 +67,17 @@ export class AgentValidationError extends Error {
 export class GovernanceIntentAgent {
   private anthropic: Anthropic | null = null
 
-  constructor() {
+  constructor(private options: { multiEpicThreshold?: number; maxEpicsPerDocument?: number } = {}) {
     // Initialize Anthropic client if API key is available
     if (process.env.ANTHROPIC_API_KEY) {
       this.anthropic = new Anthropic({
         apiKey: process.env.ANTHROPIC_API_KEY,
       })
     }
+    // Default: documents > 10,000 chars should be analyzed for multiple Epics
+    this.options.multiEpicThreshold = options.multiEpicThreshold ?? 10000
+    // Default: max 10 Epics per document
+    this.options.maxEpicsPerDocument = options.maxEpicsPerDocument ?? 10
   }
 
   /**
@@ -377,5 +401,253 @@ No prose. No explanations. Only YAML.`
     this.writeEpicMarkdown(epic, epicPath)
 
     return { epic, epicPath }
+  }
+
+  /**
+   * Analyze governance document to identify multiple Epic boundaries
+   * Uses AI to intelligently split large documents into logical Epics
+   */
+  async analyzeEpicBoundaries(governanceContent: string, documentId: string): Promise<MultiEpicAnalysis> {
+    if (!this.anthropic) {
+      // No AI available - return single Epic recommendation
+      return {
+        shouldSplit: false,
+        suggestedEpics: [],
+        reasoning: 'AI analysis not available - will generate single Epic'
+      }
+    }
+
+    // Check if document is large enough to warrant splitting
+    if (governanceContent.length < this.options.multiEpicThreshold!) {
+      return {
+        shouldSplit: false,
+        suggestedEpics: [],
+        reasoning: `Document size (${governanceContent.length} chars) below threshold (${this.options.multiEpicThreshold} chars)`
+      }
+    }
+
+    const systemPrompt = `You are a governance document analyzer for the Muse platform.
+
+Your task is to analyze a governance document and determine if it should be split into MULTIPLE EPICs.
+
+An Epic represents a distinct, high-level business or governance outcome. Large governance documents
+often contain multiple independent areas of governance that should be treated as separate Epics.
+
+## ANALYSIS CRITERIA
+
+Consider splitting into multiple Epics if the document:
+1. Covers multiple distinct regulatory domains or policy areas
+2. Has clear chapter/section boundaries for different governance topics
+3. Contains requirements for different business capabilities or systems
+4. Addresses multiple independent compliance frameworks or standards
+5. Is very long (> ${this.options.multiEpicThreshold} characters) with diverse content
+
+## DO NOT SPLIT if:
+- The document describes a single cohesive policy or regulation
+- All sections relate to the same governance outcome
+- Splitting would create artificial boundaries
+
+## OUTPUT FORMAT
+
+Respond with ONLY valid JSON in this structure:
+
+\`\`\`json
+{
+  "shouldSplit": true/false,
+  "reasoning": "<brief explanation>",
+  "suggestedEpics": [
+    {
+      "title": "<Epic title>",
+      "contentPreview": "<first 200 chars of relevant section>",
+      "rationale": "<why this is a distinct Epic>"
+    }
+  ]
+}
+\`\`\`
+
+Limit to ${this.options.maxEpicsPerDocument} Epics maximum.`
+
+    const userPrompt = `Analyze this governance document and determine if it should be split into multiple Epics:
+
+Document ID: ${documentId}
+Document Length: ${governanceContent.length} characters
+
+--- DOCUMENT CONTENT (first 15000 chars) ---
+${governanceContent.substring(0, 15000)}
+${governanceContent.length > 15000 ? '\n\n[... content truncated for analysis ...]' : ''}
+--- END DOCUMENT ---`
+
+    try {
+      const response = await this.anthropic.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2048,
+        temperature: 0,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }],
+      })
+
+      const content = response.content[0]
+      if (content.type !== 'text') {
+        throw new Error('AI returned non-text response')
+      }
+
+      // Extract JSON from code block if present
+      const jsonMatch = content.text.match(/```(?:json)?\n([\s\S]+?)\n```/)
+      const jsonText = jsonMatch ? jsonMatch[1] : content.text
+
+      const analysis = JSON.parse(jsonText) as MultiEpicAnalysis
+
+      console.log(`[GovernanceIntentAgent] Epic boundary analysis: shouldSplit=${analysis.shouldSplit}, suggested=${analysis.suggestedEpics?.length || 0} Epics`)
+
+      return analysis
+    } catch (error) {
+      console.error('[GovernanceIntentAgent] Epic boundary analysis failed:', error)
+      // Fallback to single Epic
+      return {
+        shouldSplit: false,
+        suggestedEpics: [],
+        reasoning: `Analysis failed: ${(error as Error).message}`
+      }
+    }
+  }
+
+  /**
+   * Derive multiple Epics from a governance document by intelligently splitting it
+   * Uses AI analysis to identify natural Epic boundaries
+   */
+  async deriveMultipleEpics(markdownPath: string, documentId?: string): Promise<EpicOutput[]> {
+    const { content, frontMatter } = this.readGovernanceMarkdown(markdownPath)
+    
+    // Use document_id from front matter if not provided
+    const fmObj = frontMatter as Record<string, unknown>
+    const docId = documentId || (typeof fmObj.document_id === 'string' ? fmObj.document_id : null) || path.basename(markdownPath, '.md')
+
+    // First, analyze if we should split into multiple Epics
+    const analysis = await this.analyzeEpicBoundaries(content, docId)
+
+    if (!analysis.shouldSplit || analysis.suggestedEpics.length === 0) {
+      // Generate single Epic
+      console.log(`[GovernanceIntentAgent] Generating single Epic: ${analysis.reasoning}`)
+      const singleEpic = await this.deriveEpic(markdownPath, docId)
+      return [singleEpic]
+    }
+
+    console.log(`[GovernanceIntentAgent] Generating ${analysis.suggestedEpics.length} Epics from document`)
+
+    // For each suggested Epic boundary, derive an Epic
+    const epics: EpicOutput[] = []
+    
+    for (let i = 0; i < analysis.suggestedEpics.length; i++) {
+      const boundary = analysis.suggestedEpics[i]
+      const epicNumber = String(i + 1).padStart(2, '0')
+      const epicId = `epic-${docId.substring(0, 8)}-${epicNumber}`
+
+      try {
+        // Create focused prompt for this specific Epic
+        const focusedPrompt = `You are deriving Epic #${i + 1} of ${analysis.suggestedEpics.length} from a governance document.
+
+Focus area: ${boundary.title}
+Rationale: ${boundary.rationale}
+
+Derive a SINGLE Epic that captures the governance intent for THIS SPECIFIC AREA ONLY.
+
+## OUTPUT FORMAT (STRICT)
+
+You MUST output ONLY valid YAML in this exact structure:
+
+\`\`\`yaml
+epic:
+  epic_id: ${epicId}
+  objective: <string - specific to "${boundary.title}">
+  success_criteria:
+    - <string>
+    - <string>
+    - <string>
+  derived_from: ${docId}
+\`\`\`
+
+No prose. No explanations. Only YAML.`
+
+        const response = await this.anthropic!.messages.create({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1024,
+          temperature: 0,
+          system: focusedPrompt,
+          messages: [
+            {
+              role: 'user',
+              content: `Governance document content:\n\n${content}\n\nExtract Epic for: ${boundary.title}`,
+            },
+          ],
+        })
+
+        const responseContent = response.content[0]
+        if (responseContent.type !== 'text') {
+          throw new Error('AI returned non-text response')
+        }
+
+        // Extract YAML from code block if present
+        const yamlMatch = responseContent.text.match(/```(?:yaml)?\n([\s\S]+?)\n```/)
+        const yamlText = yamlMatch ? yamlMatch[1] : responseContent.text
+
+        // Parse YAML response
+        const parsed = YAML.parse(yamlText)
+
+        if (!parsed || !parsed.epic) {
+          throw new Error('AI response missing epic structure')
+        }
+
+        const epic: EpicSchema = {
+          epic_id: parsed.epic.epic_id || epicId,
+          derived_from: parsed.epic.derived_from || docId,
+          source_markdown: markdownPath,
+          objective: parsed.epic.objective,
+          success_criteria: parsed.epic.success_criteria,
+        }
+
+        this.validateEpicSchema(epic)
+
+        const epicOutput: EpicOutput = {
+          ...epic,
+          generated_at: new Date().toISOString()
+        }
+
+        epics.push(epicOutput)
+        console.log(`[GovernanceIntentAgent] ✓ Epic ${i + 1}/${analysis.suggestedEpics.length} generated: ${epic.epic_id}`)
+      } catch (error) {
+        console.error(`[GovernanceIntentAgent] Failed to generate Epic ${i + 1}:`, error)
+        // Continue with remaining Epics
+      }
+    }
+
+    if (epics.length === 0) {
+      // Fallback: generate single Epic if all multi-Epic attempts failed
+      console.warn('[GovernanceIntentAgent] Multi-Epic generation failed, falling back to single Epic')
+      const singleEpic = await this.deriveEpic(markdownPath, docId)
+      return [singleEpic]
+    }
+
+    return epics
+  }
+
+  /**
+   * Derive multiple Epics and write to files
+   */
+  async deriveAndWriteMultipleEpics(
+    markdownPath: string,
+    documentId?: string,
+    outputDir: string = 'docs/epics'
+  ): Promise<Array<{ epic: EpicOutput; epicPath: string }>> {
+    const epics = await this.deriveMultipleEpics(markdownPath, documentId)
+    
+    const results: Array<{ epic: EpicOutput; epicPath: string }> = []
+    
+    for (const epic of epics) {
+      const epicPath = path.join(outputDir, `${epic.epic_id}.md`)
+      this.writeEpicMarkdown(epic, epicPath)
+      results.push({ epic, epicPath })
+    }
+
+    return results
   }
 }
