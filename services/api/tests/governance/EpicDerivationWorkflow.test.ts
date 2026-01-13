@@ -315,4 +315,35 @@ document_id: doc-sections-123
       expect(epicContent).toContain('## Success Criteria')
     })
   })
+
+  describe('validateFeatureCounts', () => {
+    it('should fail when Epic has more than 5 features', () => {
+      const museYamlPath = path.join(tempDir, 'muse.yaml')
+      const features = Array.from({ length: 6 }).map((_, idx) => ({
+        feature_id: `proj-epic-xyz-feature-0${idx + 1}`,
+        derived_from_epic: 'epic-doc-xyz'
+      }))
+
+      const data = { artifacts: { features } }
+      fs.writeFileSync(museYamlPath, YAML.stringify(data), 'utf-8')
+
+      const report = workflow.validateFeatureCounts('epic-doc-xyz')
+      expect(report.valid).toBe(false)
+      expect(report.errors.some(e => e.includes('exceeding maximum of 5'))).toBe(true)
+    })
+
+    it('should pass when Epic has between 1 and 5 features', () => {
+      const museYamlPath = path.join(tempDir, 'muse.yaml')
+      const features = Array.from({ length: 2 }).map((_, idx) => ({
+        feature_id: `proj-epic-xyz-feature-0${idx + 1}`,
+        derived_from_epic: 'epic-doc-xyz'
+      }))
+
+      const data = { artifacts: { features } }
+      fs.writeFileSync(museYamlPath, YAML.stringify(data), 'utf-8')
+
+      const report = workflow.validateFeatureCounts('epic-doc-xyz')
+      expect(report.valid).toBe(true)
+    })
+  })
 })

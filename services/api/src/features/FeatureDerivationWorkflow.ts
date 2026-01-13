@@ -4,6 +4,7 @@ import YAML from 'yaml'
 import matter from 'gray-matter'
 import { FeatureDerivationAgent } from './FeatureDerivationAgent'
 import { FeatureValueDerivationAgent } from './FeatureValueDerivationAgent'
+import { validateEpicFeatureCount, ValidationReport } from '../shared/ArtifactValidation'
 
 export interface FeatureArtifact {
   feature_id: string
@@ -11,6 +12,7 @@ export interface FeatureArtifact {
   feature_path: string
   derived_from_epic: string
   generated_at: string
+  parent_feature_id?: string
 }
 
 interface MuseYaml {
@@ -164,6 +166,7 @@ export class FeatureDerivationWorkflow {
           const frontMatter = {
             feature_id: feature.feature_id,
             epic_id: feature.derived_from_epic,
+            parent_feature_id: feature.parent_feature_id,
             generated_at: feature.generated_at
           }
           
@@ -210,10 +213,17 @@ export class FeatureDerivationWorkflow {
           epic_id: f.derived_from_epic,
           feature_path: path.relative(this.repoRoot, featurePaths[idx]),
           derived_from_epic: path.relative(this.repoRoot, absoluteEpicPath),
-          generated_at: f.generated_at
+          generated_at: f.generated_at,
+          parent_feature_id: f.parent_feature_id
         }))
         
         this.updateMuseYaml(artifacts)
+        const validationReport = validateEpicFeatureCount(artifacts[0]?.epic_id, artifacts)
+        if (!validationReport.valid) {
+          throw new Error(
+            'Feature count validation failed for Epic after AI derivation:\n' + validationReport.errors.join('\n')
+          )
+        }
         console.log(`[FeatureDerivationWorkflow] Successfully derived ${artifacts.length} features using AI`)
         return artifacts
       } catch (error) {
@@ -236,11 +246,39 @@ export class FeatureDerivationWorkflow {
       epic_id: f.epic_id,
       feature_path: path.relative(this.repoRoot, featurePaths[idx]),
       derived_from_epic: path.relative(this.repoRoot, absoluteEpicPath),
-      generated_at: f.generated_at
+      generated_at: f.generated_at,
+      parent_feature_id: (f as any).parent_feature_id
     }))
 
     this.updateMuseYaml(artifacts)
+    const validationReport = validateEpicFeatureCount(artifacts[0]?.epic_id, artifacts)
+    if (!validationReport.valid) {
+      throw new Error(
+        'Feature count validation failed for Epic after rule-based derivation:\n' + validationReport.errors.join('\n')
+      )
+    }
     return artifacts
+  }
+
+  /**
+   * Validate Feature count for an Epic (1-5 Features required)
+   * Called after deriving features to ensure hierarchy rules
+   */
+  validateEpicFeatures(epicId: string): ValidationReport {
+    const data = this.loadMuseYaml()
+    const features = data.artifacts?.features || []
+
+    return validateEpicFeatureCount(epicId, features)
+  }
+
+  /**
+   * Get all Features for a specific Epic
+   */
+  getEpicFeatures(epicId: string): FeatureArtifact[] {
+    const data = this.loadMuseYaml()
+    const features = data.artifacts?.features || []
+
+    return features.filter(f => f.derived_from_epic === epicId)
   }
 }
 

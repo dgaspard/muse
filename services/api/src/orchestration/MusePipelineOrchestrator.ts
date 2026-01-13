@@ -8,6 +8,7 @@ import { EpicDerivationWorkflow } from '../governance/EpicDerivationWorkflow'
 import { FeatureDerivationWorkflow } from '../features/FeatureDerivationWorkflow'
 import { FeatureToStoryAgent } from '../stories/FeatureToStoryAgent'
 import { getDocumentStore } from '../storage/documentStoreFactory'
+import { validateArtifactHierarchy } from '../shared/ArtifactValidation'
 
 /**
  * Epic data structure returned by the pipeline
@@ -30,6 +31,7 @@ export interface FeatureData {
   description: string
   acceptance_criteria: string[]
   risk_of_not_delivering: string[]
+    parent_feature_id?: string
   epic_id: string
   governance_references: string[]
 }
@@ -67,7 +69,7 @@ export interface PipelineOutput {
     headingCount: number
     errors: Array<{ code: string; message: string; suggestion?: string }>
   }
-  epic: EpicData
+  epics: EpicData[] // Changed from single 'epic' to multiple 'epics'
   features: FeatureData[]
   stories: StoryData[]
 }
@@ -153,25 +155,38 @@ export class MusePipelineOrchestrator {
       )
     }
 
-    // Step 4: Derive Epic (MUSE-005) - only runs if validation passes
+    // Step 4: Derive Epic(s) (MUSE-005) - only runs if validation passes
     console.log('[Pipeline] Validation passed. Proceeding to Epic derivation...')
     const epicWorkflow = new EpicDerivationWorkflow(this.repoRoot)
-    const epicArtifact = await epicWorkflow.deriveEpic(
+    
+    // Use multi-Epic derivation for large documents
+    const epicArtifacts = await epicWorkflow.deriveEpicsMulti(
       governanceMarkdownPath,
       undefined, // Document ID read from front matter
       { commitToGit: false } // No Git commit
     )
-    const epicData = await this.loadEpicData(path.join(this.repoRoot, epicArtifact.epic_path))
+    
+    console.log(`[Pipeline] Derived ${epicArtifacts.length} Epic(s)`)
+    const epicsData: EpicData[] = []
+    for (const epicArtifact of epicArtifacts) {
+      const epicData = await this.loadEpicData(path.join(this.repoRoot, epicArtifact.epic_path))
+      epicsData.push(epicData)
+    }
 
-    // Step 5: Derive Features from Epic (MUSE-006)
+    // Step 5: Derive Features from ALL Epics (MUSE-006)
     const featureWorkflow = new FeatureDerivationWorkflow(this.repoRoot)
-    const featureArtifacts = await featureWorkflow.deriveFeaturesFromEpic(
-      epicArtifact.epic_path,
-      { governancePath: governanceMarkdownPath }
-    )
+    const allFeatureArtifacts = []
+    
+    for (const epicArtifact of epicArtifacts) {
+      const featureArtifacts = await featureWorkflow.deriveFeaturesFromEpic(
+        epicArtifact.epic_path,
+        { governancePath: governanceMarkdownPath }
+      )
+      allFeatureArtifacts.push(...featureArtifacts)
+    }
 
     const featuresData: FeatureData[] = []
-    for (const featureArtifact of featureArtifacts) {
+    for (const featureArtifact of allFeatureArtifacts) {
       const featureData = await this.loadFeatureData(path.join(this.repoRoot, featureArtifact.feature_path))
       featuresData.push(...featureData)
     }
@@ -182,7 +197,7 @@ export class MusePipelineOrchestrator {
     const minioStore = getDocumentStore()
     const storiesData: StoryData[] = []
 
-    for (const featureArtifact of featureArtifacts) {
+    for (const featureArtifact of allFeatureArtifacts) {
       const featurePath = path.join(this.repoRoot, featureArtifact.feature_path)
       
       try {
@@ -232,6 +247,26 @@ export class MusePipelineOrchestrator {
 
     console.log(`[Pipeline] Total stories generated: ${storiesData.length}`)
 
+    // Step 7: Validate hierarchy (Epics → Features → Stories)
+    const hierarchyReport = validateArtifactHierarchy({
+      epics: epicsData.map(e => ({ epic_id: e.epic_id, document_id: documentMetadata.documentId })),
+      features: featuresData.map(f => ({
+        feature_id: f.feature_id,
+        derived_from_epic: f.epic_id,
+        parent_feature_id: f.parent_feature_id,
+      })),
+      stories: storiesData.map(s => ({
+        story_id: s.story_id,
+        derived_from_feature: s.derived_from_feature,
+      })),
+    })
+
+    if (!hierarchyReport.valid) {
+      throw new Error(
+        'Hierarchy validation failed:\n' + hierarchyReport.errors.join('\n')
+      )
+    }
+
     // Return structured output with validation status
     return {
       document: {
@@ -248,7 +283,7 @@ export class MusePipelineOrchestrator {
         headingCount: validationResult.headingCount,
         errors: validationResult.errors,
       },
-      epic: epicData,
+      epics: epicsData, // Now returns array of epics
       features: featuresData,
       stories: storiesData,
     }
@@ -371,6 +406,7 @@ export class MusePipelineOrchestrator {
           risk_of_not_delivering: [],
           epic_id: frontMatter.derived_from_epic || frontMatter.epic_id,
           governance_references: [],
+          parent_feature_id: frontMatter.parent_feature_id,
         }
 
         inDescription = false

@@ -75,7 +75,7 @@ Users must authenticate before accessing the system.
       // Verify story structure
       stories.forEach((story) => {
         expect(story.story_id).toBeTruthy()
-        expect(story.story_id).toMatch(/^myproject-myproject-epic-01-feature-01-story-\d{2}-.+$/)
+        expect(story.story_id).toMatch(/^myproject-epic-01-feature-01-story-\d{2}-.+$/)
         expect(story.title).toBeTruthy()
         expect(story.title.length).toBeGreaterThanOrEqual(10)
         expect(story.role).toBe('user')
@@ -255,8 +255,8 @@ This feature has a description but no explicit acceptance criteria section.
       )
 
       stories.forEach((story) => {
-        // Story ID format: <project>-<feature_id>-story-<NN>-<short-name>
-        expect(story.story_id).toMatch(/^testproj-testproj-epic-99-feature-01-story-\d{2}-.+$/)
+        // Story ID format: <feature_id>-story-<NN>-<short-name>
+        expect(story.story_id).toMatch(/^testproj-epic-99-feature-01-story-\d{2}-.+$/)
       })
     })
 
@@ -392,7 +392,7 @@ This feature has a description but no explicit acceptance criteria section.
         mockDocumentStore,
       )
 
-      expect(stories[0].story_id).toMatch(/^myproject-myproject-epic-11-feature-01-story-01-[a-z0-9-]+$/)
+      expect(stories[0].story_id).toMatch(/^myproject-epic-11-feature-01-story-01-[a-z0-9-]+$/)
       expect(stories[0].story_id).not.toMatch(/[A-Z]/) // No uppercase
       expect(stories[0].story_id).not.toMatch(/[!@#$%^&*()]/) // No special chars
     })

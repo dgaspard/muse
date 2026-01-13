@@ -236,13 +236,18 @@ export class FeatureToStoryAgent {
         if (currentFeature) {
           featureBlocks.push(currentFeature)
         }
-        // PATCH: Ensure featureId is always in correct format
-        const validFeatureId =
-          typeof fmObj.feature_id === 'string' && fmObj.feature_id.match(/^[a-z0-9]+-epic-[a-z0-9]+-feature-\d+$/i)
-            ? fmObj.feature_id as string
-            : `${projectId}-${effectiveEpicId}-feature-01`
+        // Use feature_id from front matter - this is the source of truth
+        // Do NOT construct IDs from projectId as it may not match the feature's actual ID
+        const featureId = typeof fmObj.feature_id === 'string' && fmObj.feature_id
+          ? fmObj.feature_id as string
+          : (() => {
+              // Fallback only if front matter is missing feature_id (should not happen in production)
+              console.warn('[FeatureToStoryAgent] Missing feature_id in front matter, using fallback')
+              return `${projectId}-${effectiveEpicId}-feature-01`
+            })()
+        
         currentFeature = {
-          featureId: validFeatureId,
+          featureId,
           title: featureMatch[1].trim(),
           description: '',
           criteria: [],
@@ -421,11 +426,12 @@ function buildStoryId(params: {
 }): string {
   validateFeatureIdFormat(params.featureId)
 
-  const project = params.featureId.split('-')[0] // <project>-...
   const nn = pad2(params.storyNumber)
   const short = toKebabCase(params.shortName) || 'story'
 
-  const storyId = `${project}-${params.featureId}-story-${nn}-${short}`
+  // Feature ID already contains the full hierarchy: <project>-epic-<id>-feature-<id>
+  // Story ID format: <featureId>-story-<nn>-<short-name>
+  const storyId = `${params.featureId}-story-${nn}-${short}`
   validateStoryIdFormat(storyId)
 
   return storyId

@@ -382,7 +382,7 @@ app.post('/pipeline/execute', expensiveOperationLimiter, upload.single('file'), 
     }
 
     console.log(
-      `[pipeline] project=${projectId} document=${pipelineOutput.document.document_id} epic=${pipelineOutput.epic.epic_id} features=${pipelineOutput.features.length} stories=${pipelineOutput.stories.length} validation=${pipelineOutput.validation.isValid}`,
+      `[pipeline] project=${projectId} document=${pipelineOutput.document.document_id} epic=${pipelineOutput.epics[0]?.epic_id} features=${pipelineOutput.features.length} stories=${pipelineOutput.stories.length} validation=${pipelineOutput.validation.isValid}`,
     )
 
     return res.json({

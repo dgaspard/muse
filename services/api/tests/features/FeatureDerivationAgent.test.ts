@@ -28,19 +28,25 @@ describe('FeatureDerivationAgent', () => {
       expect(Array.isArray(features[0].acceptance_criteria)).toBe(true)
     })
 
-    it('creates one feature per success criterion', async () => {
+    it('groups criteria into features for better story generation', async () => {
+      // 3 criteria should create 2 features with grouped acceptance criteria
       const features = await agent.deriveFeatures(epicPath)
-      expect(features.length).toBe(3)
-      expect(features[0].title).toContain('criterion A')
-      expect(features[1].title).toContain('Criterion B')
-      expect(features[2].title).toContain('criterion C')
+      expect(features.length).toBe(2)
+      
+      // First feature should have 2 criteria
+      expect(features[0].acceptance_criteria.length).toBe(2)
+      expect(features[0].acceptance_criteria[0]).toContain('criterion A')
+      expect(features[0].acceptance_criteria[1]).toContain('Criterion B')
+      
+      // Second feature should have 1 criterion
+      expect(features[1].acceptance_criteria.length).toBe(1)
+      expect(features[1].acceptance_criteria[0]).toContain('criterion C')
     })
 
     it('assigns sequential feature IDs', async () => {
       const features = await agent.deriveFeatures(epicPath)
       expect(features[0].feature_id).toContain('-feature-01')
       expect(features[1].feature_id).toContain('-feature-02')
-      expect(features[2].feature_id).toContain('-feature-03')
     })
 
     it('includes generated_at timestamp', async () => {
@@ -80,15 +86,48 @@ describe('FeatureDerivationAgent', () => {
   })
 
   describe('Feature Limits and Edge Cases', () => {
-    it('limits features to 5 per epic', async () => {
+    it('limits features to max 5 criteria total', async () => {
       const manyPath = path.join(tmp, 'many-criteria.md')
       const content = `---\nepic_id: epic-many\n---\n\n# Epic\n\n## Objective\nTest\n\n## Success Criteria\n- Criterion 1\n- Criterion 2\n- Criterion 3\n- Criterion 4\n- Criterion 5\n- Criterion 6\n- Criterion 7\n`
       fs.writeFileSync(manyPath, content, 'utf-8')
       
       const features = await agent.deriveFeatures(manyPath)
-      expect(features.length).toBeLessThanOrEqual(5)
+      
+      // Should have exactly 5 criteria distributed across 3 features
+      const totalCriteria = features.reduce((sum, f) => sum + f.acceptance_criteria.length, 0)
+      expect(totalCriteria).toBe(5)
+      expect(features.length).toBe(3)
       
       fs.unlinkSync(manyPath)
+    })
+    
+    it('groups criteria: 1-2 criteria => 1 feature, 3-4 => 2 features, 5 => 3 features', async () => {
+      // Test with 2 criteria
+      const twoPath = path.join(tmp, 'two-criteria.md')
+      fs.writeFileSync(twoPath, `---\nepic_id: epic-two\n---\n\n# Epic\n\n## Objective\nTest\n\n## Success Criteria\n- Criterion 1\n- Criterion 2\n`, 'utf-8')
+      const twoFeatures = await agent.deriveFeatures(twoPath)
+      expect(twoFeatures.length).toBe(1)
+      expect(twoFeatures[0].acceptance_criteria.length).toBe(2)
+      fs.unlinkSync(twoPath)
+      
+      // Test with 4 criteria
+      const fourPath = path.join(tmp, 'four-criteria.md')
+      fs.writeFileSync(fourPath, `---\nepic_id: epic-four\n---\n\n# Epic\n\n## Objective\nTest\n\n## Success Criteria\n- Criterion 1\n- Criterion 2\n- Criterion 3\n- Criterion 4\n`, 'utf-8')
+      const fourFeatures = await agent.deriveFeatures(fourPath)
+      expect(fourFeatures.length).toBe(2)
+      expect(fourFeatures[0].acceptance_criteria.length).toBe(2)
+      expect(fourFeatures[1].acceptance_criteria.length).toBe(2)
+      fs.unlinkSync(fourPath)
+      
+      // Test with 5 criteria
+      const fivePath = path.join(tmp, 'five-criteria.md')
+      fs.writeFileSync(fivePath, `---\nepic_id: epic-five\n---\n\n# Epic\n\n## Objective\nTest\n\n## Success Criteria\n- Criterion 1\n- Criterion 2\n- Criterion 3\n- Criterion 4\n- Criterion 5\n`, 'utf-8')
+      const fiveFeatures = await agent.deriveFeatures(fivePath)
+      expect(fiveFeatures.length).toBe(3)
+      expect(fiveFeatures[0].acceptance_criteria.length).toBe(2)
+      expect(fiveFeatures[1].acceptance_criteria.length).toBe(2)
+      expect(fiveFeatures[2].acceptance_criteria.length).toBe(1)
+      fs.unlinkSync(fivePath)
     })
 
     it('creates fallback feature when no success criteria found', async () => {

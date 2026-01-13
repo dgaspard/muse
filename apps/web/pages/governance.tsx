@@ -44,7 +44,7 @@ interface PipelineOutput {
     content: string
     path: string
   }
-  epic: EpicData
+  epics: EpicData[] // Changed from single epic to array
   features: FeatureData[]
   stories: StoryData[]
 }
@@ -393,31 +393,45 @@ ${story.governance_references.map(r => `- ${r}`).join('\n')}`
             )}
           </div>
 
-          {/* Epic */}
-          <div style={{ marginBottom: 32, padding: 16, border: '2px solid #2196F3', borderRadius: 4 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2>Epic: {output.epic.title}</h2>
-              <button onClick={() => copyToClipboard(formatEpicForCopy(output.epic))} style={{ padding: '6px 12px' }}>
-                📋 Copy Epic
-              </button>
-            </div>
-            <p>
-              <strong>ID:</strong> {output.epic.epic_id}
-            </p>
-            <h3>Objective</h3>
-            <p>{output.epic.objective}</p>
-            <h3>Success Criteria</h3>
-            <ul>
-              {output.epic.success_criteria.map((criterion, i) => (
-                <li key={i}>{criterion}</li>
-              ))}
-            </ul>
-            <h3>Governance References</h3>
-            <ul>
-              {output.epic.governance_references.map((ref, i) => (
-                <li key={i}>{ref}</li>
-              ))}
-            </ul>
+          {/* Epics */}
+          <div style={{ marginBottom: 32 }}>
+            <h2 style={{ marginBottom: 16 }}>Epics ({output.epics.length})</h2>
+            {output.epics.map((epic, index) => (
+              <div 
+                key={epic.epic_id} 
+                style={{ 
+                  marginBottom: 24, 
+                  padding: 16, 
+                  border: '2px solid #2196F3', 
+                  borderRadius: 4,
+                  backgroundColor: index % 2 === 0 ? '#F5F9FF' : '#FFFFFF'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3>Epic {index + 1}: {epic.title}</h3>
+                  <button onClick={() => copyToClipboard(formatEpicForCopy(epic))} style={{ padding: '6px 12px' }}>
+                    📋 Copy Epic
+                  </button>
+                </div>
+                <p>
+                  <strong>ID:</strong> {epic.epic_id}
+                </p>
+                <h4>Objective</h4>
+                <p>{epic.objective}</p>
+                <h4>Success Criteria</h4>
+                <ul>
+                  {epic.success_criteria.map((criterion, i) => (
+                    <li key={i}>{criterion}</li>
+                  ))}
+                </ul>
+                <h4>Governance References</h4>
+                <ul>
+                  {epic.governance_references.map((ref, i) => (
+                    <li key={i}>{ref}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
 
           {/* Features */}

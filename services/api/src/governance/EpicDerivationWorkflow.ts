@@ -3,6 +3,7 @@ import path from 'path'
 import YAML from 'yaml'
 import { GovernanceIntentAgent } from './GovernanceIntentAgent'
 import { GovernanceCommitService } from './GovernanceCommitService'
+import { validateEpicFeatureCount, ValidationReport } from '../shared/ArtifactValidation'
 
 /**
  * Epic artifact record in muse.yaml
@@ -22,6 +23,7 @@ interface MuseYaml {
   artifacts?: {
     governance_markdown?: Record<string, unknown>[]
     epics?: EpicArtifact[]
+    features?: Record<string, unknown>[]
   }
 }
 
@@ -51,6 +53,15 @@ export class EpicDerivationWorkflow {
       // Git service optional if not in a Git repo
       this.gitService = null
     }
+  }
+
+  /**
+   * Validate that an Epic has 1-5 Features using muse.yaml
+   */
+  validateFeatureCounts(epicId: string): ValidationReport {
+    const data = this.loadMuseYaml()
+    const features = data.artifacts?.features || []
+    return validateEpicFeatureCount(epicId, features)
   }
 
   /**
@@ -182,6 +193,74 @@ export class EpicDerivationWorkflow {
     }
 
     return epicArtifact
+  }
+
+  /**
+   * Derive multiple Epics from a single governance document using AI-powered boundary detection
+   * Uses intelligent document analysis to split large documents into logical Epics
+   * 
+   * @param governanceMarkdownPath Path to governance Markdown file
+   * @param documentId Document ID (optional, will be read from front matter)
+   * @param options Workflow options
+   * @returns Array of Epic artifact metadata
+   */
+  async deriveEpicsMulti(
+    governanceMarkdownPath: string,
+    documentId?: string,
+    options: {
+      outputDir?: string
+      commitToGit?: boolean
+      branchName?: string
+    } = {}
+  ): Promise<EpicArtifact[]> {
+    const {
+      outputDir = path.join(this.repoRoot, 'docs/epics'),
+      commitToGit = false,
+      branchName
+    } = options
+
+    // Resolve absolute paths
+    const absoluteGovernancePath = path.isAbsolute(governanceMarkdownPath)
+      ? governanceMarkdownPath
+      : path.join(this.repoRoot, governanceMarkdownPath)
+
+    // Step 1-4: Derive and write multiple Epics using AI boundary detection
+    const results = await this.agent.deriveAndWriteMultipleEpics(
+      absoluteGovernancePath,
+      documentId,
+      outputDir
+    )
+
+    const epicArtifacts: EpicArtifact[] = []
+
+    // Step 5: Register each Epic in muse.yaml
+    for (const { epic, epicPath } of results) {
+      const epicArtifact: EpicArtifact = {
+        epic_id: epic.epic_id,
+        derived_from: epic.derived_from,
+        source_markdown: epic.source_markdown,
+        epic_path: path.relative(this.repoRoot, epicPath),
+        generated_at: epic.generated_at
+      }
+
+      this.updateMuseYaml(epicArtifact)
+      epicArtifacts.push(epicArtifact)
+    }
+
+    // Step 6: Optionally commit to Git
+    if (commitToGit && this.gitService) {
+      if (branchName) {
+        console.warn('Branch creation not yet implemented, committing to current branch')
+      }
+
+      console.log(`${epicArtifacts.length} Epic(s) derived successfully. Files ready to commit:`)
+      epicArtifacts.forEach(artifact => {
+        console.log(`- ${artifact.epic_path}`)
+      })
+      console.log('- muse.yaml')
+    }
+
+    return epicArtifacts
   }
 
   /**
