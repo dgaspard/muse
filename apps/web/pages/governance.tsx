@@ -29,6 +29,13 @@ interface StoryData {
   governance_references: string[]
 }
 
+interface StoryWithPrompt extends StoryData {
+  prompt?: string
+  promptLoading?: boolean
+  promptError?: string
+  promptExpanded?: boolean
+}
+
 interface FeatureWithStories extends FeatureData {
   stories?: StoryData[]
   storiesLoading?: boolean
@@ -248,6 +255,92 @@ export default function GovernanceWorkflowPage(): JSX.Element {
     } catch (err) {
       const errorMsg = (err as Error).message
       alert(`Failed to delete stories: ${errorMsg}`)
+    }
+  }
+
+  const generatePromptForStory = async (story: StoryWithPrompt, feature: FeatureWithStories, epic: EpicData) => {
+    if (!output) return
+
+    // Update story state to loading in featuresByEpic
+    const updatedFeaturesByEpic = new Map(featuresByEpic)
+    const epicFeatures = updatedFeaturesByEpic.get(epic.epic_id) || []
+    updatedFeaturesByEpic.set(
+      epic.epic_id,
+      epicFeatures.map(f =>
+        f.feature_id === feature.feature_id
+          ? {
+              ...f,
+              stories: (f.stories || []).map(s =>
+                s.story_id === story.story_id
+                  ? { ...s, promptLoading: true, promptError: undefined }
+                  : s
+              ),
+            }
+          : f
+      )
+    )
+    setFeaturesByEpic(updatedFeaturesByEpic)
+
+    try {
+      const res = await fetch(`/api/stories/${story.story_id}/generate-prompt`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          story,
+          feature,
+          epic,
+          governanceMarkdown: output.markdown.content,
+          projectId,
+          repoUrl: 'https://github.com/dgaspard/muse',
+          defaultBranch: 'main',
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to generate prompt')
+      }
+
+      // Update story with generated prompt in featuresByEpic
+      const updatedFeaturesByEpic2 = new Map(featuresByEpic)
+      const epicFeatures2 = updatedFeaturesByEpic2.get(epic.epic_id) || []
+      updatedFeaturesByEpic2.set(
+        epic.epic_id,
+        epicFeatures2.map(f =>
+          f.feature_id === feature.feature_id
+            ? {
+                ...f,
+                stories: (f.stories || []).map(s =>
+                  s.story_id === story.story_id
+                    ? { ...s, prompt: data.prompt, promptLoading: false, promptError: undefined, promptExpanded: true }
+                    : s
+                ),
+              }
+            : f
+        )
+      )
+      setFeaturesByEpic(updatedFeaturesByEpic2)
+    } catch (err) {
+      const errorMsg = (err as Error).message
+      const updatedFeaturesByEpic3 = new Map(featuresByEpic)
+      const epicFeatures3 = updatedFeaturesByEpic3.get(epic.epic_id) || []
+      updatedFeaturesByEpic3.set(
+        epic.epic_id,
+        epicFeatures3.map(f =>
+          f.feature_id === feature.feature_id
+            ? {
+                ...f,
+                stories: (f.stories || []).map(s =>
+                  s.story_id === story.story_id
+                    ? { ...s, promptLoading: false, promptError: errorMsg }
+                    : s
+                ),
+              }
+            : f
+        )
+      )
+      setFeaturesByEpic(updatedFeaturesByEpic3)
     }
   }
 
@@ -634,12 +727,87 @@ ${story.governance_references.map(r => `- ${r}`).join('\n')}`
                                           </ul>
                                         </div>
                                       )}
-                                      <button 
-                                        onClick={() => copyToClipboard(formatStoryForCopy(story))} 
-                                        style={{ padding: '3px 6px', marginTop: 6, fontSize: 10 }}
-                                      >
-                                        📋 Copy
-                                      </button>
+                                      <div style={{ marginTop: 8, display: 'flex', gap: 6 }}>
+                                        <button 
+                                          onClick={() => copyToClipboard(formatStoryForCopy(story))} 
+                                          style={{ padding: '3px 6px', fontSize: 10 }}
+                                        >
+                                          📋 Copy
+                                        </button>
+                                        <button 
+                                          onClick={() => generatePromptForStory(story as StoryWithPrompt, feature, epics.find(e => e.epic_id === feature.epic_id)!)}
+                                          disabled={(story as StoryWithPrompt).promptLoading}
+                                          style={{ 
+                                            padding: '3px 6px', 
+                                            fontSize: 10,
+                                            backgroundColor: (story as StoryWithPrompt).promptLoading ? '#ccc' : '#4CAF50',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: 2,
+                                            cursor: (story as StoryWithPrompt).promptLoading ? 'not-allowed' : 'pointer',
+                                          }}
+                                        >
+                                          {(story as StoryWithPrompt).promptLoading ? '⏳ Generating...' : '📝 Generate Prompt'}
+                                        </button>
+                                      </div>
+
+                                      {(story as StoryWithPrompt).prompt && (
+                                        <div style={{ marginTop: 10 }}>
+                                          <button
+                                            onClick={() => {
+                                              const updatedFeaturesByEpic = new Map(featuresByEpic)
+                                              const epicFeatures = updatedFeaturesByEpic.get(feature.epic_id) || []
+                                              updatedFeaturesByEpic.set(
+                                                feature.epic_id,
+                                                epicFeatures.map(f =>
+                                                  f.feature_id === feature.feature_id
+                                                    ? {
+                                                        ...f,
+                                                        stories: (f.stories || []).map(s =>
+                                                          s.story_id === story.story_id
+                                                            ? { ...s, promptExpanded: !(s as StoryWithPrompt).promptExpanded }
+                                                            : s
+                                                        ),
+                                                      }
+                                                    : f
+                                                )
+                                              )
+                                              setFeaturesByEpic(updatedFeaturesByEpic)
+                                            }}
+                                            style={{
+                                              padding: '4px 8px',
+                                              backgroundColor: '#E3F2FD',
+                                              border: '1px solid #1976D2',
+                                              borderRadius: 2,
+                                              cursor: 'pointer',
+                                              fontSize: 10,
+                                              fontWeight: 'bold',
+                                              color: '#1976D2',
+                                              width: '100%',
+                                              textAlign: 'left',
+                                            }}
+                                          >
+                                            {(story as StoryWithPrompt).promptExpanded ? '▼ Hide Prompt' : '▶ Show Prompt'}
+                                          </button>
+                                          {(story as StoryWithPrompt).promptExpanded && (
+                                            <div style={{ marginTop: 8, padding: 10, backgroundColor: '#F5F5F5', borderRadius: 2, border: '1px solid #ddd', fontSize: 10, maxHeight: 400, overflowY: 'auto', fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                                              {(story as StoryWithPrompt).prompt}
+                                            </div>
+                                          )}
+                                          <button 
+                                            onClick={() => copyToClipboard((story as StoryWithPrompt).prompt!)} 
+                                            style={{ padding: '3px 6px', marginTop: 6, fontSize: 10 }}
+                                          >
+                                            📋 Copy Prompt
+                                          </button>
+                                        </div>
+                                      )}
+
+                                      {(story as StoryWithPrompt).promptError && (
+                                        <div style={{ marginTop: 8, padding: 8, backgroundColor: '#FFEBEE', border: '1px solid #F44336', borderRadius: 2, color: '#C62828', fontSize: 10 }}>
+                                          <strong>Prompt Error:</strong> {(story as StoryWithPrompt).promptError}
+                                        </div>
+                                      )}
                                     </div>
                                   ))}
                                 </div>
