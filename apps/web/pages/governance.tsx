@@ -735,7 +735,7 @@ ${story.governance_references.map(r => `- ${r}`).join('\n')}`
                                           📋 Copy
                                         </button>
                                         <button 
-                                          onClick={() => generatePromptForStory(story as StoryWithPrompt, feature, epics.find(e => e.epic_id === feature.epic_id)!)}
+                                          onClick={() => generatePromptForStory(story as StoryWithPrompt, feature, epic)}
                                           disabled={(story as StoryWithPrompt).promptLoading}
                                           style={{ 
                                             padding: '3px 6px', 
