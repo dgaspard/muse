@@ -9,6 +9,11 @@ import { FeatureDerivationWorkflow } from '../features/FeatureDerivationWorkflow
 import { FeatureToStoryAgent } from '../stories/FeatureToStoryAgent'
 import { getDocumentStore } from '../storage/documentStoreFactory'
 import { validateArtifactHierarchy } from '../shared/ArtifactValidation'
+import { SectionSplitter } from '../semantic/SectionSplitter'
+import { SectionSummaryJob, SectionSummary } from '../semantic/SectionSummaryJob'
+import { EpicDerivationAgent } from '../semantic/EpicDerivationAgent'
+import { FeatureDerivationJob } from '../semantic/FeatureDerivationJob'
+import { RateLimiter, retryWithBackoff } from '../semantic/RateLimiter'
 
 /**
  * Epic data structure returned by the pipeline
@@ -155,97 +160,237 @@ export class MusePipelineOrchestrator {
       )
     }
 
-    // Step 4: Derive Epic(s) (MUSE-005) - only runs if validation passes
-    console.log('[Pipeline] Validation passed. Proceeding to Epic derivation...')
-    const epicWorkflow = new EpicDerivationWorkflow(this.repoRoot)
-    
-    // Use multi-Epic derivation for large documents
-    const epicArtifacts = await epicWorkflow.deriveEpicsMulti(
-      governanceMarkdownPath,
-      undefined, // Document ID read from front matter
-      { commitToGit: false } // No Git commit
-    )
-    
-    console.log(`[Pipeline] Derived ${epicArtifacts.length} Epic(s)`)
-    const epicsData: EpicData[] = []
-    for (const epicArtifact of epicArtifacts) {
-      const epicData = await this.loadEpicData(path.join(this.repoRoot, epicArtifact.epic_path))
-      epicsData.push(epicData)
-    }
+    // Step 4+: Derivation stages
+    // Choose staged semantic pipeline for large documents; fallback to existing agent workflows for smaller docs
+    const useSemanticStages = validationResult.contentLength >= 2000
 
-    // Step 5: Derive Features from ALL Epics (MUSE-006)
-    const featureWorkflow = new FeatureDerivationWorkflow(this.repoRoot)
-    const allFeatureArtifacts = []
-    
-    for (const epicArtifact of epicArtifacts) {
-      const featureArtifacts = await featureWorkflow.deriveFeaturesFromEpic(
-        epicArtifact.epic_path,
-        { governancePath: governanceMarkdownPath }
-      )
-      allFeatureArtifacts.push(...featureArtifacts)
-    }
+    let epicsData: EpicData[] = []
+    let featuresData: FeatureData[] = []
+    let storiesData: StoryData[] = []
 
-    const featuresData: FeatureData[] = []
-    for (const featureArtifact of allFeatureArtifacts) {
-      const featureData = await this.loadFeatureData(path.join(this.repoRoot, featureArtifact.feature_path))
-      featuresData.push(...featureData)
-    }
+    if (useSemanticStages) {
+      console.log('[Pipeline] Large document detected. Using staged semantic pipeline...')
 
-    // Step 6: Derive User Stories from Features (MUSE-007)
-    console.log('[Pipeline] Deriving user stories from features...')
-    const storyAgent = new FeatureToStoryAgent()
-    const minioStore = getDocumentStore()
-    const storiesData: StoryData[] = []
+      // Section splitting (strip YAML front matter first to avoid polluting section content)
+      const splitter = new SectionSplitter(governanceMarkdownPath)
+      // Remove YAML front matter: match --- ... --- at start of document, with optional trailing newlines
+      const contentWithoutFrontMatter = markdownOutput.content.replace(/^---\n[\s\S]*?\n---\n*/m, '')
+      const sections = splitter.split(contentWithoutFrontMatter, documentMetadata.documentId)
 
-    for (const featureArtifact of allFeatureArtifacts) {
-      const featurePath = path.join(this.repoRoot, featureArtifact.feature_path)
-      
-      try {
-        // Store feature markdown in MinIO using file path
-        const featureStats = await fs.promises.stat(featurePath)
-        const featureFilename = path.basename(featurePath)
-        
-        const featureDoc = await minioStore.saveOriginalFromPath(featurePath, {
-          originalFilename: featureFilename,
-          mimeType: 'text/markdown',
-          sizeBytes: featureStats.size,
-          projectId: input.projectId || 'project',
-        })
+      // Token-aware concurrency for summaries (heuristic: ~4 chars per token)
+      const avgSectionTokens = Math.max(1, Math.floor(sections.reduce((sum, s) => sum + s.content.length, 0) / Math.max(1, sections.length) / 4))
+      const maxConcurrent = Math.min(8, Math.max(1, Math.floor(30000 / Math.max(50, avgSectionTokens * 100))))
+      const limiter = new RateLimiter(maxConcurrent)
+      const summaryCache = new Map<string, SectionSummary>()
+      const summaryJob = new SectionSummaryJob(summaryCache)
 
-        // Use MinIO-based story derivation
-        const stories = await storyAgent.deriveStoriesFromDocuments(
-          featureDoc.documentId,
-          documentMetadata.documentId,
-          input.projectId || 'project',
-          featureArtifact.epic_id,
-          minioStore
-        )
-
-        // Convert generated stories to StoryData format
-        for (const story of stories) {
-          storiesData.push({
-            story_id: story.story_id,
-            title: story.title,
-            role: story.role,
-            capability: story.capability,
-            benefit: story.benefit,
-            acceptance_criteria: story.acceptance_criteria,
-            derived_from_feature: story.derived_from_feature,
-            derived_from_epic: story.derived_from_epic,
-            governance_references: story.governance_references?.map(ref => 
-              typeof ref === 'string' ? ref : ref.document_id
-            ) || [],
-          })
-        }
-
-        console.log(`[Pipeline] Generated ${stories.length} stories for feature ${featureArtifact.feature_id}`)
-      } catch (error) {
-        console.warn(`[Pipeline] Failed to derive stories for feature ${featureArtifact.feature_id}:`, error)
-        // Continue with other features instead of failing the entire pipeline
+      const summaries: SectionSummary[] = []
+      for (const sec of sections) {
+        const summary = await limiter.run(() => retryWithBackoff(() => summaryJob.run(sec.id, sec.title, sec.content)))
+        summaries.push(summary)
       }
-    }
 
-    console.log(`[Pipeline] Total stories generated: ${storiesData.length}`)
+      // Epics (AI-powered derivation with rule-based fallback)
+      const epicAgent = new EpicDerivationAgent(documentMetadata.documentId)
+      const epics = await epicAgent.run(summaries)
+      // Persist epics for UI consumption via existing loaders
+      const epicsDir = path.join(this.repoRoot, 'docs', 'epics')
+      await fs.promises.mkdir(epicsDir, { recursive: true })
+      const epicsDataFromFiles: EpicData[] = []
+      for (let i = 0; i < epics.length; i++) {
+        const e = epics[i]
+        const epicPath = path.join(epicsDir, `${e.epic_id}.md`)
+        await this.writeSemanticEpic(epicPath, {
+          epic_id: e.epic_id,
+          title: e.title,
+          objective: e.objective,
+          success_criteria: e.success_criteria,
+          governance_references: e.source_sections,
+        })
+        const data = await this.loadEpicData(epicPath)
+        epicsDataFromFiles.push(data)
+      }
+      epicsData = epicsDataFromFiles
+
+      // Features
+      const featureJob = new FeatureDerivationJob()
+      const features: ReturnType<typeof featureJob.run> = epics.flatMap(epic => featureJob.run(epic, summaries))
+
+      // Build acceptance criteria from section obligations, persist features, then load via existing parser
+      const featuresDir = path.join(this.repoRoot, 'docs', 'features')
+      await fs.promises.mkdir(featuresDir, { recursive: true })
+      const featuresDataFromFiles: FeatureData[] = []
+      for (const f of features) {
+        const criteria = summaries
+          .filter(s => f.source_sections.includes(s.section_id))
+          .flatMap(s => s.obligations)
+          .slice(0, 10)
+        const featurePath = path.join(featuresDir, `${f.feature_id}.md`)
+        await this.writeSemanticFeature(featurePath, {
+          feature_id: f.feature_id,
+          title: f.title,
+          description: f.description,
+          epic_id: f.epic_id,
+          acceptance_criteria: criteria.length ? criteria : [f.title],
+          governance_references: f.source_sections,
+          parent_feature_id: undefined,
+        })
+        const data = await this.loadFeatureData(featurePath)
+        featuresDataFromFiles.push(...data)
+      }
+      featuresData = featuresDataFromFiles
+
+      // Stories
+      // Derive stories using existing MinIO-based agent for consistent formatting
+      const storyAgent = new FeatureToStoryAgent()
+      const minioStore = getDocumentStore()
+      storiesData = []
+      for (const feature of featuresData) {
+        // Persisted file path for feature
+        const featurePath = path.join(this.repoRoot, 'docs', 'features', `${feature.feature_id}.md`)
+        try {
+          const stats = await fs.promises.stat(featurePath)
+          const featureDoc = await minioStore.saveOriginalFromPath(featurePath, {
+            originalFilename: path.basename(featurePath),
+            mimeType: 'text/markdown',
+            sizeBytes: stats.size,
+            projectId: input.projectId || 'project',
+          })
+          const stories = await storyAgent.deriveStoriesFromDocuments(
+            featureDoc.documentId,
+            documentMetadata.documentId,
+            input.projectId || 'project',
+            feature.epic_id,
+            minioStore
+          )
+          for (const story of stories) {
+            storiesData.push({
+              story_id: story.story_id,
+              title: story.title,
+              role: story.role,
+              capability: story.capability,
+              benefit: story.benefit,
+              acceptance_criteria: story.acceptance_criteria,
+              derived_from_feature: story.derived_from_feature,
+              derived_from_epic: story.derived_from_epic,
+              governance_references: story.governance_references?.map(ref => typeof ref === 'string' ? ref : ref.document_id) || [],
+            })
+          }
+        } catch (err) {
+          console.warn('[Pipeline] Story derivation failed for feature', feature.feature_id, err)
+        }
+      }
+
+      // Fallback: if MinIO-based story derivation failed, derive basic stories from acceptance criteria
+      if (storiesData.length === 0) {
+        const toKebab = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+        for (const feature of featuresData) {
+          const criteria = feature.acceptance_criteria && feature.acceptance_criteria.length
+            ? feature.acceptance_criteria
+            : [feature.title]
+          for (let i = 0; i < Math.min(5, criteria.length); i++) {
+            const nn = String(i + 1).padStart(2, '0')
+            const title = criteria[i]
+            const story_id = `${feature.feature_id}-story-${nn}-${toKebab(title)}`
+            storiesData.push({
+              story_id,
+              title,
+              role: 'user',
+              capability: feature.title,
+              benefit: 'business value',
+              acceptance_criteria: [title],
+              derived_from_feature: feature.feature_id,
+              derived_from_epic: feature.epic_id,
+              governance_references: feature.governance_references,
+            })
+          }
+        }
+      }
+
+      console.log(`[Pipeline] Semantic stages complete: ${epicsData.length} epics, ${featuresData.length} features, ${storiesData.length} stories`)
+    } else {
+      // Existing agent-based workflows (smaller docs)
+      console.log('[Pipeline] Validation passed. Proceeding to Epic derivation (agent workflows)...')
+      const epicWorkflow = new EpicDerivationWorkflow(this.repoRoot)
+
+      const epicArtifacts = await epicWorkflow.deriveEpicsMulti(
+        governanceMarkdownPath,
+        undefined,
+        { commitToGit: false }
+      )
+
+      console.log(`[Pipeline] Derived ${epicArtifacts.length} Epic(s)`) 
+      for (const epicArtifact of epicArtifacts) {
+        const epicData = await this.loadEpicData(path.join(this.repoRoot, epicArtifact.epic_path))
+        epicsData.push(epicData)
+      }
+
+      const featureWorkflow = new FeatureDerivationWorkflow(this.repoRoot)
+      const allFeatureArtifacts = []
+
+      for (const epicArtifact of epicArtifacts) {
+        const featureArtifacts = await featureWorkflow.deriveFeaturesFromEpic(
+          epicArtifact.epic_path,
+          { governancePath: governanceMarkdownPath }
+        )
+        allFeatureArtifacts.push(...featureArtifacts)
+      }
+
+      for (const featureArtifact of allFeatureArtifacts) {
+        const featureData = await this.loadFeatureData(path.join(this.repoRoot, featureArtifact.feature_path))
+        featuresData.push(...featureData)
+      }
+
+      console.log('[Pipeline] Deriving user stories from features...')
+      const storyAgent = new FeatureToStoryAgent()
+      const minioStore = getDocumentStore()
+
+      for (const featureArtifact of allFeatureArtifacts) {
+        const featurePath = path.join(this.repoRoot, featureArtifact.feature_path)
+        
+        try {
+          const featureStats = await fs.promises.stat(featurePath)
+          const featureFilename = path.basename(featurePath)
+          
+          const featureDoc = await minioStore.saveOriginalFromPath(featurePath, {
+            originalFilename: featureFilename,
+            mimeType: 'text/markdown',
+            sizeBytes: featureStats.size,
+            projectId: input.projectId || 'project',
+          })
+
+          const stories = await storyAgent.deriveStoriesFromDocuments(
+            featureDoc.documentId,
+            documentMetadata.documentId,
+            input.projectId || 'project',
+            featureArtifact.epic_id,
+            minioStore
+          )
+
+          for (const story of stories) {
+            storiesData.push({
+              story_id: story.story_id,
+              title: story.title,
+              role: story.role,
+              capability: story.capability,
+              benefit: story.benefit,
+              acceptance_criteria: story.acceptance_criteria,
+              derived_from_feature: story.derived_from_feature,
+              derived_from_epic: story.derived_from_epic,
+              governance_references: story.governance_references?.map(ref => 
+                typeof ref === 'string' ? ref : ref.document_id
+              ) || [],
+            })
+          }
+
+          console.log(`[Pipeline] Generated ${stories.length} stories for feature ${featureArtifact.feature_id}`)
+        } catch (error) {
+          console.warn(`[Pipeline] Failed to derive stories for feature ${featureArtifact.feature_id}:`, error)
+        }
+      }
+
+      console.log(`[Pipeline] Total stories generated: ${storiesData.length}`)
+    }
 
     // Step 7: Validate hierarchy (Epics → Features → Stories)
     const hierarchyReport = validateArtifactHierarchy({
@@ -302,6 +447,50 @@ export class MusePipelineOrchestrator {
     await fs.promises.writeFile(markdownPath, markdownOutput.content, 'utf-8')
 
     return markdownPath
+  }
+
+  /**
+   * Write a semantic Epic markdown artifact to disk (no git commit)
+   */
+  private async writeSemanticEpic(epicPath: string, epic: {
+    epic_id: string
+    title: string
+    objective: string
+    success_criteria: string[]
+    governance_references: string[]
+  }): Promise<void> {
+    const dir = path.dirname(epicPath)
+    await fs.promises.mkdir(dir, { recursive: true })
+
+    const frontMatter = `---\nepic_id: ${epic.epic_id}\nderived_artifact: epic_markdown\n---\n`
+    const body = `# Epic: ${epic.title}\n\n## Objective\n${epic.objective}\n\n## Success Criteria\n${epic.success_criteria.map(s => `- ${s}`).join('\n')}\n\n## Governance References\n${epic.governance_references.map(r => `- ${r}`).join('\n')}\n`
+    await fs.promises.writeFile(epicPath, frontMatter + '\n' + body, 'utf-8')
+  }
+
+  /**
+   * Write a semantic Feature markdown artifact to disk (no git commit)
+   */
+  private async writeSemanticFeature(featurePath: string, feature: {
+    feature_id: string
+    title: string
+    description: string
+    epic_id: string
+    acceptance_criteria: string[]
+    governance_references: string[]
+    parent_feature_id?: string
+  }): Promise<void> {
+    const dir = path.dirname(featurePath)
+    await fs.promises.mkdir(dir, { recursive: true })
+
+    const fmLines = [
+      `feature_id: ${feature.feature_id}`,
+      `epic_id: ${feature.epic_id}`,
+      feature.parent_feature_id ? `parent_feature_id: ${feature.parent_feature_id}` : undefined,
+      'derived_artifact: feature_markdown',
+    ].filter(Boolean).join('\n')
+    const frontMatter = `---\n${fmLines}\n---\n`
+    const body = `# Feature: ${feature.title}\n\n## Description\n${feature.description}\n\n## Acceptance Criteria\n${feature.acceptance_criteria.map(s => `- ${s}`).join('\n')}\n\n## Governance References\n${feature.governance_references.map(r => `- ${r}`).join('\n')}\n`
+    await fs.promises.writeFile(featurePath, frontMatter + '\n' + body, 'utf-8')
   }
 
   /**
@@ -393,8 +582,9 @@ export class MusePipelineOrchestrator {
 
         const title = line.replace('# Feature:', '').trim()
         // Use feature_id from front matter if available, otherwise extract from title or generate
+        const titleMatch = title.match(/\(([^)]+)\)/)
         const featureId = frontMatter.feature_id || 
-          (title.match(/\(([^)]+)\)/) ? title.match(/\(([^)]+)\)/)?.[1] : undefined) ||
+          (titleMatch ? titleMatch[1] : undefined) ||
           `feature-${features.length + 1}`
 
         currentFeature = {
