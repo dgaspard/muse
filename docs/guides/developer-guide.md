@@ -77,16 +77,16 @@ There's a disconnect between platform engineers and customers in regulated indus
 │  • AI prompt interpolation                                   │
 └────┬─────────────────────┬────────────────────┬─────────────┘
      │                     │                    │
-     ↓                     ↓                    ↓
-┌─────────────┐  ┌──────────────────┐  ┌─────────────────┐
-│  services/  │  │   services/      │  │   Storage       │
-│  pipeline   │  │   workers        │  │   Layer         │
-│  (Python)   │  │   (Node.js)      │  │                 │
-│             │  │                  │  │  • Postgres     │
-│  • DOCX→MD  │  │  • Background    │  │  • Redis        │
-│  • PDF→MD   │  │    jobs          │  │  • MinIO        │
-│  • Extract  │  │  • Health check  │  │    (S3-compat)  │
-└─────────────┘  └──────────────────┘  └─────────────────┘
+                          ↓                    ↓
+                ┌──────────────────┐  ┌─────────────────┐
+                │   services/      │  │   Storage       │
+                │   workers        │  │   Layer         │
+                │   (Node.js)      │  │                 │
+                │                  │  │  • Postgres     │
+                │  • Background    │  │  • Redis        │
+                │    jobs          │  │  • MinIO        │
+                │  • Health check  │  │    (S3-compat)  │
+                └──────────────────┘  └─────────────────┘
 ```
 
 ### Technology Stack
@@ -94,8 +94,7 @@ There's a disconnect between platform engineers and customers in regulated indus
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
 | **Frontend** | Next.js 14 + TypeScript | Server-side rendered UI, governance workflow |
-| **API** | Node.js 20 + Express + TypeScript | REST API, pipeline orchestration |
-| **Pipeline** | Python 3.11 + FastAPI | Document conversion, text extraction |
+| **API** | Node.js 20 + Express + TypeScript | REST API, data orchestration |
 | **Workers** | Node.js 20 + TypeScript | Background job processing (placeholder) |
 | **Data Store** | Postgres 15 | Structured metadata (future) |
 | **Cache** | Redis 7 | Session management, job queues (future) |
@@ -110,7 +109,6 @@ There's a disconnect between platform engineers and customers in regulated indus
 
 - **Docker Desktop** (or Docker Engine + Docker Compose)
 - **Node.js 20+** (for local development outside containers)
-- **Python 3.11+** (optional, for local pipeline development)
 - **Git** (for version control)
 
 ### Initial Setup
@@ -175,15 +173,9 @@ muse/
 │   │   ├── src/
 │   │   │   ├── index.ts        # Main entry point, routes
 │   │   │   ├── storage/        # Document store abstraction
-│   │   │   ├── conversion/     # Markdown converters
-│   │   │   ├── orchestration/  # Pipeline orchestrator
+│   │   │   ├── orchestration/  # Data orchestrator
 │   │   │   └── semantic/       # Epic/Feature/Story agents
 │   │   └── Dockerfile
-│   │
-│   ├── pipeline/               # Python FastAPI service
-│   │   ├── app/
-│   │   │   └── main.py         # Document conversion endpoints
-│   │   └── requirements.txt
 │   │
 │   └── workers/                # Node.js background workers
 │       ├── src/
@@ -470,12 +462,10 @@ Body: { story: StoryData, feature: FeatureData, epic: EpicData, governanceMarkdo
 
 **Endpoints:**
 - `/health` — Health check
-- `/convert` — Document conversion (future expansion)
 
 **Tech:**
-- FastAPI (async Python framework)
-- Uvicorn (ASGI server)
-- python-docx, pypdf (document parsing)
+- Node.js 20 + Express + TypeScript
+- Async request handling
 
 ### 4. Workers Service (`services/workers`)
 

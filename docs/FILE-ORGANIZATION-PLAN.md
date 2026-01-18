@@ -124,7 +124,7 @@ These files remain at root because they are project-level entry points:
 **New Content**:
 
 - `linting-configuration.md` (all linting tool configs)
-- `code-standards.md` (TypeScript, Python, general standards)
+- `code-standards.md` (TypeScript, general standards)
 - `testing-standards.md` (test coverage expectations)
 - `security-checklist.md` (security validation steps)
 
