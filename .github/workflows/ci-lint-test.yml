@@ -30,7 +30,7 @@ jobs:
         run: npm run lint --workspaces --if-present -- --max-warnings=0
 
       - name: Lint Markdown
-        run: npx markdownlint "**/*.md" --ignore node_modules --ignore storage --ignore .git
+        run: npm run lint:md
 
       - name: Run tests (unit / integration)
         env:
