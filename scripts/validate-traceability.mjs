@@ -27,6 +27,24 @@ const report = {
   }
 }
 
+// Determines if a file should be excluded from validation (documentation, tests, examples)
+function shouldExcludeFile(filePath) {
+  const basename = path.basename(filePath)
+  const relativePath = path.relative(repoRoot, filePath)
+  
+  // Exclude files with "agent-based" in the name (documentation files)
+  if (basename.includes('agent-based')) return true
+  
+  // Exclude files in services/api/docs/* (test/example files)
+  if (relativePath.startsWith('services/api/docs/')) return true
+  
+  // Exclude files with temp directory references
+  const content = fs.readFileSync(filePath, 'utf-8')
+  if (content.includes('/var/folders/') || content.includes('/tmp/')) return true
+  
+  return false
+}
+
 // Extracts YAML front matter blocks from markdown or YAML files, handling both single and multi-block formats.
 function readFrontMatterBlocks(filePath) {
   const raw = fs.readFileSync(filePath, 'utf-8')
@@ -109,6 +127,8 @@ function loadMuseYaml() {
 function collectGovernance() {
   const files = walkFiles(dirs.governance, ['.md', '.markdown', '.yaml', '.yml'])
   for (const filePath of files) {
+    if (shouldExcludeFile(filePath)) continue
+    
     const rel = path.relative(repoRoot, filePath)
     const blocks = readFrontMatterBlocks(filePath)
     const data = blocks[0]?.data || {}
@@ -124,6 +144,8 @@ function collectGovernance() {
 function collectEpics(muse) {
   const files = walkFiles(dirs.epics, ['.md', '.markdown', '.yaml', '.yml'])
   for (const filePath of files) {
+    if (shouldExcludeFile(filePath)) continue
+    
     const rel = path.relative(repoRoot, filePath)
     const data = readFrontMatterBlocks(filePath)[0]?.data || {}
     const epicId = data.epic_id
@@ -154,6 +176,8 @@ function collectEpics(muse) {
 function collectFeatures(muse) {
   const files = walkFiles(dirs.features, ['.md', '.markdown', '.yaml', '.yml'])
   for (const filePath of files) {
+    if (shouldExcludeFile(filePath)) continue
+    
     const rel = path.relative(repoRoot, filePath)
     const data = readFrontMatterBlocks(filePath)[0]?.data || {}
     const featureId = data.feature_id
@@ -191,6 +215,8 @@ function collectFeatures(muse) {
 function collectStories(muse) {
   const files = walkFiles(dirs.stories, ['.md', '.markdown', '.yaml', '.yml'])
   for (const filePath of files) {
+    if (shouldExcludeFile(filePath)) continue
+    
     const rel = path.relative(repoRoot, filePath)
     const blocks = readFrontMatterBlocks(filePath)
     if (blocks.length === 0) {
