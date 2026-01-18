@@ -1,0 +1,62 @@
+name: Compose Stack Runner
+
+on:
+  workflow_call:
+    inputs:
+      script-path:
+        description: Path to script to execute (bash)
+        required: true
+        type: string
+      service-set:
+        description: Services set to start (full|minimal)
+        required: false
+        type: string
+        default: 'full'
+
+jobs:
+  run:
+    name: Compose Stack
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create .env for CI
+        shell: bash
+        run: |
+          cat > .env <<'EOF'
+          POSTGRES_USER=postgres
+          POSTGRES_PASSWORD=postgres
+          POSTGRES_DB=muse
+          MINIO_ROOT_USER=minioadmin
+          MINIO_ROOT_PASSWORD=minioadmin
+          MINIO_BUCKETS=documents,uploads
+          API_PORT=4000
+          WEB_PORT=3000
+          WORKER_PORT=4100
+          EOF
+
+      - name: Start services
+        shell: bash
+        run: |
+          if [ "${{ inputs.service-set }}" = "minimal" ]; then
+            docker compose up -d --build minio api web
+          else
+            docker compose up -d --build
+          fi
+
+      - name: Wait for services
+        shell: bash
+        run: |
+          echo "Waiting for services to settle..."
+          sleep 10
+          docker compose ps
+
+      - name: Run script
+        shell: bash
+        run: bash ${{ inputs.script-path }}
+
+      - name: Tear down
+        if: always()
+        shell: bash
+        run: docker compose down

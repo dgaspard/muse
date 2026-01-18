@@ -6,38 +6,7 @@ on:
 
 jobs:
   smoke:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Create minimal .env for CI
-        run: |
-          cat > .env <<'EOF'
-          POSTGRES_USER=postgres
-          POSTGRES_PASSWORD=postgres
-          POSTGRES_DB=muse
-          MINIO_ROOT_USER=minioadmin
-          MINIO_ROOT_PASSWORD=minioadmin
-          MINIO_BUCKETS=documents,uploads
-          API_PORT=4000
-          WEB_PORT=3000
-          PIPELINE_PORT=8000
-          WORKER_PORT=4100
-          EOF
-
-      - name: Start services
-        run: docker compose up -d --build
-
-      - name: Wait for services
-        run: |
-          echo "Waiting for services to settle..."
-          sleep 10
-          docker compose ps
-
-      - name: Run smoke tests
-        run: bash ./scripts/smoke_test.sh
-
-      - name: Tear down
-        if: always()
-        run: docker compose down
+    uses: dgaspard/muse/.github/workflows/_compose-stack.yml@fix/story-derivation-workflow
+    with:
+      script-path: ./scripts/smoke_test.sh
+      service-set: full

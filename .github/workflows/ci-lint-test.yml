@@ -18,13 +18,10 @@ jobs:
           persist-credentials: false
 
       - name: Use Node.js 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
+        uses: ./.github/actions/setup-node-workspaces
 
       - name: Install dependencies (root workspaces)
-        run: npm ci
+        run: echo "Installed via composite action"
 
       - name: Lint (ESLint / Next / workspace lint)
         run: npm run lint --workspaces --if-present -- --max-warnings=0
