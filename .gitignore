@@ -16,3 +16,5 @@ npm-debug.log
 
 # Local runtime storage (databases, MinIO data, etc.)
 /storage/
+traceability-report.json
+traceability-report.txt
