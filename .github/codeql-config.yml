@@ -10,3 +10,8 @@ disable-default-queries: false
 
 permissions:
   contents: read
+
+paths-ignore:
+  - node_modules
+  - "**/*.test.ts"
+  - "**/*.spec.ts"
