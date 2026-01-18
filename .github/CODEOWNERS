@@ -1,65 +1,65 @@
-# Default ownership: Platform team
-* @muse-org/platform
+# Default ownership: Admin + Platform team
+* @dgaspard @muse-org/platform
 
 # Frontend (Next.js web application)
-apps/web/ @muse-org/frontend
+apps/web/ @dgaspard @muse-org/frontend
 
 # Backend (API, pipeline, and workers)
-services/api/ @muse-org/backend
-services/pipeline/ @muse-org/backend
-services/workers/ @muse-org/backend
+services/api/ @dgaspard @muse-org/backend
+services/pipeline/ @dgaspard @muse-org/backend
+services/workers/ @dgaspard @muse-org/backend
 
 # AI & Prompting logic
-prompts/ @muse-org/ai
-docs/stories/ @muse-org/ai
-docs/epics/ @muse-org/ai
-docs/AI_PROMPT_IMPLEMENTATION.md @muse-org/ai
-docs/FEATURE_GENERATION_IMPLEMENTATION.md @muse-org/ai
-docs/FRONTEND_FEATURE_GENERATION_IMPLEMENTATION.md @muse-org/ai
-docs/governance/ai-derivation-guardrails.md @muse-org/ai
+prompts/ @dgaspard @muse-org/ai
+docs/stories/ @dgaspard @muse-org/ai
+docs/epics/ @dgaspard @muse-org/ai
+docs/AI_PROMPT_IMPLEMENTATION.md @dgaspard @muse-org/ai
+docs/FEATURE_GENERATION_IMPLEMENTATION.md @dgaspard @muse-org/ai
+docs/FRONTEND_FEATURE_GENERATION_IMPLEMENTATION.md @dgaspard @muse-org/ai
+docs/governance/ai-derivation-guardrails.md @dgaspard @muse-org/ai
 
 # Security & Compliance
-services/api/src/auth/ @muse-org/security
-services/api/src/secrets/ @muse-org/security
-services/api/src/upload/ @muse-org/security
-services/pipeline/app/storage/ @muse-org/security
-storage/ @muse-org/security
-contracts/ai-constraints-policy.md @muse-org/security
-contracts/ai-prompt-format-spec.md @muse-org/security
-docs/governance/ @muse-org/security
-docs/ARTIFACT-BOUNDARY-VALIDATION.md @muse-org/security
-.env.example @muse-org/security
-.env @muse-org/security
+services/api/src/auth/ @dgaspard @muse-org/security
+services/api/src/secrets/ @dgaspard @muse-org/security
+services/api/src/upload/ @dgaspard @muse-org/security
+services/pipeline/app/storage/ @dgaspard @muse-org/security
+storage/ @dgaspard @muse-org/security
+contracts/ai-constraints-policy.md @dgaspard @muse-org/security
+contracts/ai-prompt-format-spec.md @dgaspard @muse-org/security
+docs/governance/ @dgaspard @muse-org/security
+docs/ARTIFACT-BOUNDARY-VALIDATION.md @dgaspard @muse-org/security
+.env.example @dgaspard @muse-org/security
+.env @dgaspard @muse-org/security
 
 # CI/CD & Automation
-.github/workflows/ @muse-org/platform @muse-org/security
-.github/ @muse-org/platform
-scripts/ @muse-org/platform
+.github/workflows/ @dgaspard @muse-org/platform @muse-org/security
+.github/ @dgaspard @muse-org/platform
+scripts/ @dgaspard @muse-org/platform
 
 # Infrastructure & Configuration
-Dockerfile @muse-org/platform
-docker-compose.yml @muse-org/platform
-package.json @muse-org/platform
-package-lock.json @muse-org/platform
-*/package.json @muse-org/platform
-services/pipeline/requirements.txt @muse-org/platform
-tsconfig.json @muse-org/platform
-vitest.config.ts @muse-org/platform
-next.config.js @muse-org/platform
+Dockerfile @dgaspard @muse-org/platform
+docker-compose.yml @dgaspard @muse-org/platform
+package.json @dgaspard @muse-org/platform
+package-lock.json @dgaspard @muse-org/platform
+*/package.json @dgaspard @muse-org/platform
+services/pipeline/requirements.txt @dgaspard @muse-org/platform
+tsconfig.json @dgaspard @muse-org/platform
+vitest.config.ts @dgaspard @muse-org/platform
+next.config.js @dgaspard @muse-org/platform
 
 # Documentation
-architecture/ @muse-org/docs
-docs/README.md @muse-org/docs
-docs/architecture/ @muse-org/docs
-README.md @muse-org/docs
-DEVELOPER_GUIDE.md @muse-org/docs
-CONTRIBUTING.md @muse-org/docs
-VALIDATION_GUIDE.md @muse-org/docs
-contracts/product-vision.md @muse-org/docs
-contracts/primary-users-personas.md @muse-org/docs
-contracts/repo-structure.md @muse-org/docs
-contracts/user-story-format.md @muse-org/docs
+architecture/ @dgaspard @muse-org/docs
+docs/README.md @dgaspard @muse-org/docs
+docs/architecture/ @dgaspard @muse-org/docs
+README.md @dgaspard @muse-org/docs
+DEVELOPER_GUIDE.md @dgaspard @muse-org/docs
+CONTRIBUTING.md @dgaspard @muse-org/docs
+VALIDATION_GUIDE.md @dgaspard @muse-org/docs
+contracts/product-vision.md @dgaspard @muse-org/docs
+contracts/primary-users-personas.md @dgaspard @muse-org/docs
+contracts/repo-structure.md @dgaspard @muse-org/docs
+contracts/user-story-format.md @dgaspard @muse-org/docs
 
 # Repository governance & contracts
-contracts/ @muse-org/platform @muse-org/security
-.github/CODEOWNERS @muse-org/platform @muse-org/security
+contracts/ @dgaspard @muse-org/platform @muse-org/security
+.github/CODEOWNERS @dgaspard @muse-org/platform @muse-org/security
