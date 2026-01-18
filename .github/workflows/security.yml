@@ -39,6 +39,8 @@ jobs:
       contents: read
       security-events: write
       actions: read
+    env:
+      CODEQL_EXTRACTOR_PYTHON_ANALYSIS_ENABLED: 'false'
     steps:
       - name: Checkout
         uses: actions/checkout@v4

@@ -16,6 +16,8 @@ jobs:
   analyze:
     name: Analyze
     runs-on: ubuntu-latest
+    env:
+      CODEQL_EXTRACTOR_PYTHON_ANALYSIS_ENABLED: 'false'
     strategy:
       fail-fast: false
       matrix:
