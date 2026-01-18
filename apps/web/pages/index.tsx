@@ -5,7 +5,6 @@ import Link from 'next/link'
 
 export default function Home() {
   const api = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
-  const pipeline = process.env.NEXT_PUBLIC_PIPELINE_URL || 'http://localhost:8000'
 
   return (
     <main style={{padding: 40, fontFamily: 'Arial'}}>
@@ -21,7 +20,6 @@ export default function Home() {
       <h2>Health</h2>
       <ul>
         <li><a href={`${api}/health`} target="_blank" rel="noreferrer">API health</a></li>
-        <li><a href={`${pipeline}/health`} target="_blank" rel="noreferrer">Pipeline health</a></li>
       </ul>
 
       <p style={{color: '#666'}}>Note: This project is a scaffold—business logic lives in services and is not implemented yet.</p>

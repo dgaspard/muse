@@ -45,7 +45,6 @@ check() {
 }
 
 check_api "http://localhost:4000/health" "api"
-check "http://localhost:8000/health" "pipeline"
 check "http://localhost:4100/health" "worker"
 
 # Web UI: HTTP 200

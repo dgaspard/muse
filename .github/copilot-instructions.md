@@ -10,40 +10,35 @@ Quick start (what to run)
 - Health endpoints (verify services):
   - Web: http://localhost:3000/
   - API health: http://localhost:4000/health — implemented in `services/api/src/index.ts`
-  - Pipeline health: http://localhost:8000/health — implemented in `services/pipeline/app/main.py`
   - Worker health: http://localhost:4100/health — implemented in `services/workers/src/worker.ts`
 
 Big picture
-- Minimal monorepo workspace; Node & Python services run in separate containers (see `docker-compose.yml`).
+- Minimal monorepo workspace; Node services run in separate containers (see `docker-compose.yml`).
 - Primary components:
-  - `apps/web` — Next.js frontend (link to API/pipeline health links)
+  - `apps/web` — Next.js frontend (link to API health links)
   - `services/api` — Node (TypeScript) API (Express) — starter routes in `src/index.ts`
-  - `services/pipeline` — Python FastAPI service for document conversion placeholders
   - `services/workers` — Node worker process (simulated heartbeat + health endpoint)
 - Data & infra in compose: Postgres, Redis, MinIO (local dev only).
 
 Project-specific conventions
 - Keep services explicit and small — prefer readable, commented code over clever abstractions.
 - TypeScript for Node apps; use `ts-node-dev` for dev and `tsc` + `node` for production images.
-- Python services use FastAPI + Uvicorn; requirements listed in `services/pipeline/requirements.txt`.
 - Placeholders for business logic exist; do not implement domain rules unless asked.
 
 Where to add features / common tasks (examples)
 - Add API routes in `services/api/src/` and export them via `src/index.ts`.
-- Add pipeline endpoints in `services/pipeline/app/main.py`.
 - Add background job handlers in `services/workers/src/worker.ts` (queue integration later).
 - Add OpenAPI/contract files to `contracts/` and document in `docs/`.
 
 Testing & debugging
 - Use Docker Compose logs to inspect service output: `docker compose logs -f api`.
 - For quick iteration, run Node services locally with `npm run dev` in the service folder.
-- For Python: run `uvicorn app.main:app --reload --port 8000` in `services/pipeline`.
 
 Smoke tests
 - A simple smoke test script is available at `scripts/smoke_test.sh`.
   - Run locally: `bash ./scripts/smoke_test.sh` or `npm run smoke` from the repo root.
   - The workflow `.github/workflows/smoke.yml` runs these smoke tests on push and via manual dispatch.
-  - The script checks `/health` for API, pipeline, worker, verifies the web UI returns HTTP 200, and validates backend dependencies:
+  - The script checks `/health` for API, worker, verifies the web UI returns HTTP 200, and validates backend dependencies:
     - Postgres readiness via `docker compose exec postgres pg_isready`
     - Redis reachability via `docker compose exec redis redis-cli PING`
     - MinIO readiness via `http://localhost:9000/minio/health/ready`

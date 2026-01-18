@@ -86,17 +86,6 @@ services:
     networks:
       - muse-network
 
-  pipeline:
-    build:
-      context: ./services/pipeline
-    env_file: .env
-    ports:
-      - "${PIPELINE_PORT:-8000}:8000"
-    depends_on:
-      - minio
-    networks:
-      - muse-network
-
   web:
     build:
       context: ./apps/web
