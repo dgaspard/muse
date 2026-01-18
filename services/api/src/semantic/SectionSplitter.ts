@@ -81,7 +81,6 @@ export class SectionSplitter {
     const sections: Section[] = []
     let currentTitle = 'Introduction'
     let currentStart = 1
-    const _semanticAnchorCount = 0
 
     const flush = (start: number, end: number, title: string, idx: number) => {
       const content = lines.slice(start - 1, end).join('\n').trim()
