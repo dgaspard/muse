@@ -1,0 +1,9 @@
+name: "CodeQL config"
+
+languages:
+  - javascript
+
+queries:
+  - uses: security-and-quality
+
+disable-default-queries: false
