@@ -31,9 +31,6 @@ jobs:
           config-file: ./.github/codeql-config.yml
           db-location: /home/runner/work/_temp/codeql_databases
 
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v2
-
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v2
         with:
