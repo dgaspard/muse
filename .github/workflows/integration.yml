@@ -7,7 +7,7 @@ on:
 
 jobs:
   e2e-upload:
-    uses: dgaspard/muse/.github/workflows/_compose-stack.yml@fix/story-derivation-workflow
+    uses: ./.github/workflows/_compose-stack.yml
     with:
       script-path: ./scripts/e2e_upload.sh
       service-set: minimal

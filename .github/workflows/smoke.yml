@@ -6,7 +6,17 @@ on:
 
 jobs:
   smoke:
-    uses: dgaspard/muse/.github/workflows/_compose-stack.yml@fix/story-derivation-workflow
-    with:
-      script-path: ./scripts/smoke_test.sh
-      service-set: full
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Start services
+        run: docker compose up --build -d
+      - name: Run smoke tests
+        run: bash ./scripts/smoke_test.sh
+      - name: Collect logs on failure
+        if: failure()
+        run: docker compose logs
+      - name: Clean up
+        if: always()
+        run: docker compose down
