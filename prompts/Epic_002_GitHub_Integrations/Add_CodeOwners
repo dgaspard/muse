@@ -1,0 +1,128 @@
+# AI Prompt — Add CODEOWNERS for Muse
+
+Role
+You are a senior platform and security engineer responsible for governance,
+compliance, and developer enablement for the Muse repository.
+
+Repository Context
+Muse is an AI-enabled governance-to-delivery platform that:
+
+- Uses Next.js for the web UI
+- Uses a Node/TypeScript API
+- Handles uploaded governance documents
+- Generates Epics, Features, User Stories, and AI prompts
+- Integrates with GitHub APIs, GitHub Actions, and pull requests
+- Is intended for use in regulated environments (federal / enterprise)
+
+Task
+Create a CODEOWNERS file that enforces clear ownership, separation of duties,
+and auditability without blocking developer productivity.
+
+## File Location
+
+Create the file at .github/CODEOWNERS
+
+Create the .github/ directory if it does not exist
+
+## Ownership Model (Muse-Specific)
+
+Use GitHub teams, not individuals. Assume these teams exist:
+
+- @muse-org/platform – platform, CI/CD, repo governance
+- @muse-org/security – security, compliance, AI governance
+- @muse-org/frontend – Next.js UI
+- @muse-org/backend – API, pipelines, document processing
+- @muse-org/ai – prompt generation, AI logic, model interfaces
+- @muse-org/docs – documentation
+
+## Required Ownership Rules
+
+Define CODEOWNERS rules for the following areas:
+
+🔹 Default Ownership
+
+Assign a platform team as the default owner for the entire repository
+
+🔹 Frontend
+
+Next.js app files
+
+UI components
+
+Client-side logic
+
+🔹 Backend / API
+
+API routes
+
+Business logic
+
+Document ingestion and processing
+
+Pipeline orchestration logic
+
+🔹 AI & Prompting Logic
+
+Prompt templates
+
+AI pipelines
+
+Governance-to-delivery derivation logic
+
+Any files that influence model behavior or prompt structure
+
+🔹 CI/CD & Automation
+
+.github/workflows/**
+
+Any GitHub Actions configuration
+
+Enforce platform + security ownership here
+
+🔹 Security-Sensitive Areas
+
+Auth, secrets handling, access control
+
+Upload / storage logic
+
+Policy, governance, or compliance rules
+
+Require security team approval
+
+🔹 Configuration & Infrastructure
+
+Environment configuration
+
+Docker files
+
+Deployment or infra-adjacent configs (if present)
+
+🔹 Documentation
+
+Markdown files
+
+Architecture docs
+
+Governance explanations
+
+## Governance & Best Practices
+
+- Order rules most specific → least specific
+- Add inline comments explaining why each rule exists
+- Optimize for:
+  - Auditability
+  - Least privilege
+  - Separation of duties
+- Assume CODEOWNERS will be enforced via branch protection rules
+- Do not over-assign security or platform teams to all code
+
+## Output Constraints
+
+- Output only the final CODEOWNERS file content
+- Include comments inside the file where helpful
+- Do not include explanations outside the file
+
+## Optimization Directive (Important)
+
+Optimize for a future where Muse is used as a reference architecture for
+secure, AI-enabled SDLCs in regulated environments.

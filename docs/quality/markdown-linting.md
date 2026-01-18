@@ -18,6 +18,7 @@ Implemented markdown linting for the Muse project to ensure consistent formattin
 **File**: `.markdownlintrc.yaml`
 
 Configured with relaxed rules appropriate for technical documentation:
+
 - **MD013** (line-length): Disabled - documentation naturally exceeds 80 chars
 - **MD024** (duplicate-heading): Disabled - allows section reuse patterns
 - **MD033** (no-inline-html): Disabled - HTML permitted in documentation
@@ -39,15 +40,18 @@ Configured with relaxed rules appropriate for technical documentation:
 ## Installation & Usage
 
 ### Prerequisites
+
 - Node.js 16+
 - npm or yarn
 
 ### Setup
+
 ```bash
 npm install --save-dev markdownlint-cli
 ```
 
 ### Run Linting
+
 ```bash
 # Check all markdown files
 npx markdownlint "**/*.md" --ignore "node_modules"
@@ -57,6 +61,7 @@ npx markdownlint "**/*.md" --ignore "node_modules" --fix
 ```
 
 ### Configuration
+
 The `.markdownlintrc.yaml` file defines all linting rules and can be customized as needed.
 
 ## CI/CD Integration

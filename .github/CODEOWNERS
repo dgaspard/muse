@@ -1,0 +1,65 @@
+# Default ownership: Platform team
+* @muse-org/platform
+
+# Frontend (Next.js web application)
+apps/web/ @muse-org/frontend
+
+# Backend (API, pipeline, and workers)
+services/api/ @muse-org/backend
+services/pipeline/ @muse-org/backend
+services/workers/ @muse-org/backend
+
+# AI & Prompting logic
+prompts/ @muse-org/ai
+docs/stories/ @muse-org/ai
+docs/epics/ @muse-org/ai
+docs/AI_PROMPT_IMPLEMENTATION.md @muse-org/ai
+docs/FEATURE_GENERATION_IMPLEMENTATION.md @muse-org/ai
+docs/FRONTEND_FEATURE_GENERATION_IMPLEMENTATION.md @muse-org/ai
+docs/governance/ai-derivation-guardrails.md @muse-org/ai
+
+# Security & Compliance
+services/api/src/auth/ @muse-org/security
+services/api/src/secrets/ @muse-org/security
+services/api/src/upload/ @muse-org/security
+services/pipeline/app/storage/ @muse-org/security
+storage/ @muse-org/security
+contracts/ai-constraints-policy.md @muse-org/security
+contracts/ai-prompt-format-spec.md @muse-org/security
+docs/governance/ @muse-org/security
+docs/ARTIFACT-BOUNDARY-VALIDATION.md @muse-org/security
+.env.example @muse-org/security
+.env @muse-org/security
+
+# CI/CD & Automation
+.github/workflows/ @muse-org/platform @muse-org/security
+.github/ @muse-org/platform
+scripts/ @muse-org/platform
+
+# Infrastructure & Configuration
+Dockerfile @muse-org/platform
+docker-compose.yml @muse-org/platform
+package.json @muse-org/platform
+package-lock.json @muse-org/platform
+*/package.json @muse-org/platform
+services/pipeline/requirements.txt @muse-org/platform
+tsconfig.json @muse-org/platform
+vitest.config.ts @muse-org/platform
+next.config.js @muse-org/platform
+
+# Documentation
+architecture/ @muse-org/docs
+docs/README.md @muse-org/docs
+docs/architecture/ @muse-org/docs
+README.md @muse-org/docs
+DEVELOPER_GUIDE.md @muse-org/docs
+CONTRIBUTING.md @muse-org/docs
+VALIDATION_GUIDE.md @muse-org/docs
+contracts/product-vision.md @muse-org/docs
+contracts/primary-users-personas.md @muse-org/docs
+contracts/repo-structure.md @muse-org/docs
+contracts/user-story-format.md @muse-org/docs
+
+# Repository governance & contracts
+contracts/ @muse-org/platform @muse-org/security
+.github/CODEOWNERS @muse-org/platform @muse-org/security

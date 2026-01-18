@@ -4,6 +4,7 @@ extends: markdownlint/style/prettier
 rules:
   MD013: false
   MD024: false
+  MD029: false
   MD033: false
   MD036: false
   MD041: false

@@ -35,13 +35,16 @@ Structure
 
 Before implementing features, refer to:
 
-- `/contracts/product-vision.md`
-- `/contracts/user-story-format.md`
-- `/contracts/ai-prompt-format-spec.md`
-- `/contracts/ai-constraints-policy.md`
-- `/architecture/muse-architecture.md`
-- `/examples/muse-end-to-end-example.md`
+- **Guides**: [Developer Guide](./docs/guides/developer-guide.md), [Validation Guide](./docs/guides/validation-guide.md)
+- **Architecture**: [System Architecture](./docs/architecture/system-architecture.md), [Architectural Decisions](./docs/architecture/)
+- **Contracts** (specifications):
+  - [Product Vision](./contracts/product-vision.md)
+  - [User Story Format](./contracts/user-story-format.md)
+  - [AI Prompt Format](./contracts/ai-prompt-format-spec.md)
+  - [AI Constraints Policy](./contracts/ai-constraints-policy.md)
+- **Examples**: [End-to-End Workflow](./docs/examples/end-to-end-workflow.md)
 
+**Full Documentation**: See [docs/README.md](./docs/README.md) for complete documentation index.
 Guidelines
 
 - Prefer clarity over cleverness; code is intentionally explicit and commented.
