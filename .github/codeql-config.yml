@@ -7,3 +7,6 @@ queries:
   - uses: security-and-quality
 
 disable-default-queries: false
+
+permissions:
+  contents: read
