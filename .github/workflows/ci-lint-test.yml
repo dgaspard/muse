@@ -35,4 +35,4 @@ jobs:
       - name: Run tests (unit / integration)
         env:
           NODE_OPTIONS: --max-old-space-size=4096
-        run: npm test --workspaces --if-present -- --runInBand
+        run: npm test --workspaces --if-present
