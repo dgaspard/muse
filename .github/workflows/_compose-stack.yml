@@ -1,5 +1,7 @@
 name: Compose Stack Runner
 
+permissions:
+  contents: read
 on:
   workflow_call:
     inputs:
@@ -12,9 +14,6 @@ on:
         required: false
         type: string
         default: 'full'
-
-permissions:
-  contents: read
 
 jobs:
   run:
