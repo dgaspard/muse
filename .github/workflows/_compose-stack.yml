@@ -13,6 +13,9 @@ on:
         type: string
         default: 'full'
 
+permissions:
+  contents: read
+
 jobs:
   run:
     name: Compose Stack
