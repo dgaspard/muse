@@ -590,9 +590,9 @@ app.post('/stories/:storyId/generate-prompt', async (req: Request, res: Response
       epic_title: epic?.title || 'N/A',
       governance_references: governanceReferences,
       governance_markdown_excerpt: governanceExcerpt,
-      languages: 'TypeScript, Python',
-      frameworks: 'Next.js, Express.js, FastAPI',
-      test_frameworks: 'Vitest, Jest, Pytest',
+      languages: 'TypeScript',
+      frameworks: 'Next.js, Express.js',
+      test_frameworks: 'Vitest, Jest',
     }
 
     // Replace all {{variable}} placeholders

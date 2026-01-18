@@ -6,9 +6,7 @@ npm-debug.log
 **/dist
 **/.next
 
-# Python
-**/__pycache__
-*.py[cod]
+# Env files
 .env
 
 # Docker
