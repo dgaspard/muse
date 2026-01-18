@@ -152,7 +152,7 @@ Return ONLY the JSON array. No markdown, no extra text.`
         return this.generateRuleBased(epic, summaries)
       }
 
-      features = JSON.parse(jsonMatch[0])
+      const features = JSON.parse(jsonMatch[0])
 
       if (!Array.isArray(features)) {
         console.warn('[FeatureGenerationAgent] Invalid response format, using fallback')

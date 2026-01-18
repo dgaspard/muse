@@ -540,7 +540,7 @@ app.post('/stories/:storyId/generate-prompt', async (req: Request, res: Response
       })
     }
 
-    let template = fs.readFileSync(promptTemplatePath, 'utf-8')
+    const template = fs.readFileSync(promptTemplatePath, 'utf-8')
 
     // Extract acceptance criteria from story
     const acceptanceCriteria = Array.isArray(story.acceptance_criteria)
@@ -550,7 +550,7 @@ app.post('/stories/:storyId/generate-prompt', async (req: Request, res: Response
     // Format governance references
     const governanceReferences = Array.isArray(story.governance_references)
       ? story.governance_references
-          .map((ref: any) => {
+          .map((ref: unknown) => {
             if (typeof ref === 'object' && ref !== null) {
               const r = ref as Record<string, unknown>
               return `- ${r.filename} (#${r.document_id})`

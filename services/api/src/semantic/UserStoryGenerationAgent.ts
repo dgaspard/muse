@@ -188,7 +188,7 @@ Return ONLY the JSON array. No markdown, no extra text.`
         return this.generateRuleBased(feature)
       }
 
-      stories = JSON.parse(jsonMatch[0])
+      const stories = JSON.parse(jsonMatch[0])
 
       if (!Array.isArray(stories)) {
         console.warn('[UserStoryGenerationAgent] Invalid response format, using fallback')

@@ -110,7 +110,7 @@ export class SectionSplitter {
           }
           currentTitle = headerTitle
           currentStart = lineNo + 1
-          semanticAnchorCount++
+          _semanticAnchorCount++
         }
         // Non-semantic headers are absorbed into current section
       }

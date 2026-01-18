@@ -13,8 +13,8 @@ export interface StoryArtifact {
 
 interface MuseYaml {
   artifacts?: {
-    epics?: any[]
-    features?: any[]
+    epics?: Record<string, unknown>[]
+    features?: Record<string, unknown>[]
     stories?: StoryArtifact[]
   }
 }
