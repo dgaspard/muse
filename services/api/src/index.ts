@@ -525,11 +525,13 @@ app.post('/stories/:storyId/generate-prompt', async (req: Request, res: Response
     }
 
     // Read prompt template
+    // Resolve prompt template path within prompts/Epic_001_* directory
     const promptTemplatePath = path.join(
       process.cwd(),
       '..',
       '..',
       'prompts',
+      'Epic_001_Create_Epics_Features_Stories_AIPrompts',
       'Prompt-muse-User-Story-Implementation-PR.md'
     )
 
