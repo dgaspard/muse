@@ -41,22 +41,24 @@ function readFrontMatterBlocks(filePath) {
     }
   }
 
-  const blocks = []
-  const fmMatches = raw.matchAll(/^---\n([\s\S]*?)\n---/gm)
-  for (const match of fmMatches) {
-    try {
-      const data = YAML.parse(match[1]) || {}
-      blocks.push({ data })
-    } catch (err) {
-      errors.push(`Failed to parse front matter in ${path.relative(repoRoot, filePath)}: ${err.message || err}`)
-    }
+  // Only parse front matter if file starts with ---
+  if (!raw.trimStart().startsWith('---\n')) {
+    return []
   }
 
-  if (blocks.length === 0) {
-    // Fallback to gray-matter for single block files
-    const parsed = matter(raw)
-    if (parsed.data && Object.keys(parsed.data).length > 0) {
-      blocks.push({ data: parsed.data })
+  const blocks = []
+  // Match front matter blocks: must start at beginning of file or after a previous block
+  const fmRegex = /^---\n([\s\S]*?)\n---\n/gm
+  let match
+  while ((match = fmRegex.exec(raw)) !== null) {
+    // Only accept matches that are at the start or immediately follow another block
+    if (match.index === 0 || raw.substring(0, match.index).trim().endsWith('---')) {
+      try {
+        const data = YAML.parse(match[1]) || {}
+        blocks.push({ data })
+      } catch (err) {
+        errors.push(`Failed to parse front matter in ${path.relative(repoRoot, filePath)}: ${err.message || err}`)
+      }
     }
   }
 
