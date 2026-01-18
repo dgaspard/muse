@@ -1,3 +1,4 @@
+import fs from 'fs'
 import matter from 'gray-matter'
 import { Readable } from 'stream'
 import {
@@ -192,6 +193,43 @@ export class FeatureToStoryAgent {
       govContent,
       govFrontMatter,
       projectId,
+      epicId,
+    )
+  }
+
+  /**
+   * Derive stories from local markdown files (filesystem-based workflow).
+   */
+  async deriveStoriesFromMarkdownFiles(
+    featureMarkdownPath: string,
+    governanceMarkdownPath: string,
+    projectId?: string,
+    epicId?: string,
+  ): Promise<StoryOutput[]> {
+    const featureRaw = fs.readFileSync(featureMarkdownPath, 'utf-8')
+    const featureParsed = matter(featureRaw)
+
+    const governanceRaw = fs.readFileSync(governanceMarkdownPath, 'utf-8')
+    const governanceParsed = matter(governanceRaw)
+
+    // Prefer explicit projectId, otherwise try to infer from front matter (epic_id prefix or project_id)
+    let effectiveProjectId = projectId
+    const fm = featureParsed.data as Record<string, unknown>
+
+    if (!effectiveProjectId) {
+      if (typeof fm.project_id === 'string' && fm.project_id.trim()) {
+        effectiveProjectId = fm.project_id
+      } else if (typeof fm.epic_id === 'string' && fm.epic_id.includes('-')) {
+        effectiveProjectId = fm.epic_id.split('-')[0]
+      }
+    }
+
+    return this.deriveStoriesFromContent(
+      featureParsed.content,
+      featureParsed.data,
+      governanceParsed.content,
+      governanceParsed.data,
+      effectiveProjectId ?? 'project',
       epicId,
     )
   }
