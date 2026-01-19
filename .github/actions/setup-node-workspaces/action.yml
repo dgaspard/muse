@@ -7,9 +7,6 @@ inputs:
     default: '20'
     required: false
 
-permissions:
-  contents: read
-
 runs:
   using: "composite"
   steps:
