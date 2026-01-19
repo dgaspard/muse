@@ -3,7 +3,8 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY services/api/package.json services/api/package-lock.json* ./
-RUN npm ci --silent --no-audit --no-fund --legacy-peer-deps
+# Use npm install since the api workspace may not have its own lockfile
+RUN npm install --silent --no-audit --no-fund --legacy-peer-deps
 COPY services/api ./
 # Copy prompts directory from repo root
 COPY prompts ../prompts
