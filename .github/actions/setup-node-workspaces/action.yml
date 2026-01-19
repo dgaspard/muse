@@ -16,6 +16,6 @@ runs:
         node-version: ${{ inputs.node-version }}
         cache: 'npm'
 
-    - name: Install dependencies
+    - name: Install workspace dependencies
       shell: bash
-      run: npm ci
+      run: npm install --workspaces --include-workspace-root --if-present --no-audit --no-fund --legacy-peer-deps
