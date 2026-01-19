@@ -3,7 +3,7 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY services/api/package.json services/api/package-lock.json* ./
-RUN npm install --silent
+RUN npm ci --silent --no-audit --no-fund --legacy-peer-deps
 COPY services/api ./
 # Copy prompts directory from repo root
 COPY prompts ../prompts
