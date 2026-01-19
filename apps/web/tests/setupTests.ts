@@ -1,3 +1,3 @@
-// Test setup placeholder — keep lightweight to avoid importing large external
-// test dependencies in this environment. If you run tests locally, you can add
-// `@testing-library/jest-dom` here to enable additional matchers.
+// Vitest JSDOM setup: extend expect with jest-dom matchers
+// Using the Vitest-specific entrypoint to avoid Jest peer warnings
+import '@testing-library/jest-dom/vitest'
