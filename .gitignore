@@ -6,9 +6,7 @@ npm-debug.log
 **/dist
 **/.next
 
-# Python
-**/__pycache__
-*.py[cod]
+# Env files
 .env
 
 # Docker
@@ -16,3 +14,5 @@ npm-debug.log
 
 # Local runtime storage (databases, MinIO data, etc.)
 /storage/
+traceability-report.json
+traceability-report.txt

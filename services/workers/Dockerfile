@@ -3,7 +3,9 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm install --silent
+# Workers workspace may not have its own lockfile; use install to avoid ci failure
+# Explicitly install including dev dependencies for TypeScript compilation
+RUN npm install --production=false --silent --no-audit --no-fund --legacy-peer-deps
 COPY . .
 RUN npm run build
 

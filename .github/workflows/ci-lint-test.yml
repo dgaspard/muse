@@ -1,0 +1,35 @@
+name: Lint and Test
+
+on:
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-test:
+    name: Lint and Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js 20
+        uses: ./.github/actions/setup-node-workspaces
+
+      - name: Install dependencies (root workspaces)
+        run: echo "Installed via composite action"
+
+      - name: Lint (ESLint / Next / workspace lint)
+        run: npm run lint --workspaces --if-present -- --max-warnings=0
+
+      - name: Lint Markdown
+        run: npm run lint:md
+
+      - name: Run tests (unit / integration)
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: npm test --workspaces --if-present

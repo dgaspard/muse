@@ -525,11 +525,13 @@ app.post('/stories/:storyId/generate-prompt', async (req: Request, res: Response
     }
 
     // Read prompt template
+    // Resolve prompt template path within prompts/Epic_001_* directory
     const promptTemplatePath = path.join(
       process.cwd(),
       '..',
       '..',
       'prompts',
+      'Epic_001_Create_Epics_Features_Stories_AIPrompts',
       'Prompt-muse-User-Story-Implementation-PR.md'
     )
 
@@ -540,7 +542,7 @@ app.post('/stories/:storyId/generate-prompt', async (req: Request, res: Response
       })
     }
 
-    let template = fs.readFileSync(promptTemplatePath, 'utf-8')
+    const template = fs.readFileSync(promptTemplatePath, 'utf-8')
 
     // Extract acceptance criteria from story
     const acceptanceCriteria = Array.isArray(story.acceptance_criteria)
@@ -550,7 +552,7 @@ app.post('/stories/:storyId/generate-prompt', async (req: Request, res: Response
     // Format governance references
     const governanceReferences = Array.isArray(story.governance_references)
       ? story.governance_references
-          .map((ref: any) => {
+          .map((ref: unknown) => {
             if (typeof ref === 'object' && ref !== null) {
               const r = ref as Record<string, unknown>
               return `- ${r.filename} (#${r.document_id})`
@@ -588,9 +590,9 @@ app.post('/stories/:storyId/generate-prompt', async (req: Request, res: Response
       epic_title: epic?.title || 'N/A',
       governance_references: governanceReferences,
       governance_markdown_excerpt: governanceExcerpt,
-      languages: 'TypeScript, Python',
-      frameworks: 'Next.js, Express.js, FastAPI',
-      test_frameworks: 'Vitest, Jest, Pytest',
+      languages: 'TypeScript',
+      frameworks: 'Next.js, Express.js',
+      test_frameworks: 'Vitest, Jest',
     }
 
     // Replace all {{variable}} placeholders

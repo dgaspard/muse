@@ -139,20 +139,13 @@ Return ONLY the JSON array. No markdown, no extra text.`
       }
 
       // Parse JSON response
-      let features: Array<{
-        title: string
-        description: string
-        acceptance_criteria: string[]
-        governance_references: string[]
-      }>
-
       const jsonMatch = content.text.match(/\[[\s\S]*\]/)
       if (!jsonMatch) {
         console.warn('[FeatureGenerationAgent] No JSON array found in response, using fallback')
         return this.generateRuleBased(epic, summaries)
       }
 
-      features = JSON.parse(jsonMatch[0])
+      const features = JSON.parse(jsonMatch[0])
 
       if (!Array.isArray(features)) {
         console.warn('[FeatureGenerationAgent] Invalid response format, using fallback')

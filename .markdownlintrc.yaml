@@ -1,10 +1,25 @@
 ---
-extends: markdownlint/style/prettier
+# Markdownlint configuration for Muse project
+# Disables rules that conflict with our documentation style
+
+default: true
 
 rules:
+  # MD013: Line length - disabled to allow longer lines in technical docs
   MD013: false
+  # MD024: Multiple headings with the same content - disabled for repeated sections
   MD024: false
+  # MD029: Ordered list item prefix - disabled to allow flexible numbering
+  MD029: false
+  # MD031: Fenced code blocks should be surrounded by blank lines - disabled
+  MD031: false
+  # MD032: Lists should be surrounded by blank lines - disabled
+  MD032: false
+  # MD033: Inline HTML - disabled to allow HTML when needed
   MD033: false
+  # MD036: Emphasis used instead of a heading - disabled
   MD036: false
+  # MD041: First line in file should be a top level heading - disabled
   MD041: false
+  # MD060: Table column style - disabled to allow flexible table formatting
   MD060: false

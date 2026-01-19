@@ -10,10 +10,16 @@
     "compose:up": "docker-compose up --build",
     "compose:down": "docker-compose down",
     "lint": "npm run lint --workspaces",
+    "lint:md": "markdownlint --config .markdownlint.json '**/*.md'",
     "smoke": "bash ./scripts/smoke_test.sh",
-    "e2e-upload": "bash ./scripts/e2e_upload.sh"
+    "e2e-upload": "bash ./scripts/e2e_upload.sh",
+    "traceability:check": "node scripts/validate-traceability.mjs"
   },
   "devDependencies": {
+    "globby": "^14.0.0",
     "markdownlint-cli": "^0.47.0"
+  },
+  "dependencies": {
+    "globalthis": "^1.0.4"
   }
 }

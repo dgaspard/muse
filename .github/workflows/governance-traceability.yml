@@ -1,0 +1,46 @@
+name: Governance Traceability Check
+
+on:
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  governance-traceability:
+    name: Governance Traceability
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js 20
+        uses: ./.github/actions/setup-node-workspaces
+
+      - name: Install dependencies
+        run: echo "Installed via composite action"
+
+      - name: Run governance traceability validation
+        run: npm run traceability:check
+
+      - name: Publish summary
+        if: always()
+        run: |
+          echo "### Governance Traceability" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f traceability-report.txt ]; then
+            cat traceability-report.txt >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No traceability report generated." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload traceability report artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: governance-traceability-report
+          path: |
+            traceability-report.json
+            traceability-report.txt

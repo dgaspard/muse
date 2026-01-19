@@ -16,7 +16,6 @@ Quick start
 
    - Web: [http://localhost:3000/](http://localhost:3000/)
    - API: [http://localhost:4000/health](http://localhost:4000/health)
-   - Pipeline (FastAPI): [http://localhost:8000/health](http://localhost:8000/health)
    - Worker: [http://localhost:4100/health](http://localhost:4100/health)
 
 Integration E2E upload test
@@ -30,18 +29,20 @@ Structure
 - apps/web — Next.js frontend (minimal)
 - services/api — Node.js API (Express) with health route
 - services/workers — Node.js worker process (minimal health server)
-- services/pipeline — Python FastAPI service (document conversion placeholder)
 - contracts/, docs/, backlog/, prompts/ — placeholders for future artifacts
 
 Before implementing features, refer to:
 
-- `/contracts/product-vision.md`
-- `/contracts/user-story-format.md`
-- `/contracts/ai-prompt-format-spec.md`
-- `/contracts/ai-constraints-policy.md`
-- `/architecture/muse-architecture.md`
-- `/examples/muse-end-to-end-example.md`
+- **Guides**: [Developer Guide](./docs/guides/developer-guide.md), [Validation Guide](./docs/guides/validation-guide.md)
+- **Architecture**: [System Architecture](./docs/architecture/system-architecture.md), [Architectural Decisions](./docs/architecture/)
+- **Contracts** (specifications):
+  - [Product Vision](./contracts/product-vision.md)
+  - [User Story Format](./contracts/user-story-format.md)
+  - [AI Prompt Format](./contracts/ai-prompt-format-spec.md)
+  - [AI Constraints Policy](./contracts/ai-constraints-policy.md)
+- **Examples**: [End-to-End Workflow](./docs/examples/end-to-end-workflow.md)
 
+**Full Documentation**: See [docs/README.md](./docs/README.md) for complete documentation index.
 Guidelines
 
 - Prefer clarity over cleverness; code is intentionally explicit and commented.

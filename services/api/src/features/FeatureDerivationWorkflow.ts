@@ -247,7 +247,7 @@ export class FeatureDerivationWorkflow {
       feature_path: path.relative(this.repoRoot, featurePaths[idx]),
       derived_from_epic: path.relative(this.repoRoot, absoluteEpicPath),
       generated_at: f.generated_at,
-      parent_feature_id: (f as any).parent_feature_id
+      parent_feature_id: typeof (f as unknown as Record<string, unknown>).parent_feature_id === 'string' ? (f as unknown as Record<string, unknown>).parent_feature_id as string : undefined
     }))
 
     this.updateMuseYaml(artifacts)

@@ -5,7 +5,9 @@ WORKDIR /app
 ARG API_ENDPOINT
 ENV API_ENDPOINT=${API_ENDPOINT}
 COPY package.json package-lock.json* ./
-RUN npm install --silent
+# Use npm install here since the app workspace may not have its own lockfile
+# Explicitly install including dev dependencies for Next.js build
+RUN npm install --production=false --silent --no-audit --no-fund --legacy-peer-deps
 COPY . .
 RUN npm run build
 

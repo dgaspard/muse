@@ -173,22 +173,13 @@ Return ONLY the JSON array. No markdown, no extra text.`
       }
 
       // Parse JSON response
-      let stories: Array<{
-        title: string
-        role: string
-        capability: string
-        benefit: string
-        acceptance_criteria: string[]
-        governance_references: string[]
-      }>
-
       const jsonMatch = content.text.match(/\[[\s\S]*\]/)
       if (!jsonMatch) {
         console.warn('[UserStoryGenerationAgent] No JSON array found in response, using fallback')
         return this.generateRuleBased(feature)
       }
 
-      stories = JSON.parse(jsonMatch[0])
+      const stories = JSON.parse(jsonMatch[0])
 
       if (!Array.isArray(stories)) {
         console.warn('[UserStoryGenerationAgent] Invalid response format, using fallback')

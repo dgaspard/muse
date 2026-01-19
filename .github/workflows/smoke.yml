@@ -8,10 +8,10 @@ jobs:
   smoke:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Create minimal .env for CI
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Create .env for CI
+        shell: bash
         run: |
           cat > .env <<'EOF'
           POSTGRES_USER=postgres
@@ -22,22 +22,15 @@ jobs:
           MINIO_BUCKETS=documents,uploads
           API_PORT=4000
           WEB_PORT=3000
-          PIPELINE_PORT=8000
           WORKER_PORT=4100
           EOF
-
       - name: Start services
-        run: docker compose up -d --build
-
-      - name: Wait for services
-        run: |
-          echo "Waiting for services to settle..."
-          sleep 10
-          docker compose ps
-
+        run: docker compose up --build -d
       - name: Run smoke tests
         run: bash ./scripts/smoke_test.sh
-
-      - name: Tear down
+      - name: Collect logs on failure
+        if: failure()
+        run: docker compose logs
+      - name: Clean up
         if: always()
         run: docker compose down

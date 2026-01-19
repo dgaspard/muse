@@ -7,6 +7,9 @@ import { InMemoryDocumentStore } from '../../src/storage/documentStore'
 import { DocumentToMarkdownConverter, MarkdownOutput } from '../../src/conversion/documentToMarkdownConverter'
 import { Readable } from 'stream'
 
+// Skip integration tests in CI environments (requires Docker services)
+const skipInCI = process.env.CI ? describe.skip : describe
+
 class LargeDocConverter implements DocumentToMarkdownConverter {
   supports(mimeType: string): boolean {
     return ['text/plain', 'application/pdf'].includes(mimeType)
@@ -33,7 +36,7 @@ class LargeDocConverter implements DocumentToMarkdownConverter {
   getSupportedMimeTypes(): string[] { return ['text/plain', 'application/pdf'] }
 }
 
-describe('Integration: Staged Semantic Pipeline for Large Docs', () => {
+skipInCI('Integration: Staged Semantic Pipeline for Large Docs', () => {
   let tempDir: string
   let docStore: InMemoryDocumentStore
   let converter: LargeDocConverter

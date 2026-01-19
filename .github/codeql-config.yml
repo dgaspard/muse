@@ -1,0 +1,17 @@
+name: "CodeQL config"
+
+languages:
+  - javascript
+
+queries:
+  - uses: security-and-quality
+
+disable-default-queries: false
+
+permissions:
+  contents: read
+
+paths-ignore:
+  - node_modules
+  - "**/*.test.ts"
+  - "**/*.spec.ts"
