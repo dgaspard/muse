@@ -3,8 +3,8 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY services/api/package.json services/api/package-lock.json* ./
-# Install all dependencies including devDependencies for build stage
-RUN npm install --silent --no-audit --no-fund --legacy-peer-deps --include=dev
+# Explicitly install all dependencies including dev (TypeScript compiler)
+RUN npm install --production=false --silent --no-audit --no-fund --legacy-peer-deps
 COPY services/api ./
 # Copy prompts directory from repo root
 COPY prompts ../prompts
