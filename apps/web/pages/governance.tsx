@@ -110,6 +110,8 @@ export default function GovernanceWorkflowPage(): JSX.Element {
   const [expandedFeatures, setExpandedFeatures] = useState<Set<string>>(new Set())
   const [generatingFeatures, setGeneratingFeatures] = useState<Set<string>>(new Set())
   const [featuresByEpic, setFeaturesByEpic] = useState<Map<string, FeatureWithStories[]>>(new Map())
+  const [addingToBacklog, setAddingToBacklog] = useState<Set<string>>(new Set())
+  const [backlogMessage, setBacklogMessage] = useState<{ type: 'success' | 'error' | 'loading' | ''; text: string }>({ type: '', text: '' })
 
   const toggleFeatureExpanded = (featureId: string) => {
     const newExpanded = new Set(expandedFeatures)
@@ -469,6 +471,76 @@ ${story.acceptance_criteria.map(c => `- ${c}`).join('\n')}
 ${story.governance_references.map(r => `- ${r}`).join('\n')}`
   }
 
+  const addFeatureToBacklog = async (
+    feature: FeatureData,
+    epic: EpicData
+  ): Promise<void> => {
+    try {
+      // Add to loading set and trigger re-render
+      const updatedLoading = new Set(addingToBacklog)
+      updatedLoading.add(feature.feature_id)
+      setAddingToBacklog(updatedLoading)
+      
+      setBacklogMessage({ type: 'loading', text: 'Adding to backlog...' })
+
+      // Get stories and prompts for this feature
+      const featuresForEpic = featuresByEpic.get(epic.epic_id) || []
+      const featureData = featuresForEpic.find(f => f.feature_id === feature.feature_id)
+      const stories = featureData?.stories || []
+      
+      // Extract all prompts from all stories for this feature
+      const prompts: AIPrompt[] = []
+      stories.forEach(story => {
+        if (story.prompts) {
+          prompts.push(...story.prompts)
+        }
+      })
+
+      const response = await fetch(
+        `/api/features/${feature.feature_id}/add-to-backlog`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            feature,
+            epic,
+            stories,
+            prompts,
+          }),
+        }
+      )
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(
+          data.error || `HTTP ${response.status}: Failed to add to backlog`
+        )
+      }
+
+      const data = await response.json()
+      setBacklogMessage({
+        type: 'success',
+        text: `Feature added to ${data.filePath}`,
+      })
+
+      // Auto-dismiss success message after 3 seconds
+      setTimeout(() => {
+        setBacklogMessage({ type: '', text: '' })
+        const updatedDone = new Set(addingToBacklog)
+        updatedDone.delete(feature.feature_id)
+        setAddingToBacklog(updatedDone)
+      }, 3000)
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error'
+      setBacklogMessage({ type: 'error', text: errorMsg })
+      const updatedError = new Set(addingToBacklog)
+      updatedError.delete(feature.feature_id)
+      setAddingToBacklog(updatedError)
+    }
+  }
+
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!file) {
@@ -612,6 +684,21 @@ ${story.governance_references.map(r => `- ${r}`).join('\n')}`
         </div>
       )}
 
+      {backlogMessage.text && (
+        <div style={{ 
+          padding: 16, 
+          backgroundColor: backlogMessage.type === 'error' ? '#FFEBEE' : backlogMessage.type === 'success' ? '#E8F5E9' : '#FFF9C4',
+          border: `1px solid ${backlogMessage.type === 'error' ? '#F44336' : backlogMessage.type === 'success' ? '#4CAF50' : '#FBC02D'}`,
+          marginBottom: 24,
+          borderRadius: 4
+        }}>
+          {backlogMessage.type === 'loading' && '⏳ '}
+          {backlogMessage.type === 'success' && '✅ '}
+          {backlogMessage.type === 'error' && '❌ '}
+          {backlogMessage.text}
+        </div>
+      )}
+
       {output && (
         <>
           {/* Document Info */}
@@ -733,6 +820,23 @@ ${story.governance_references.map(r => `- ${r}`).join('\n')}`
                             style={{ padding: '4px 8px', marginLeft: 8, whiteSpace: 'nowrap', fontSize: 12 }}
                           >
                             📋 Copy
+                          </button>
+                          <button 
+                            onClick={() => addFeatureToBacklog(feature, epic)}
+                            disabled={addingToBacklog.has(feature.feature_id)}
+                            style={{ 
+                              padding: '4px 8px', 
+                              marginLeft: 8, 
+                              whiteSpace: 'nowrap', 
+                              fontSize: 12,
+                              backgroundColor: addingToBacklog.has(feature.feature_id) ? '#ccc' : '#FF9800',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: 2,
+                              cursor: addingToBacklog.has(feature.feature_id) ? 'not-allowed' : 'pointer'
+                            }}
+                          >
+                            {addingToBacklog.has(feature.feature_id) ? '⏳' : '📤'} Backlog
                           </button>
                         </div>
 

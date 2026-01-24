@@ -72,6 +72,8 @@ services:
       - postgres
       - redis
       - minio
+    volumes:
+      - ./backlog:/app/backlog
     networks:
       - muse-network
 

@@ -61,3 +61,12 @@ Project constraints (for AI agents and human contributors):
 
 Contact/owner
 - This is a prototype scaffold. If unsure, open an issue describing the change and include a suggested implementation.
+
+# EPIC-003: Artifact Materialization
+
+Retrieve and materialize artifacts (don't regenerate):
+
+- GET /mcp/epics, /mcp/features, /mcp/stories, /mcp/prompts
+- POST /mcp/validate-lineage
+- POST /mcp/materialize
+- POST /mcp/commit
