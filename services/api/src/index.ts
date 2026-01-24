@@ -29,6 +29,7 @@ import { MusePipelineOrchestrator } from './orchestration/MusePipelineOrchestrat
 import storyRoutes from './stories/storyRoutes'
 import { FeatureGenerationAgent } from './semantic/FeatureGenerationAgent'
 import { UserStoryGenerationAgent } from './semantic/UserStoryGenerationAgent'
+import { registerMCPTools, initializeMCPServer } from './mcp'
 
 const app = express()
 
@@ -96,6 +97,139 @@ app.get('/ping', (_req: Request, res: Response) => res.send('pong'))
 
 // Register story routes
 app.use('/api/stories', storyRoutes)
+
+// Initialize MCP tool server for EPIC-003
+initializeMCPServer().catch((err) => {
+  console.error('[MCP] Initialization failed', err)
+})
+
+// Register MCP tools as HTTP endpoints for Copilot access
+const mcpTools = registerMCPTools()
+
+// MCP Tool endpoints (read-only: artifact retrieval)
+app.get('/mcp/epics', async (_req: Request, res: Response) => {
+  try {
+    const result = await mcpTools['list_derived_epics'].handler()
+    return res.json(result)
+  } catch (err) {
+    return res.status(500).json({ success: false, error: (err as Error).message })
+  }
+})
+
+app.get('/mcp/epics/:epicId', async (req: Request, res: Response) => {
+  try {
+    const result = await mcpTools['get_derived_epic'].handler({ epic_id: req.params.epicId })
+    return res.json(result)
+  } catch (err) {
+    return res.status(500).json({ success: false, error: (err as Error).message })
+  }
+})
+
+app.get('/mcp/features', async (req: Request, res: Response) => {
+  try {
+    const epicId = req.query.epic_id as string | undefined
+    const result = await mcpTools['list_derived_features'].handler({ epic_id: epicId })
+    return res.json(result)
+  } catch (err) {
+    return res.status(500).json({ success: false, error: (err as Error).message })
+  }
+})
+
+app.get('/mcp/features/:featureId', async (req: Request, res: Response) => {
+  try {
+    const result = await mcpTools['get_derived_feature'].handler({ feature_id: req.params.featureId })
+    return res.json(result)
+  } catch (err) {
+    return res.status(500).json({ success: false, error: (err as Error).message })
+  }
+})
+
+app.get('/mcp/stories', async (req: Request, res: Response) => {
+  try {
+    const featureId = req.query.feature_id as string | undefined
+    const epicId = req.query.epic_id as string | undefined
+    const result = await mcpTools['list_derived_user_stories'].handler({ feature_id: featureId, epic_id: epicId })
+    return res.json(result)
+  } catch (err) {
+    return res.status(500).json({ success: false, error: (err as Error).message })
+  }
+})
+
+app.get('/mcp/stories/:storyId', async (req: Request, res: Response) => {
+  try {
+    const result = await mcpTools['get_derived_user_story'].handler({ story_id: req.params.storyId })
+    return res.json(result)
+  } catch (err) {
+    return res.status(500).json({ success: false, error: (err as Error).message })
+  }
+})
+
+app.get('/mcp/prompts', async (req: Request, res: Response) => {
+  try {
+    const storyId = req.query.story_id as string | undefined
+    const result = await mcpTools['list_derived_prompts'].handler({ story_id: storyId })
+    return res.json(result)
+  } catch (err) {
+    return res.status(500).json({ success: false, error: (err as Error).message })
+  }
+})
+
+app.get('/mcp/prompts/:promptId', async (req: Request, res: Response) => {
+  try {
+    const result = await mcpTools['get_derived_prompt'].handler({ prompt_id: req.params.promptId })
+    return res.json(result)
+  } catch (err) {
+    return res.status(500).json({ success: false, error: (err as Error).message })
+  }
+})
+
+app.post('/mcp/validate-lineage', async (req: Request, res: Response) => {
+  try {
+    const { epic_id } = req.body
+    if (!epic_id) {
+      return res.status(400).json({ success: false, error: 'epic_id is required' })
+    }
+    const result = await mcpTools['validate_artifact_lineage'].handler({ epic_id })
+    return res.json(result)
+  } catch (err) {
+    return res.status(500).json({ success: false, error: (err as Error).message })
+  }
+})
+
+// MCP Tool endpoints (write: materialization and GitHub integration)
+app.post('/mcp/materialize', expensiveOperationLimiter, async (_req: Request, res: Response) => {
+  try {
+    const result = await mcpTools['materialize_artifacts'].handler()
+    return res.json(result)
+  } catch (err) {
+    return res.status(500).json({ success: false, error: (err as Error).message })
+  }
+})
+
+app.post('/mcp/commit', expensiveOperationLimiter, async (req: Request, res: Response) => {
+  try {
+    const { branch_name, pr_title, pr_body, labels, reviewers } = req.body
+
+    if (!branch_name || !pr_title || !pr_body) {
+      return res.status(400).json({
+        success: false,
+        error: 'branch_name, pr_title, and pr_body are required',
+      })
+    }
+
+    const result = await mcpTools['commit_artifacts_to_github'].handler({
+      branch_name,
+      pr_title,
+      pr_body,
+      labels,
+      reviewers,
+    })
+
+    return res.json(result)
+  } catch (err) {
+    return res.status(500).json({ success: false, error: (err as Error).message })
+  }
+})
 
 // Configure multer to write uploads to disk to avoid buffering large files in memory.
 // Files will be streamed from disk into MinIO and removed after upload.
