@@ -1,0 +1,235 @@
+# Feature: Copilot MCP–Driven Artifact Commit for MUSE
+
+## Overview
+Enable GitHub Copilot (via MCP) to retrieve previously derived delivery artifacts
+(Epics, Features, User Stories, AI Prompts) from MUSE and materialize them into the
+`/docs` directory as version-controlled artifacts, submitted through a pull request.
+
+Anthropic remains responsible for derivation.
+Copilot MCP is responsible for orchestration and GitHub interaction.
+MUSE acts as the system of record and validation layer.
+
+---
+
+## Epic: Enable Copilot-Orchestrated Governance-to-Code Materialization
+
+### EPIC-001
+**As a platform owner,**
+I want Copilot to orchestrate retrieval and commit of derived artifacts via MCP,
+so that AI-generated delivery artifacts are traceable, reviewable, and governed
+within GitHub workflows.
+
+---
+
+## Feature: Expose Derived Artifacts via MCP (Read-Only)
+
+### FEAT-001
+**As Copilot,**
+I want to retrieve derived artifacts from MUSE via MCP tools,
+so that I can materialize them without re-deriving or hallucinating content.
+
+#### User Stories
+
+##### STORY-001
+**As a Copilot MCP client,**
+I want to list all derived epics for a project,
+so that I can enumerate delivery scope before committing artifacts.
+
+**Acceptance Criteria**
+- MCP tool `list_derived_epics` exists
+- Returns epic IDs, titles, governance references
+- Read-only access
+- Deterministic ordering
+
+---
+
+##### STORY-002
+**As a Copilot MCP client,**
+I want to list all derived features for a project,
+so that I can map features to their parent epics.
+
+**Acceptance Criteria**
+- MCP tool `list_derived_features` exists
+- Each feature includes:
+  - Feature ID
+  - Parent Epic ID
+  - Referenced User Story IDs
+- Read-only access
+
+---
+
+##### STORY-003
+**As a Copilot MCP client,**
+I want to list all derived user stories,
+so that I can materialize them as atomic delivery units.
+
+**Acceptance Criteria**
+- MCP tool `list_derived_user_stories` exists
+- Each story includes:
+  - Story ID
+  - Parent Feature ID
+  - Parent Epic ID
+  - Governance reference
+- Read-only access
+
+---
+
+##### STORY-004
+**As a Copilot MCP client,**
+I want to list all derived AI prompts,
+so that prompt assets are versioned and reviewable.
+
+**Acceptance Criteria**
+- MCP tool `list_derived_prompts` exists
+- Prompts reference their originating User Story ID
+- Prompt content is immutable at retrieval time
+
+---
+
+## Feature: Deterministic Rendering to /docs
+
+### FEAT-002
+**As MUSE,**
+I want to render derived artifacts into deterministic Markdown/YAML files,
+so that GitHub can act as the system of record.
+
+#### User Stories
+
+##### STORY-005
+**As MUSE,**
+I want to render epics to `/docs/epics/{EPIC-ID}.yaml`,
+so that epic scope is standardized and diffable.
+
+**Acceptance Criteria**
+- Stable file naming
+- Includes:
+  - Epic ID
+  - Title
+  - Description
+  - Governance source links
+- Idempotent output
+
+---
+
+##### STORY-006
+**As MUSE,**
+I want to render features to `/docs/features/{FEATURE-ID}.yaml`,
+so that feature lineage is preserved.
+
+**Acceptance Criteria**
+- Feature file references:
+  - Parent Epic ID
+  - Child User Story IDs
+- No derived content generated during rendering
+
+---
+
+##### STORY-007
+**As MUSE,**
+I want to render user stories to `/docs/stories/{STORY-ID}.yaml`,
+so that delivery work is traceable and atomic.
+
+**Acceptance Criteria**
+- Each story file includes:
+  - Epic ID
+  - Feature ID
+  - Acceptance criteria
+- Schema validation enforced
+
+---
+
+##### STORY-008
+**As MUSE,**
+I want to render AI prompts to `/docs/prompts/{STORY-ID}.prompt.md`,
+so that prompts are versioned alongside delivery artifacts.
+
+**Acceptance Criteria**
+- Prompt file references originating User Story
+- Markdown format
+- No runtime mutation
+
+---
+
+## Feature: Copilot-Orchestrated GitHub Commit via MCP
+
+### FEAT-003
+**As Copilot,**
+I want to commit rendered artifacts to GitHub via MCP,
+so that all changes flow through standard PR review.
+
+#### User Stories
+
+##### STORY-009
+**As Copilot,**
+I want to stage rendered `/docs` artifacts,
+so that I can commit them as a single atomic change.
+
+**Acceptance Criteria**
+- Only `/docs/**` paths are staged
+- No direct writes to main
+- Commit message is auto-generated
+
+---
+
+##### STORY-010
+**As Copilot,**
+I want to open a pull request summarizing derived artifacts,
+so that humans can review AI-generated delivery scope.
+
+**Acceptance Criteria**
+- PR includes:
+  - Summary of epics/features/stories added
+  - Governance document references
+- PR targets `main`
+- PR uses standard repo template
+
+---
+
+## Feature: Validation and Guardrails
+
+### FEAT-004
+**As MUSE,**
+I want to validate artifacts before commit,
+so that Copilot cannot introduce inconsistent lineage.
+
+#### User Stories
+
+##### STORY-011
+**As MUSE,**
+I want to validate epic-feature-story lineage before rendering,
+so that broken references are blocked.
+
+**Acceptance Criteria**
+- Validation runs prior to rendering
+- Errors returned via MCP tool response
+- No partial commits allowed
+
+---
+
+##### STORY-012
+**As a platform owner,**
+I want Copilot MCP tools to be explicitly scoped,
+so that write access is limited and auditable.
+
+**Acceptance Criteria**
+- Retrieval tools are read-only
+- Commit tools are explicitly named and reviewed
+- No hidden side effects
+
+---
+
+## Non-Goals (Explicit)
+
+- Copilot does NOT derive epics, features, or stories
+- Copilot does NOT modify governance source documents
+- Anthropic does NOT interact with GitHub
+- MCP does NOT bypass PR review
+
+---
+
+## Success Criteria
+
+- Derived artifacts are committed without re-derivation
+- All delivery artifacts are traceable to governance
+- Copilot operates only via MCP tool contracts
+- GitHub remains the system of record
