@@ -147,7 +147,7 @@ export class EpicDerivationWorkflow {
     } = {}
   ): Promise<EpicArtifact> {
     const {
-      outputDir = path.join(this.repoRoot, 'docs/epics'),
+      outputDir = path.join(this.repoRoot, 'tmp/epics'),
       commitToGit = false,
       branchName
     } = options
@@ -214,7 +214,7 @@ export class EpicDerivationWorkflow {
     } = {}
   ): Promise<EpicArtifact[]> {
     const {
-      outputDir = path.join(this.repoRoot, 'docs/epics'),
+      outputDir = path.join(this.repoRoot, 'tmp/epics'),
       commitToGit = false,
       branchName
     } = options

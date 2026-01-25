@@ -208,7 +208,7 @@ export class FeatureDerivationAgent {
   async deriveAndWriteFeatures(
     epicMarkdownPath: string,
     epicId: string | undefined,
-    outputDir: string = 'docs/features',
+    outputDir: string = 'tmp/features',
     projectId?: string
   ): Promise<{ features: FeatureOutput[]; featurePaths: string[] }> {
     const features = await this.deriveFeatures(epicMarkdownPath, epicId, projectId)

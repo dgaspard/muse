@@ -62,7 +62,8 @@ export class StoryDerivationWorkflow {
     governanceMarkdownPath: string,
     options: { outputDir?: string } = {},
   ): Promise<StoryArtifact[]> {
-    const { outputDir = path.join(this.repoRoot, 'docs/stories') } = options
+    // Do not materialize into /docs here; this workflow should only persist to a temp area.
+    const { outputDir = path.join(this.repoRoot, 'tmp/stories') } = options
 
     const absoluteFeaturePath = path.isAbsolute(featureMarkdownPath)
       ? featureMarkdownPath

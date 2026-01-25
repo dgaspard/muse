@@ -74,6 +74,7 @@ services:
       - minio
     volumes:
       - ./backlog:/app/backlog
+      - ./docs:/app/docs
     networks:
       - muse-network
 

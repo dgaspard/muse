@@ -481,7 +481,7 @@ ${story.governance_references.map(r => `- ${r}`).join('\n')}`
       updatedLoading.add(feature.feature_id)
       setAddingToBacklog(updatedLoading)
       
-      setBacklogMessage({ type: 'loading', text: 'Adding to backlog...' })
+      setBacklogMessage({ type: 'loading', text: 'Materializing artifacts to /docs...' })
 
       // Get stories and prompts for this feature
       const featuresForEpic = featuresByEpic.get(epic.epic_id) || []
@@ -497,7 +497,7 @@ ${story.governance_references.map(r => `- ${r}`).join('\n')}`
       })
 
       const response = await fetch(
-        `/api/features/${feature.feature_id}/add-to-backlog`,
+        `/api/features/${feature.feature_id}/materialize`,
         {
           method: 'POST',
           headers: {
@@ -515,14 +515,14 @@ ${story.governance_references.map(r => `- ${r}`).join('\n')}`
       if (!response.ok) {
         const data = await response.json()
         throw new Error(
-          data.error || `HTTP ${response.status}: Failed to add to backlog`
+          data.error || `HTTP ${response.status}: Failed to materialize artifacts`
         )
       }
 
       const data = await response.json()
       setBacklogMessage({
         type: 'success',
-        text: `Feature added to ${data.filePath}`,
+        text: `Artifacts materialized to /docs`,
       })
 
       // Auto-dismiss success message after 3 seconds
@@ -829,14 +829,14 @@ ${story.governance_references.map(r => `- ${r}`).join('\n')}`
                               marginLeft: 8, 
                               whiteSpace: 'nowrap', 
                               fontSize: 12,
-                              backgroundColor: addingToBacklog.has(feature.feature_id) ? '#ccc' : '#FF9800',
+                              backgroundColor: addingToBacklog.has(feature.feature_id) ? '#ccc' : '#2196F3',
                               color: 'white',
                               border: 'none',
                               borderRadius: 2,
                               cursor: addingToBacklog.has(feature.feature_id) ? 'not-allowed' : 'pointer'
                             }}
                           >
-                            {addingToBacklog.has(feature.feature_id) ? '⏳' : '📤'} Backlog
+                            {addingToBacklog.has(feature.feature_id) ? '⏳' : '📄'} Materialize
                           </button>
                         </div>
 

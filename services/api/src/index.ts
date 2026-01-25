@@ -30,6 +30,7 @@ import storyRoutes from './stories/storyRoutes'
 import { FeatureGenerationAgent } from './semantic/FeatureGenerationAgent'
 import { UserStoryGenerationAgent } from './semantic/UserStoryGenerationAgent'
 import { registerMCPTools, initializeMCPServer } from './mcp'
+import { materializeFeatureHandler } from './materialize-endpoint'
 
 const app = express()
 
@@ -807,143 +808,14 @@ app.post('/epics/:epicId/generate-features', async (req: Request, res: Response)
   }
 })
 
-// POST /features/:featureId/add-to-backlog
-// Add a feature with its stories and prompts to the EPIC backlog file
-app.post('/features/:featureId/add-to-backlog', expensiveOperationLimiter, async (req: Request, res: Response) => {
-  try {
-    const { featureId } = req.params
-    const { feature, epic, stories, prompts } = req.body
+// POST /features/:featureId/materialize
+// Materialize feature, stories, and prompts to /docs per EPIC-003 governance
+app.post('/features/:featureId/materialize', expensiveOperationLimiter, materializeFeatureHandler)
 
-    if (!feature || !epic) {
-      return res.status(400).json({
-        ok: false,
-        error: 'feature and epic objects are required',
-      })
-    }
-
-    // Validate epic_id format
-    const epicId = epic.epic_id
-    if (!epicId || typeof epicId !== 'string') {
-      return res.status(400).json({
-        ok: false,
-        error: 'epic.epic_id is required and must be a string',
-      })
-    }
-
-    // Construct backlog file path
-    // In container, __dirname is /app/dist → resolve to /app/backlog
-    const backlogDir = path.resolve(__dirname, '../backlog')
-    const epicFileName = `${epicId}: ${epic.title}.md`
-    const epicFilePath = path.join(backlogDir, epicFileName)
-
-    // Ensure backlog directory exists
-    await fs.promises.mkdir(backlogDir, { recursive: true })
-
-    // Check if epic file exists
-    let epicContent = ''
-    const epicFileExists = fs.existsSync(epicFilePath)
-
-    if (!epicFileExists) {
-      // Create new epic file
-      epicContent = `# ${epic.title}
-
-**Epic ID:** ${epicId}
-
-## Objective
-${epic.objective || 'TBD'}
-
-## Success Criteria
-${(epic.success_criteria || []).map((c: string) => `- ${c}`).join('\n') || '- TBD'}
-
-## Features
-
-`
-    } else {
-      // Read existing epic file
-      epicContent = await fs.promises.readFile(epicFilePath, 'utf-8')
-    }
-
-    // Format feature section
-    const featureSection = `### Feature: ${feature.title}
-
-**Feature ID:** ${feature.feature_id}
-
-**Description:** ${feature.description}
-
-**Acceptance Criteria:**
-${(feature.acceptance_criteria || []).map((c: string) => `- ${c}`).join('\n') || '- TBD'}
-
-`
-
-    // Format stories section if available, with acceptance criteria
-    let storiesSection = ''
-    if (stories && Array.isArray(stories) && stories.length > 0) {
-      storiesSection = `**User Stories:**
-${stories.map((story: any) => {
-  const criteria = Array.isArray(story.acceptance_criteria) && story.acceptance_criteria.length
-    ? `  - Acceptance Criteria:\n${story.acceptance_criteria.map((c: string) => `    - ${c}`).join('\n')}`
-    : '  - Acceptance Criteria:\n    - TBD'
-  return `- **${story.story_id}**: As a ${story.role}, I want ${story.capability}, so that ${story.benefit}.\n${criteria}`
-}).join('\n')}
-
-`
-    }
-
-    // Format prompts section if available, include prompt content block
-    let promptsSection = ''
-    if (prompts && Array.isArray(prompts) && prompts.length > 0) {
-      promptsSection = `**AI Prompts:**
-${prompts.map((prompt: any) => {
-  const role = prompt.role ? `\n  - Role: ${prompt.role}` : ''
-  const generated = prompt.generated_at ? `\n  - Generated: ${prompt.generated_at}` : ''
-  const content = prompt.content ? `\n  - Content:\n\n\n${'```'}\n${prompt.content}\n${'```'}` : ''
-  return `- **${prompt.prompt_id}** (Story: ${prompt.story_id})\n  - Task: ${prompt.task}${role}${generated}${content}`
-}).join('\n')}
-
-`
-    }
-
-    // Append feature to epic file
-    const newFeatureContent = featureSection + storiesSection + promptsSection
-
-    if (epicFileExists && !epicContent.includes(feature.feature_id)) {
-      // Check if there's a Features section, if not add one
-      if (!epicContent.includes('## Features')) {
-        epicContent += '\n## Features\n\n'
-      }
-      epicContent += newFeatureContent
-    } else if (!epicFileExists) {
-      epicContent += newFeatureContent
-    } else {
-      return res.status(409).json({
-        ok: false,
-        error: `Feature ${feature.feature_id} already exists in ${epicFileName}`,
-      })
-    }
-
-    // Write back to file
-    await fs.promises.writeFile(epicFilePath, epicContent, 'utf-8')
-
-    console.log(`[backlog] added feature ${featureId} to ${epicFileName}`)
-
-    return res.json({
-      ok: true,
-      message: `Feature added to backlog`,
-      epicFile: epicFileName,
-      filePath: path.relative(process.cwd(), epicFilePath),
-    })
-  } catch (err) {
-    console.error('Failed to add feature to backlog:', err)
-    return res.status(500).json({
-      ok: false,
-      error: 'Failed to add feature to backlog',
-      details: (err as Error).message,
-    })
-  }
-})
+// Backwards compatibility alias
+app.post('/features/:featureId/add-to-backlog', expensiveOperationLimiter, materializeFeatureHandler)
 
 app.listen(port, () => {
   // Keep the log explicit for developers running the container
   console.log(`muse-api listening on port ${port}`)
 })
-

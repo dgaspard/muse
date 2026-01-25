@@ -64,7 +64,8 @@ export class FeatureDerivationWorkflow {
     epicMarkdownPath: string,
     options: { outputDir?: string; useAI?: boolean; governancePath?: string; projectId?: string } = {}
   ): Promise<FeatureArtifact[]> {
-    const { outputDir = path.join(this.repoRoot, 'docs/features'), useAI = true, governancePath, projectId } = options
+    // Do not materialize into /docs here; this workflow should only persist to a temp area.
+    const { outputDir = path.join(this.repoRoot, 'tmp/features'), useAI = true, governancePath, projectId } = options
 
     const absoluteEpicPath = path.isAbsolute(epicMarkdownPath)
       ? epicMarkdownPath

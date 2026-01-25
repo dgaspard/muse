@@ -193,8 +193,8 @@ export class MusePipelineOrchestrator {
       // Epics (AI-powered derivation with rule-based fallback)
       const epicAgent = new EpicDerivationAgent(documentMetadata.documentId)
       const epics = await epicAgent.run(summaries)
-      // Persist epics for UI consumption via existing loaders
-      const epicsDir = path.join(this.repoRoot, 'docs', 'epics')
+      // Persist epics to temp directory; files only go to /docs when user clicks Materialize
+      const epicsDir = path.join(this.repoRoot, 'tmp', 'epics')
       await fs.promises.mkdir(epicsDir, { recursive: true })
       const epicsDataFromFiles: EpicData[] = []
       for (let i = 0; i < epics.length; i++) {
@@ -216,8 +216,9 @@ export class MusePipelineOrchestrator {
       const featureJob = new FeatureDerivationJob()
       const features: ReturnType<typeof featureJob.run> = epics.flatMap(epic => featureJob.run(epic, summaries))
 
-      // Build acceptance criteria from section obligations, persist features, then load via existing parser
-      const featuresDir = path.join(this.repoRoot, 'docs', 'features')
+      // Build acceptance criteria from section obligations, persist features to temp, then load via existing parser
+      // Files only go to /docs when user clicks Materialize
+      const featuresDir = path.join(this.repoRoot, 'tmp', 'features')
       await fs.promises.mkdir(featuresDir, { recursive: true })
       const featuresDataFromFiles: FeatureData[] = []
       for (const f of features) {
@@ -246,8 +247,8 @@ export class MusePipelineOrchestrator {
       const minioStore = getDocumentStore()
       storiesData = []
       for (const feature of featuresData) {
-        // Persisted file path for feature
-        const featurePath = path.join(this.repoRoot, 'docs', 'features', `${feature.feature_id}.md`)
+        // Persisted file path for feature (in temp directory)
+        const featurePath = path.join(this.repoRoot, 'tmp', 'features', `${feature.feature_id}.md`)
         try {
           const stats = await fs.promises.stat(featurePath)
           const featureDoc = await minioStore.saveOriginalFromPath(featurePath, {

@@ -436,7 +436,7 @@ No prose. No explanations. Only YAML.`
   async deriveAndWriteEpic(
     markdownPath: string,
     documentId?: string,
-    outputDir: string = 'docs/epics'
+    outputDir: string = 'tmp/epics'
   ): Promise<{ epic: EpicOutput; epicPath: string }> {
     const epic = await this.deriveEpic(markdownPath, documentId)
     const epicPath = path.join(outputDir, `${epic.derived_from}-epic.md`)
@@ -684,7 +684,7 @@ No prose. No explanations. Only YAML.`
   async deriveAndWriteMultipleEpics(
     markdownPath: string,
     documentId?: string,
-    outputDir: string = 'docs/epics'
+    outputDir: string = 'tmp/epics'
   ): Promise<Array<{ epic: EpicOutput; epicPath: string }>> {
     const epics = await this.deriveMultipleEpics(markdownPath, documentId)
     
