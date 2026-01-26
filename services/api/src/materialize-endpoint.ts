@@ -3,6 +3,68 @@ import * as fs from 'fs'
 import * as path from 'path'
 
 /**
+ * Safely sanitize a string for use in filenames and YAML content
+ * Prevents ReDoS by using simple, bounded operations instead of complex regex
+ */
+function sanitizeString(input: string, maxLength: number = 200): string {
+  if (typeof input !== 'string') {
+    return ''
+  }
+  // Limit length first to prevent excessive processing
+  const truncated = input.substring(0, maxLength)
+  // Use simple character-by-character filtering instead of regex
+  let result = ''
+  for (let i = 0; i < truncated.length; i++) {
+    const char = truncated[i]
+    // Only allow safe characters
+    if ((char >= 'a' && char <= 'z') || 
+        (char >= 'A' && char <= 'Z') || 
+        (char >= '0' && char <= '9') || 
+        char === ' ' || char === '-' || char === '_') {
+      result += char
+    }
+  }
+  return result
+}
+
+/**
+ * Escape quotes safely without regex
+ */
+function escapeQuotes(input: string): string {
+  if (typeof input !== 'string') {
+    return ''
+  }
+  // Use split/join which is safer than regex
+  return input.split('"').join('\\"')
+}
+
+/**
+ * Create a safe slug for filenames
+ */
+function createSlug(input: string, maxLength: number = 50): string {
+  const sanitized = sanitizeString(input, 100)
+  const lower = sanitized.toLowerCase()
+  // Replace spaces with hyphens and remove duplicate hyphens
+  let slug = ''
+  let lastWasHyphen = false
+  for (let i = 0; i < lower.length; i++) {
+    const char = lower[i]
+    if (char === ' ' || char === '-' || char === '_') {
+      if (!lastWasHyphen && slug.length > 0) {
+        slug += '-'
+        lastWasHyphen = true
+      }
+    } else {
+      slug += char
+      lastWasHyphen = false
+    }
+  }
+  // Remove leading/trailing hyphens
+  slug = slug.replace(/^-+/, '').replace(/-+$/, '')
+  return slug.substring(0, maxLength)
+}
+
+/**
  * Epic request interface
  */
 interface EpicRequest {
@@ -108,20 +170,16 @@ export const materializeFeatureHandler = async (req: Request<unknown, unknown, M
 
     // 1. Write epic YAML to /docs/epics/{EPIC-ID}.yaml
     const epicYaml = `id: ${epicId}
-title: "${(epic.title || '').replace(/"/g, '\\"')}"
-objective: "${(epic.objective || '').replace(/"/g, '\\"')}"
+title: "${escapeQuotes(epic.title || '')}"
+objective: "${escapeQuotes(epic.objective || '')}"
 success_criteria:
-${(epic.success_criteria || []).map((c: string) => `  - "${c.replace(/"/g, '\\"')}"`).join('\n') || '  - []'}
+${(epic.success_criteria || []).map((c: string) => `  - "${escapeQuotes(c)}"`).join('\n') || '  - []'}
 governance_references:
-${(epic.governance_references || []).map((r: string) => `  - "${r.replace(/"/g, '\\"')}"`).join('\n') || '  - []'}
+${(epic.governance_references || []).map((r: string) => `  - "${escapeQuotes(r)}"`).join('\n') || '  - []'}
 created_at: "${new Date().toISOString()}"
 `
     // Generate human-readable filename from epic title
-    const epicTitleSlug = (epic.title || epicId)
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .substring(0, 50)
+    const epicTitleSlug = createSlug(epic.title || epicId, 50)
     const epicFileName = `${epicTitleSlug}.yaml`
     const epicFilePath = path.join(epicsDir, epicFileName)
     await fs.promises.writeFile(epicFilePath, epicYaml, 'utf-8')
@@ -129,23 +187,19 @@ created_at: "${new Date().toISOString()}"
 
     // 2. Write feature YAML to /docs/features/{FEATURE-ID}.yaml
     const featureYaml = `id: ${feature.feature_id}
-title: "${(feature.title || '').replace(/"/g, '\\"')}"
+title: "${escapeQuotes(feature.title || '')}"
 epic_id: ${epicId}
-description: "${(feature.description || '').replace(/"/g, '\\"')}"
+description: "${escapeQuotes(feature.description || '')}"
 acceptance_criteria:
-${(feature.acceptance_criteria || []).map((c: string) => `  - "${c.replace(/"/g, '\\"')}"`).join('\n') || '  - []'}
+${(feature.acceptance_criteria || []).map((c: string) => `  - "${escapeQuotes(c)}"`).join('\n') || '  - []'}
 governance_references:
-${(feature.governance_references || []).map((r: string) => `  - "${r.replace(/"/g, '\\"')}"`).join('\n') || '  - []'}
+${(feature.governance_references || []).map((r: string) => `  - "${escapeQuotes(r)}"`).join('\n') || '  - []'}
 user_story_ids:
 ${(stories && stories.length > 0 ? stories.map((s: StoryRequest) => `  - ${s.story_id}`).join('\n') : '  - []')}
 created_at: "${new Date().toISOString()}"
 `
     // Generate human-readable filename from feature title
-    const titleSlug = (feature.title || feature.feature_id)
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .substring(0, 50)
+    const titleSlug = createSlug(feature.title || feature.feature_id, 50)
     const featureFileName = `${titleSlug}.yaml`
     const featureFilePath = path.join(featuresDir, featureFileName)
     await fs.promises.writeFile(featureFilePath, featureYaml, 'utf-8')
@@ -155,24 +209,20 @@ created_at: "${new Date().toISOString()}"
     if (stories && Array.isArray(stories) && stories.length > 0) {
       for (const story of stories) {
         const storyYaml = `id: ${story.story_id}
-title: "${(story.title || '').replace(/"/g, '\\"')}"
+title: "${escapeQuotes(story.title || '')}"
 epic_id: ${epicId}
 feature_id: ${feature.feature_id}
-role: "${(story.role || '').replace(/"/g, '\\"')}"
-capability: "${(story.capability || '').replace(/"/g, '\\"')}"
-benefit: "${(story.benefit || '').replace(/"/g, '\\"')}"
+role: "${escapeQuotes(story.role || '')}"
+capability: "${escapeQuotes(story.capability || '')}"
+benefit: "${escapeQuotes(story.benefit || '')}"
 acceptance_criteria:
-${(story.acceptance_criteria || []).map((c: string) => `  - "${c.replace(/"/g, '\\"')}"`).join('\n') || '  - []'}
+${(story.acceptance_criteria || []).map((c: string) => `  - "${escapeQuotes(c)}"`).join('\n') || '  - []'}
 governance_references:
-${(story.governance_references || []).map((r: string) => `  - "${r.replace(/"/g, '\\"')}"`).join('\n') || '  - []'}
+${(story.governance_references || []).map((r: string) => `  - "${escapeQuotes(r)}"`).join('\n') || '  - []'}
 created_at: "${story.created_at || new Date().toISOString()}"
 `
         // Generate human-readable filename from story title
-        const storyTitleSlug = (story.title || story.story_id)
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/^-+|-+$/g, '')
-          .substring(0, 50)
+        const storyTitleSlug = createSlug(story.title || story.story_id, 50)
         const storyFileName = `${storyTitleSlug}.yaml`
         const storyFilePath = path.join(storiesDir, storyFileName)
         await fs.promises.writeFile(storyFilePath, storyYaml, 'utf-8')
@@ -204,7 +254,7 @@ ${prompt.content || ''}
         // Find the corresponding story for this prompt
         const correspondingStory = stories?.find(s => s.story_id === prompt.story_id)
         const promptTitleSlug = correspondingStory?.title
-          ? correspondingStory.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').substring(0, 50)
+          ? createSlug(correspondingStory.title, 50)
           : prompt.story_id
         const promptFileName = `${promptTitleSlug}.prompt.md`
         const promptFilePath = path.join(promptsDir, promptFileName)
