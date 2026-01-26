@@ -1,10 +1,10 @@
-# AI Prompt: prompt-epic-47be9e5c-03-feature-01-story-01-1769400913003
+# AI Prompt: prompt-epic-47be9e5c-02-feature-02-story-03-1769403607052
 
-**Story ID:** epic-47be9e5c-03-feature-01-story-01
+**Story ID:** epic-47be9e5c-02-feature-02-story-03
 **Role:** Software Engineer
 **Task:** Implement feature from user story
 **Template:** Prompt-muse-User-Story-Implementation-PR
-**Generated:** 2026-01-26T04:15:13.003Z
+**Generated:** 2026-01-26T05:00:07.053Z
 
 ## Prompt Content
 
@@ -35,35 +35,35 @@ You produce code suitable for peer review in a professional engineering team.
 
 - Repo URL: https://github.com/dgaspard/muse
 - Default Branch: main
-- Current Branch: muse/epic-47be9e5c-03-feature-01-story-01-implementation
+- Current Branch: muse/epic-47be9e5c-02-feature-02-story-03-implementation
 
 **User Story:**
 
-- ID: epic-47be9e5c-03-feature-01-story-01
-- Title: Configure role-based permission matrix
-- Role: system administrator
-- Capability: define access roles
-- Benefit: enforce organizational hierarchy
+- ID: epic-47be9e5c-02-feature-02-story-03
+- Title: Access Control Enforcement
+- Role: authorized system service
+- Capability: restrict operations
+- Benefit: prevent unauthorized access
 
 **Acceptance Criteria:**
-1. System provides interface to define roles with specific personnel record access permissions
-2. Each role configuration specifies which record types and operations are permitted
-3. Role definitions map to organizational positions and reporting structures
-4. System validates that each role has documented business justification before activation
+1. System blocks viewing attempts when user lacks read permission for requested records
+2. System prevents modification operations when user lacks write permission for target records
+3. System denies export requests when user lacks export permission for selected records
+4. System displays appropriate error messages when denying access based on insufficient permissions
 
 **Related Artifacts:**
 
-- Feature ID: epic-47be9e5c-03-feature-01
-- Feature Title: Implement Role-Based Access Control for Personnel Records
-- Epic ID: epic-47be9e5c-03
-- Epic Title: Personnel Records Access Control and Privacy Protection
+- Feature ID: epic-47be9e5c-02-feature-02
+- Feature Title: Implement Role-Based Access Control for Electronic Records
+- Epic ID: epic-47be9e5c-02
+- Epic Title: Records Security and Access Control
 - Governance References: - sec-47be9e5c-01-b0c3b14d
 
 **Governance Context** (reference only; do NOT incorporate governance scope into code):
 ---
 document_id: 47be9e5c71786f7600fb6e34629e353eb087cd344edc38b4c9e2874a39703f44
 source_checksum: 47be9e5c71786f7600fb6e34629e353eb087cd344edc38b4c9e2874a39703f44
-generated_at: 2026-01-26T03:40:41.683Z
+generated_at: 2026-01-26T04:58:39.496Z
 derived_artifact: governance_markdown
 original_filename: recguide2011__1_.pdf
 ---
@@ -109,7 +109,7 @@ You must perform the following steps IN ORDER:
 Ensure you are on a feature branch for this story. Use:
 
 ```plaintext
-muse/epic-47be9e5c-03-feature-01-story-01-implementation
+muse/epic-47be9e5c-02-feature-02-story-03-implementation
 ```plaintext
 
 If the branch does not exist, create it from main.
@@ -154,7 +154,7 @@ Do not modify main directly.
 Use clear, scoped commits with format:
 
 ```plaintext
-epic-47be9e5c-03-feature-01-story-01: <concise description>
+epic-47be9e5c-02-feature-02-story-03: <concise description>
 
 <optional detailed explanation>
 ```plaintext
@@ -162,7 +162,7 @@ epic-47be9e5c-03-feature-01-story-01: <concise description>
 Example (using the actual story ID provided above):
 
 ```plaintext
-epic-47be9e5c-03-feature-01-story-01: implement requested functionality
+epic-47be9e5c-02-feature-02-story-03: implement requested functionality
 
 - Implement all acceptance criteria
 - Add required tests
@@ -176,7 +176,7 @@ epic-47be9e5c-03-feature-01-story-01: implement requested functionality
 **Title:**
 
 ```plaintext
-epic-47be9e5c-03-feature-01-story-01 — Configure role-based permission matrix
+epic-47be9e5c-02-feature-02-story-03 — Access Control Enforcement
 ```plaintext
 
 **Description MUST include:**
@@ -225,4 +225,4 @@ If tests cannot be written, explain why and propose alternatives.
 ```
 
 ---
-*This prompt was generated at 2026-01-26T04:15:13.003Z and is immutable at retrieval time.*
+*This prompt was generated at 2026-01-26T05:00:07.053Z and is immutable at retrieval time.*

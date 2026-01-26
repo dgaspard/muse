@@ -1,10 +1,10 @@
-# AI Prompt: prompt-epic-47be9e5c-03-feature-01-story-03-1769400918449
+# AI Prompt: prompt-epic-47be9e5c-02-feature-02-story-01-1769403602139
 
-**Story ID:** epic-47be9e5c-03-feature-01-story-03
+**Story ID:** epic-47be9e5c-02-feature-02-story-01
 **Role:** Software Engineer
 **Task:** Implement feature from user story
 **Template:** Prompt-muse-User-Story-Implementation-PR
-**Generated:** 2026-01-26T04:15:18.449Z
+**Generated:** 2026-01-26T05:00:02.139Z
 
 ## Prompt Content
 
@@ -35,36 +35,35 @@ You produce code suitable for peer review in a professional engineering team.
 
 - Repo URL: https://github.com/dgaspard/muse
 - Default Branch: main
-- Current Branch: muse/epic-47be9e5c-03-feature-01-story-03-implementation
+- Current Branch: muse/epic-47be9e5c-02-feature-02-story-01-implementation
 
 **User Story:**
 
-- ID: epic-47be9e5c-03-feature-01-story-03
-- Title: Implement access approval workflow
-- Role: HR specialist
-- Capability: request record access
-- Benefit: obtain authorized permissions
+- ID: epic-47be9e5c-02-feature-02-story-01
+- Title: Multi-Factor Authentication for Records Access
+- Role: authorized system service
+- Capability: enforce authentication
+- Benefit: verify user identity
 
 **Acceptance Criteria:**
-1. System requires user to submit access request with business justification
-2. Request automatically routes to user's direct manager for initial approval
-3. Approved requests forward to compliance officer for final authorization
-4. System notifies requester of approval status at each workflow stage
-5. Approved access permissions activate only after both approvals are recorded
+1. System requires two distinct authentication factors before granting access to electronic personnel records
+2. Authentication session expires after a defined period of inactivity requiring re-authentication
+3. Failed authentication attempts lock the account after a threshold number of attempts
+4. System displays authentication status and session timeout warnings to active users
 
 **Related Artifacts:**
 
-- Feature ID: epic-47be9e5c-03-feature-01
-- Feature Title: Implement Role-Based Access Control for Personnel Records
-- Epic ID: epic-47be9e5c-03
-- Epic Title: Personnel Records Access Control and Privacy Protection
+- Feature ID: epic-47be9e5c-02-feature-02
+- Feature Title: Implement Role-Based Access Control for Electronic Records
+- Epic ID: epic-47be9e5c-02
+- Epic Title: Records Security and Access Control
 - Governance References: - sec-47be9e5c-01-b0c3b14d
 
 **Governance Context** (reference only; do NOT incorporate governance scope into code):
 ---
 document_id: 47be9e5c71786f7600fb6e34629e353eb087cd344edc38b4c9e2874a39703f44
 source_checksum: 47be9e5c71786f7600fb6e34629e353eb087cd344edc38b4c9e2874a39703f44
-generated_at: 2026-01-26T03:40:41.683Z
+generated_at: 2026-01-26T04:58:39.496Z
 derived_artifact: governance_markdown
 original_filename: recguide2011__1_.pdf
 ---
@@ -110,7 +109,7 @@ You must perform the following steps IN ORDER:
 Ensure you are on a feature branch for this story. Use:
 
 ```plaintext
-muse/epic-47be9e5c-03-feature-01-story-03-implementation
+muse/epic-47be9e5c-02-feature-02-story-01-implementation
 ```plaintext
 
 If the branch does not exist, create it from main.
@@ -155,7 +154,7 @@ Do not modify main directly.
 Use clear, scoped commits with format:
 
 ```plaintext
-epic-47be9e5c-03-feature-01-story-03: <concise description>
+epic-47be9e5c-02-feature-02-story-01: <concise description>
 
 <optional detailed explanation>
 ```plaintext
@@ -163,7 +162,7 @@ epic-47be9e5c-03-feature-01-story-03: <concise description>
 Example (using the actual story ID provided above):
 
 ```plaintext
-epic-47be9e5c-03-feature-01-story-03: implement requested functionality
+epic-47be9e5c-02-feature-02-story-01: implement requested functionality
 
 - Implement all acceptance criteria
 - Add required tests
@@ -177,7 +176,7 @@ epic-47be9e5c-03-feature-01-story-03: implement requested functionality
 **Title:**
 
 ```plaintext
-epic-47be9e5c-03-feature-01-story-03 — Implement access approval workflow
+epic-47be9e5c-02-feature-02-story-01 — Multi-Factor Authentication for Records Access
 ```plaintext
 
 **Description MUST include:**
@@ -226,4 +225,4 @@ If tests cannot be written, explain why and propose alternatives.
 ```
 
 ---
-*This prompt was generated at 2026-01-26T04:15:18.449Z and is immutable at retrieval time.*
+*This prompt was generated at 2026-01-26T05:00:02.139Z and is immutable at retrieval time.*

@@ -1,0 +1,17 @@
+story_id: epic-47be9e5c-02-feature-02-story-02
+title: "Role-Based Permission Assignment"
+epic_id: epic-47be9e5c-02
+feature_id: epic-47be9e5c-02-feature-02
+derived_from_epic: epic-47be9e5c-02
+derived_from_feature: epic-47be9e5c-02-feature-02
+role: "records administrator"
+capability: "assign permissions"
+benefit: "control access levels"
+acceptance_criteria:
+  - "Administrator can create and modify role definitions with specific read, write, and export permissions"
+  - "System assigns users to one or more predefined roles that determine their access privileges"
+  - "Permission changes take effect immediately upon role assignment or modification"
+  - "System displays current role assignments and associated permissions for each user account"
+governance_references:
+  - "sec-47be9e5c-01-b0c3b14d"
+created_at: "2026-01-26T05:00:10.427Z"

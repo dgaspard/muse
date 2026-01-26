@@ -1,0 +1,17 @@
+story_id: epic-47be9e5c-02-feature-02-story-04
+title: "Comprehensive Access Audit Logging"
+epic_id: epic-47be9e5c-02
+feature_id: epic-47be9e5c-02-feature-02
+derived_from_epic: epic-47be9e5c-02
+derived_from_feature: epic-47be9e5c-02-feature-02
+role: "system"
+capability: "log activities"
+benefit: "maintain accountability"
+acceptance_criteria:
+  - "System records timestamp, user identity, and action type for every record access attempt"
+  - "System captures before and after values for all record modifications with user attribution"
+  - "System logs all export operations including user identity, timestamp, and records exported"
+  - "Audit logs are immutable and retained according to defined retention schedules"
+governance_references:
+  - "sec-47be9e5c-01-b0c3b14d"
+created_at: "2026-01-26T05:00:10.431Z"

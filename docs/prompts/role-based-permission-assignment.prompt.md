@@ -1,10 +1,10 @@
-# AI Prompt: prompt-epic-47be9e5c-03-feature-01-story-04-1769400917216
+# AI Prompt: prompt-epic-47be9e5c-02-feature-02-story-02-1769403603854
 
-**Story ID:** epic-47be9e5c-03-feature-01-story-04
+**Story ID:** epic-47be9e5c-02-feature-02-story-02
 **Role:** Software Engineer
 **Task:** Implement feature from user story
 **Template:** Prompt-muse-User-Story-Implementation-PR
-**Generated:** 2026-01-26T04:15:17.216Z
+**Generated:** 2026-01-26T05:00:03.854Z
 
 ## Prompt Content
 
@@ -35,36 +35,35 @@ You produce code suitable for peer review in a professional engineering team.
 
 - Repo URL: https://github.com/dgaspard/muse
 - Default Branch: main
-- Current Branch: muse/epic-47be9e5c-03-feature-01-story-04-implementation
+- Current Branch: muse/epic-47be9e5c-02-feature-02-story-02-implementation
 
 **User Story:**
 
-- ID: epic-47be9e5c-03-feature-01-story-04
-- Title: Validate need-to-know documentation
-- Role: compliance officer
-- Capability: review access justification
-- Benefit: ensure legitimate need
+- ID: epic-47be9e5c-02-feature-02-story-02
+- Title: Role-Based Permission Assignment
+- Role: records administrator
+- Capability: assign permissions
+- Benefit: control access levels
 
 **Acceptance Criteria:**
-1. System displays submitted business justification during approval review
-2. Reviewer can request additional documentation before making decision
-3. System requires explicit attestation that need-to-know requirement is met
-4. Rejection includes mandatory explanation that returns to requester
-5. All approval decisions become part of permanent access audit trail
+1. Administrator can create and modify role definitions with specific read, write, and export permissions
+2. System assigns users to one or more predefined roles that determine their access privileges
+3. Permission changes take effect immediately upon role assignment or modification
+4. System displays current role assignments and associated permissions for each user account
 
 **Related Artifacts:**
 
-- Feature ID: epic-47be9e5c-03-feature-01
-- Feature Title: Implement Role-Based Access Control for Personnel Records
-- Epic ID: epic-47be9e5c-03
-- Epic Title: Personnel Records Access Control and Privacy Protection
+- Feature ID: epic-47be9e5c-02-feature-02
+- Feature Title: Implement Role-Based Access Control for Electronic Records
+- Epic ID: epic-47be9e5c-02
+- Epic Title: Records Security and Access Control
 - Governance References: - sec-47be9e5c-01-b0c3b14d
 
 **Governance Context** (reference only; do NOT incorporate governance scope into code):
 ---
 document_id: 47be9e5c71786f7600fb6e34629e353eb087cd344edc38b4c9e2874a39703f44
 source_checksum: 47be9e5c71786f7600fb6e34629e353eb087cd344edc38b4c9e2874a39703f44
-generated_at: 2026-01-26T03:40:41.683Z
+generated_at: 2026-01-26T04:58:39.496Z
 derived_artifact: governance_markdown
 original_filename: recguide2011__1_.pdf
 ---
@@ -110,7 +109,7 @@ You must perform the following steps IN ORDER:
 Ensure you are on a feature branch for this story. Use:
 
 ```plaintext
-muse/epic-47be9e5c-03-feature-01-story-04-implementation
+muse/epic-47be9e5c-02-feature-02-story-02-implementation
 ```plaintext
 
 If the branch does not exist, create it from main.
@@ -155,7 +154,7 @@ Do not modify main directly.
 Use clear, scoped commits with format:
 
 ```plaintext
-epic-47be9e5c-03-feature-01-story-04: <concise description>
+epic-47be9e5c-02-feature-02-story-02: <concise description>
 
 <optional detailed explanation>
 ```plaintext
@@ -163,7 +162,7 @@ epic-47be9e5c-03-feature-01-story-04: <concise description>
 Example (using the actual story ID provided above):
 
 ```plaintext
-epic-47be9e5c-03-feature-01-story-04: implement requested functionality
+epic-47be9e5c-02-feature-02-story-02: implement requested functionality
 
 - Implement all acceptance criteria
 - Add required tests
@@ -177,7 +176,7 @@ epic-47be9e5c-03-feature-01-story-04: implement requested functionality
 **Title:**
 
 ```plaintext
-epic-47be9e5c-03-feature-01-story-04 — Validate need-to-know documentation
+epic-47be9e5c-02-feature-02-story-02 — Role-Based Permission Assignment
 ```plaintext
 
 **Description MUST include:**
@@ -226,4 +225,4 @@ If tests cannot be written, explain why and propose alternatives.
 ```
 
 ---
-*This prompt was generated at 2026-01-26T04:15:17.216Z and is immutable at retrieval time.*
+*This prompt was generated at 2026-01-26T05:00:03.854Z and is immutable at retrieval time.*
