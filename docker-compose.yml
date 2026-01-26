@@ -69,14 +69,23 @@ services:
     ports:
       - "${API_PORT:-4000}:4000"
     depends_on:
-      - postgres
-      - redis
-      - minio
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
+      minio:
+        condition: service_healthy
     volumes:
       - ./backlog:/app/backlog
       - ./docs:/app/docs
     networks:
       - muse-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   workers:
     build:
@@ -88,10 +97,17 @@ services:
       - redis
     networks:
       - muse-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4100/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   web:
     build:
-      context: ./apps/web
+      context: .
+      dockerfile: ./apps/web/Dockerfile
       args:
         API_ENDPOINT: http://api:4000
     env_file: .env
@@ -100,9 +116,16 @@ services:
     ports:
       - "${WEB_PORT:-3000}:3000"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     networks:
       - muse-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
 networks:
   muse-network:
