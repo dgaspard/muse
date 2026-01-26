@@ -40,6 +40,7 @@ function escapeQuotes(input: string): string {
 
 /**
  * Create a safe slug for filenames
+ * Completely regex-free to prevent any ReDoS vulnerabilities
  */
 function createSlug(input: string, maxLength: number = 50): string {
   const sanitized = sanitizeString(input, 100)
@@ -59,8 +60,16 @@ function createSlug(input: string, maxLength: number = 50): string {
       lastWasHyphen = false
     }
   }
-  // Remove leading/trailing hyphens
-  slug = slug.replace(/^-+/, '').replace(/-+$/, '')
+  // Remove leading/trailing hyphens without regex
+  let startIndex = 0
+  let endIndex = slug.length
+  while (startIndex < endIndex && slug[startIndex] === '-') {
+    startIndex++
+  }
+  while (endIndex > startIndex && slug[endIndex - 1] === '-') {
+    endIndex--
+  }
+  slug = slug.substring(startIndex, endIndex)
   return slug.substring(0, maxLength)
 }
 
