@@ -13,6 +13,8 @@ RUN npm run build
 FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV production
+# Install curl for healthcheck
+RUN apk add --no-cache curl
 COPY --from=builder /app/dist ./dist
 # Copy production node_modules from the builder stage so runtime deps are present
 COPY --from=builder /app/node_modules ./node_modules

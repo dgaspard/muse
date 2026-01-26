@@ -1,0 +1,16 @@
+id: epic-47be9e5c-03-feature-01-story-04
+title: "Validate need-to-know documentation"
+epic_id: epic-47be9e5c-03
+feature_id: epic-47be9e5c-03-feature-01
+role: "compliance officer"
+capability: "review access justification"
+benefit: "ensure legitimate need"
+acceptance_criteria:
+  - "System displays submitted business justification during approval review"
+  - "Reviewer can request additional documentation before making decision"
+  - "System requires explicit attestation that need-to-know requirement is met"
+  - "Rejection includes mandatory explanation that returns to requester"
+  - "All approval decisions become part of permanent access audit trail"
+governance_references:
+  - "sec-47be9e5c-01-b0c3b14d"
+created_at: "2026-01-26T04:16:04.070Z"

@@ -1,0 +1,15 @@
+id: epic-47be9e5c-03-feature-01-story-02
+title: "Enforce access denial for unauthorized users"
+epic_id: epic-47be9e5c-03
+feature_id: epic-47be9e5c-03-feature-01
+role: "system"
+capability: "deny unauthorized access"
+benefit: "protect personnel records"
+acceptance_criteria:
+  - "System blocks all personnel record access attempts from users without assigned roles"
+  - "Access denial generates specific error message indicating authorization requirement"
+  - "System logs each denied access attempt with timestamp and user identifier"
+  - "Denied users receive instructions for requesting proper authorization"
+governance_references:
+  - "sec-47be9e5c-01-b0c3b14d"
+created_at: "2026-01-26T04:16:04.068Z"

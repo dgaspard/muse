@@ -1,0 +1,10 @@
+id: epic-47be9e5c-03
+title: "Privacy Act Compliance and Access Control"
+objective: "Deploy role-based access controls and training systems that enforce Privacy Act restrictions on personnel records disclosure while ensuring authorized users understand and apply privacy requirements."
+success_criteria:
+  - "Access to personnel records is restricted based on Privacy Act authorization levels"
+  - "All users complete mandatory training on Privacy Act requirements before gaining system access"
+  - "System logs and reports all disclosure events with justification and recipient information"
+governance_references:
+  - "sec-47be9e5c-01-b0c3b14d"
+created_at: "2026-01-26T02:07:28.639Z"
