@@ -47,12 +47,26 @@ check() {
 check_api "http://localhost:4000/health" "api"
 check "http://localhost:4100/health" "worker"
 
-# Web UI: HTTP 200
+# Web UI: HTTP 200 with retries
 echo "Checking web at http://localhost:3000/"
-if curl -sS --head --fail --silent http://localhost:3000/ >/dev/null; then
-  echo "OK: web"
-else
-  echo "FAIL: web"
+WEB_MAX_ATTEMPTS=30
+WEB_ATTEMPT=0
+WEB_SUCCESS=false
+
+while [ $WEB_ATTEMPT -lt $WEB_MAX_ATTEMPTS ]; do
+  if curl -sS --head --fail --max-time 5 http://localhost:3000/ >/dev/null 2>&1; then
+    echo "OK: web"
+    WEB_SUCCESS=true
+    break
+  fi
+  WEB_ATTEMPT=$((WEB_ATTEMPT + 1))
+  echo "Web not ready, attempt $WEB_ATTEMPT/$WEB_MAX_ATTEMPTS..."
+  sleep 2
+done
+
+if [ "$WEB_SUCCESS" = "false" ]; then
+  echo "FAIL: web (timed out after $WEB_MAX_ATTEMPTS attempts)"
+  docker compose logs web --no-log-prefix --tail 50 || true
   exit 1
 fi
 

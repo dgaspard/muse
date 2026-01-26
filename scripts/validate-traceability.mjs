@@ -35,6 +35,9 @@ function shouldExcludeFile(filePath) {
   // Exclude files with "agent-based" in the name (documentation files)
   if (basename.includes('agent-based')) return true
   
+  // Exclude epic-003 documentation files (completion status, quick reference)
+  if (basename.includes('epic-003-completion') || basename.includes('epic-003-quickref')) return true
+  
   // Exclude files in services/api/docs/* (test/example files)
   if (relativePath.startsWith('services/api/docs/')) return true
   

@@ -4,12 +4,11 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 ARG API_ENDPOINT
 ENV API_ENDPOINT=${API_ENDPOINT}
-COPY package.json package-lock.json* ./
-COPY apps/web/package.json apps/web/package-lock.json* ./apps/web/
-# Install workspaces including dev dependencies for Next.js build
-RUN npm install --production=false --silent --no-audit --no-fund --legacy-peer-deps --workspaces
-COPY apps/web ./apps/web
-RUN npm run build --workspace=muse-web
+# Install only web app dependencies without workspace resolution to avoid npm workspaces issues in CI
+COPY apps/web/package.json apps/web/package-lock.json* ./
+RUN npm install --production=false --silent --no-audit --no-fund --legacy-peer-deps
+COPY apps/web ./
+RUN npm run build
 
 FROM node:20-alpine AS runner
 WORKDIR /app
