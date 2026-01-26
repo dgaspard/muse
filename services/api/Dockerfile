@@ -2,13 +2,13 @@
 # Simplified build: install dependencies in the builder stage so devDependencies (tsc) are available
 FROM node:20-alpine AS builder
 WORKDIR /app
-COPY package.json package-lock.json* ./
+# Install only API service dependencies without workspace resolution to avoid npm workspaces issues in CI
 COPY services/api/package.json services/api/package-lock.json* ./
-# Install dependencies at root for workspaces setup
-RUN npm install --production=false --silent --no-audit --no-fund --legacy-peer-deps --workspaces
+RUN npm install --production=false --silent --no-audit --no-fund --legacy-peer-deps
 COPY services/api ./
+# Copy prompts directory from repo root
 COPY prompts ../prompts
-RUN npm run build --workspace=muse-api
+RUN npm run build
 
 FROM node:20-alpine AS runner
 WORKDIR /app
