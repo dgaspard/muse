@@ -3,11 +3,10 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY package.json package-lock.json* ./
-COPY services/workers/package.json services/workers/package-lock.json* ./services/workers/
-# Install workspaces including dev dependencies for TypeScript compilation
-RUN npm install --production=false --silent --no-audit --no-fund --legacy-peer-deps --workspaces
-COPY services/workers ./services/workers
-RUN npm run build --workspace=muse-workers
+# Install dependencies for the workers service (build context is services/workers)
+RUN npm install --production=false --silent --no-audit --no-fund --legacy-peer-deps
+COPY . .
+RUN npm run build
 
 FROM node:20-alpine AS runner
 WORKDIR /app
