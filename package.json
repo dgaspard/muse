@@ -19,7 +19,5 @@
     "globby": "^14.0.0",
     "markdownlint-cli": "^0.47.0"
   },
-  "dependencies": {
-    "globalthis": "^1.0.4"
-  }
+  "dependencies": {}
 }
