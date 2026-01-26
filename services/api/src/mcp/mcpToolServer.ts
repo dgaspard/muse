@@ -26,6 +26,73 @@ export interface MCPToolResponse {
 }
 
 /**
+ * Epic artifact interface
+ */
+interface EpicArtifact {
+  epic_id: string
+  title: string
+  objective: string
+  success_criteria: string[]
+  governance_references: Array<{ section_id: string; rationale: string }>
+  derived_from?: string
+  generated_at?: string
+}
+
+/**
+ * Feature artifact interface
+ */
+interface FeatureArtifact {
+  feature_id: string
+  title: string
+  epic_id: string
+  description: string
+  acceptance_criteria: string[]
+  user_story_ids?: string[]
+  governance_references: Array<{ section_id: string; rationale: string }>
+}
+
+/**
+ * User story artifact interface
+ */
+interface StoryArtifact {
+  story_id: string
+  title: string
+  role: string
+  capability: string
+  benefit: string
+  feature_id: string
+  epic_id: string
+  acceptance_criteria: string[]
+  governance_reference?: string
+}
+
+/**
+ * AI Prompt artifact interface
+ */
+interface PromptArtifact {
+  prompt_id: string
+  story_id: string
+  feature_id?: string
+  epic_id?: string
+  role: string
+  task: string
+  generated_at: string
+  template: string
+}
+
+/**
+ * Muse YAML data structure
+ */
+interface MuseYamlData {
+  artifacts?: {
+    epics?: EpicArtifact[]
+    features?: FeatureArtifact[]
+    stories?: StoryArtifact[]
+    prompts?: PromptArtifact[]
+  }
+}
+
+/**
  * MCP-compliant tool server for artifact retrieval and materialization
  */
 export class MCPToolServer {
@@ -50,7 +117,7 @@ export class MCPToolServer {
         success: true,
         data: {
           epic_count: epics.length,
-          epics: epics.map((e: any) => ({
+          epics: epics.map((e: EpicArtifact) => ({
             epic_id: e.epic_id,
             title: e.title,
             objective: e.objective,
@@ -75,7 +142,7 @@ export class MCPToolServer {
   async getDerivedEpic(epicId: string): Promise<MCPToolResponse> {
     try {
       const data = this.loadMuseYaml()
-      const epic = data.artifacts?.epics?.find((e: any) => e.epic_id === epicId)
+      const epic = data.artifacts?.epics?.find((e: EpicArtifact) => e.epic_id === epicId)
 
       if (!epic) {
         return {
@@ -107,7 +174,7 @@ export class MCPToolServer {
 
       // Filter by epic_id if provided
       if (epicId) {
-        features = features.filter((f: any) => f.epic_id === epicId)
+        features = features.filter((f: FeatureArtifact) => f.epic_id === epicId)
       }
 
       return {
@@ -115,7 +182,7 @@ export class MCPToolServer {
         data: {
           feature_count: features.length,
           epic_id: epicId,
-          features: features.map((f: any) => ({
+          features: features.map((f: FeatureArtifact) => ({
             feature_id: f.feature_id,
             title: f.title,
             epic_id: f.epic_id,
@@ -140,7 +207,7 @@ export class MCPToolServer {
   async getDerivedFeature(featureId: string): Promise<MCPToolResponse> {
     try {
       const data = this.loadMuseYaml()
-      const feature = data.artifacts?.features?.find((f: any) => f.feature_id === featureId)
+      const feature = data.artifacts?.features?.find((f: FeatureArtifact) => f.feature_id === featureId)
 
       if (!feature) {
         return {
@@ -172,12 +239,12 @@ export class MCPToolServer {
 
       // Filter by feature_id if provided
       if (featureId) {
-        stories = stories.filter((s: any) => s.feature_id === featureId)
+        stories = stories.filter((s: StoryArtifact) => s.feature_id === featureId)
       }
 
       // Filter by epic_id if provided
       if (epicId) {
-        stories = stories.filter((s: any) => s.epic_id === epicId)
+        stories = stories.filter((s: StoryArtifact) => s.epic_id === epicId)
       }
 
       return {
@@ -186,7 +253,7 @@ export class MCPToolServer {
           story_count: stories.length,
           feature_id: featureId,
           epic_id: epicId,
-          stories: stories.map((s: any) => ({
+          stories: stories.map((s: StoryArtifact) => ({
             story_id: s.story_id,
             title: s.title,
             role: s.role,
@@ -214,7 +281,7 @@ export class MCPToolServer {
   async getDerivedUserStory(storyId: string): Promise<MCPToolResponse> {
     try {
       const data = this.loadMuseYaml()
-      const story = data.artifacts?.stories?.find((s: any) => s.story_id === storyId)
+      const story = data.artifacts?.stories?.find((s: StoryArtifact) => s.story_id === storyId)
 
       if (!story) {
         return {
@@ -246,7 +313,7 @@ export class MCPToolServer {
 
       // Filter by story_id if provided
       if (storyId) {
-        prompts = prompts.filter((p: any) => p.story_id === storyId)
+        prompts = prompts.filter((p: PromptArtifact) => p.story_id === storyId)
       }
 
       return {
@@ -254,7 +321,7 @@ export class MCPToolServer {
         data: {
           prompt_count: prompts.length,
           story_id: storyId,
-          prompts: prompts.map((p: any) => ({
+          prompts: prompts.map((p: PromptArtifact) => ({
             prompt_id: p.prompt_id,
             story_id: p.story_id,
             feature_id: p.feature_id,
@@ -281,7 +348,7 @@ export class MCPToolServer {
   async getDerivedPrompt(promptId: string): Promise<MCPToolResponse> {
     try {
       const data = this.loadMuseYaml()
-      const prompt = data.artifacts?.prompts?.find((p: any) => p.prompt_id === promptId)
+      const prompt = data.artifacts?.prompts?.find((p: PromptArtifact) => p.prompt_id === promptId)
 
       if (!prompt) {
         return {
@@ -309,7 +376,7 @@ export class MCPToolServer {
   async validateArtifactLineage(epicId: string): Promise<MCPToolResponse> {
     try {
       const data = this.loadMuseYaml()
-      const epic = data.artifacts?.epics?.find((e: any) => e.epic_id === epicId)
+      const epic = data.artifacts?.epics?.find((e: EpicArtifact) => e.epic_id === epicId)
 
       if (!epic) {
         return {
@@ -318,9 +385,9 @@ export class MCPToolServer {
         }
       }
 
-      const features = (data.artifacts?.features || []).filter((f: any) => f.epic_id === epicId)
-      const stories = (data.artifacts?.stories || []).filter((s: any) => s.epic_id === epicId)
-      const prompts = (data.artifacts?.prompts || []).filter((p: any) => p.epic_id === epicId)
+      const features = (data.artifacts?.features || []).filter((f: FeatureArtifact) => f.epic_id === epicId)
+      const stories = (data.artifacts?.stories || []).filter((s: StoryArtifact) => s.epic_id === epicId)
+      const prompts = (data.artifacts?.prompts || []).filter((p: PromptArtifact) => p.epic_id === epicId)
 
       // Validate lineage
       const errors: string[] = []
@@ -334,7 +401,7 @@ export class MCPToolServer {
 
       // Check stories have parent feature and epic
       for (const s of stories) {
-        if (!features.some((f: any) => f.feature_id === s.feature_id)) {
+        if (!features.some((f: FeatureArtifact) => f.feature_id === s.feature_id)) {
           errors.push(`Story ${s.story_id} parent feature ${s.feature_id} not found`)
         }
         if (s.epic_id !== epicId) {
@@ -344,7 +411,7 @@ export class MCPToolServer {
 
       // Check prompts have parent story
       for (const p of prompts) {
-        if (!stories.some((s: any) => s.story_id === p.story_id)) {
+        if (!stories.some((s: StoryArtifact) => s.story_id === p.story_id)) {
           errors.push(`Prompt ${p.prompt_id} parent story ${p.story_id} not found`)
         }
       }
@@ -364,9 +431,9 @@ export class MCPToolServer {
             id: epic.epic_id,
             title: epic.title,
           },
-          features: features.map((f: any) => f.feature_id),
-          stories: stories.map((s: any) => s.story_id),
-          prompts: prompts.map((p: any) => p.prompt_id),
+          features: features.map((f: FeatureArtifact) => f.feature_id),
+          stories: stories.map((s: StoryArtifact) => s.story_id),
+          prompts: prompts.map((p: PromptArtifact) => p.prompt_id),
         },
       }
     } catch (err) {
@@ -385,7 +452,7 @@ export class MCPToolServer {
   async materializeArtifacts(): Promise<MCPToolResponse> {
     try {
       console.log('[MCPToolServer] Materializing artifacts to /docs')
-      
+
       const result = await this.materialization.materialize()
 
       if (!result.success) {
@@ -415,7 +482,7 @@ export class MCPToolServer {
   /**
    * Internal: Load muse.yaml
    */
-  private loadMuseYaml(): any {
+  private loadMuseYaml(): MuseYamlData {
     const museYamlPath = path.join(this.repoRoot, 'muse.yaml')
 
     if (!fs.existsSync(museYamlPath)) {

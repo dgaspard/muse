@@ -53,7 +53,7 @@ export class GitHubService {
   createFeatureBranch(branchName: string): GitOperationResult {
     try {
       // Validate branch name (alphanumeric, hyphens, underscores)
-      if (!/^[a-zA-Z0-9_\-]+$/.test(branchName)) {
+      if (!/^[a-zA-Z0-9_-]+$/.test(branchName)) {
         return {
           success: false,
           error: `Invalid branch name: ${branchName}`,

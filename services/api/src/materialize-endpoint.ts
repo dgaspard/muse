@@ -3,11 +3,69 @@ import * as fs from 'fs'
 import * as path from 'path'
 
 /**
+ * Epic request interface
+ */
+interface EpicRequest {
+  epic_id: string;
+  title: string;
+  objective: string;
+  success_criteria?: string[];
+  governance_references?: string[];
+}
+
+/**
+ * Feature request interface
+ */
+interface FeatureRequest {
+  feature_id: string;
+  title: string;
+  description: string;
+  acceptance_criteria?: string[];
+  governance_references?: string[];
+}
+
+/**
+ * Story request interface
+ */
+interface StoryRequest {
+  story_id: string;
+  title: string;
+  role: string;
+  capability: string;
+  benefit: string;
+  acceptance_criteria?: string[];
+  governance_references?: string[];
+  created_at?: string;
+}
+
+/**
+ * Prompt request interface
+ */
+interface PromptRequest {
+  prompt_id: string;
+  story_id: string;
+  role?: string;
+  task?: string;
+  template?: string;
+  content?: string;
+  generated_at?: string;
+}
+
+/**
+ * Materialization request body
+ */
+interface MaterializeRequestBody {
+  feature: FeatureRequest;
+  epic: EpicRequest;
+  stories?: StoryRequest[];
+  prompts?: PromptRequest[];
+}
+/**
  * POST /features/:featureId/materialize
  * Materialize feature, stories, and prompts to /docs per EPIC-003 governance.
  * Creates individual YAML files for epics, features, stories and markdown for prompts.
  */
-export const materializeFeatureHandler = async (req: Request, res: Response) => {
+export const materializeFeatureHandler = async (req: Request<unknown, unknown, MaterializeRequestBody>, res: Response) => {
   try {
     const { feature, epic, stories, prompts } = req.body
 
@@ -79,7 +137,7 @@ ${(feature.acceptance_criteria || []).map((c: string) => `  - "${c.replace(/"/g,
 governance_references:
 ${(feature.governance_references || []).map((r: string) => `  - "${r.replace(/"/g, '\\"')}"`).join('\n') || '  - []'}
 user_story_ids:
-${(stories && stories.length > 0 ? stories.map((s: any) => `  - ${s.story_id}`).join('\n') : '  - []')}
+${(stories && stories.length > 0 ? stories.map((s: StoryRequest) => `  - ${s.story_id}`).join('\n') : '  - []')}
 created_at: "${new Date().toISOString()}"
 `
     // Generate human-readable filename from feature title
@@ -143,9 +201,10 @@ ${prompt.content || ''}
 *This prompt was generated at ${prompt.generated_at || new Date().toISOString()} and is immutable at retrieval time.*
 `
         // Generate human-readable filename from story title (prompts are linked to stories)
-        const story = stories?.find((s: any) => s.story_id === prompt.story_id)
-        const promptTitleSlug = story?.title
-          ? story.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').substring(0, 50)
+        // Find the corresponding story for this prompt
+        const correspondingStory = stories?.find(s => s.story_id === prompt.story_id)
+        const promptTitleSlug = correspondingStory?.title
+          ? correspondingStory.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').substring(0, 50)
           : prompt.story_id
         const promptFileName = `${promptTitleSlug}.prompt.md`
         const promptFilePath = path.join(promptsDir, promptFileName)

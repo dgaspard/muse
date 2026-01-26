@@ -16,6 +16,20 @@
 import { MCPToolServer } from './mcpToolServer'
 import { GitHubService } from './githubService'
 
+/**
+ * Tool handler parameters interface
+ */
+interface ToolHandlerParams {
+  epic_id?: string;
+  feature_id?: string;
+  story_id?: string;
+  prompt_id?: string;
+  branch_name?: string;
+  pr_title?: string;
+  pr_body?: string;
+  labels?: string[];
+  reviewers?: string[];
+}
 export const mcpToolServer = new MCPToolServer()
 export const githubService = new GitHubService()
 
@@ -23,7 +37,7 @@ export const githubService = new GitHubService()
  * Register MCP tools with Copilot
  * This function should be called during server initialization
  */
-export function registerMCPTools(): Record<string, any> {
+export function registerMCPTools(): Record<string, { description: string; parameters?: Record<string, unknown>; handler: (params?: ToolHandlerParams) => unknown }> {
   return {
     'list_derived_epics': {
       description: 'List all epics derived from governance documents (read-only)',
@@ -37,7 +51,12 @@ export function registerMCPTools(): Record<string, any> {
           description: 'The epic ID',
         },
       },
-      handler: (params: { epic_id: string }) => mcpToolServer.getDerivedEpic(params.epic_id),
+      handler: (params?: ToolHandlerParams) => {
+        if (!params?.epic_id) {
+          throw new Error('epic_id is required');
+        }
+        return mcpToolServer.getDerivedEpic(params.epic_id);
+      },
     },
     'list_derived_features': {
       description: 'List all features derived from epics (read-only, optionally filter by epic)',
@@ -58,7 +77,12 @@ export function registerMCPTools(): Record<string, any> {
           description: 'The feature ID',
         },
       },
-      handler: (params: { feature_id: string }) => mcpToolServer.getDerivedFeature(params.feature_id),
+      handler: (params?: ToolHandlerParams) => {
+        if (!params?.feature_id) {
+          throw new Error('feature_id is required');
+        }
+        return mcpToolServer.getDerivedFeature(params.feature_id);
+      },
     },
     'list_derived_user_stories': {
       description: 'List all user stories derived from features (read-only)',
@@ -85,7 +109,12 @@ export function registerMCPTools(): Record<string, any> {
           description: 'The story ID',
         },
       },
-      handler: (params: { story_id: string }) => mcpToolServer.getDerivedUserStory(params.story_id),
+      handler: (params?: ToolHandlerParams) => {
+        if (!params?.story_id) {
+          throw new Error('story_id is required');
+        }
+        return mcpToolServer.getDerivedUserStory(params.story_id);
+      },
     },
     'list_derived_prompts': {
       description: 'List all AI prompts derived from user stories (read-only)',
@@ -106,7 +135,12 @@ export function registerMCPTools(): Record<string, any> {
           description: 'The prompt ID',
         },
       },
-      handler: (params: { prompt_id: string }) => mcpToolServer.getDerivedPrompt(params.prompt_id),
+      handler: (params?: ToolHandlerParams) => {
+        if (!params?.prompt_id) {
+          throw new Error('prompt_id is required');
+        }
+        return mcpToolServer.getDerivedPrompt(params.prompt_id);
+      },
     },
     'validate_artifact_lineage': {
       description: 'Validate epic → feature → story → prompt lineage (read-only)',
@@ -116,7 +150,12 @@ export function registerMCPTools(): Record<string, any> {
           description: 'The epic ID to validate',
         },
       },
-      handler: (params: { epic_id: string }) => mcpToolServer.validateArtifactLineage(params.epic_id),
+      handler: (params?: ToolHandlerParams) => {
+        if (!params?.epic_id) {
+          throw new Error('epic_id is required');
+        }
+        return mcpToolServer.validateArtifactLineage(params.epic_id);
+      },
     },
     'materialize_artifacts': {
       description:
@@ -151,13 +190,10 @@ export function registerMCPTools(): Record<string, any> {
           required: false,
         },
       },
-      handler: async (params: {
-        branch_name: string
-        pr_title: string
-        pr_body: string
-        labels?: string[]
-        reviewers?: string[]
-      }) => {
+      handler: async (params?: ToolHandlerParams) => {
+        if (!params?.branch_name || !params?.pr_title || !params?.pr_body) {
+          throw new Error('branch_name, pr_title, and pr_body are required');
+        }
         // Create feature branch
         const branchResult = githubService.createFeatureBranch(params.branch_name)
         if (!branchResult.success) {

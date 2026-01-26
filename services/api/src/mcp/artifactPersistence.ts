@@ -3,6 +3,46 @@ import path from 'path';
 import YAML from 'yaml';
 import { EpicData, FeatureData, StoryData } from '../orchestration/MusePipelineOrchestrator';
 
+/**
+ * Epic artifact interface
+ */
+interface EpicArtifactData {
+  epic_id: string;
+  title: string;
+  objective: string;
+  success_criteria: string[];
+  governance_references: Array<{ section_id: string; rationale: string }>;
+  derived_from?: string;
+  generated_at?: string;
+}
+
+/**
+ * Feature artifact interface
+ */
+interface FeatureArtifactData {
+  feature_id: string;
+  title: string;
+  description: string;
+  acceptance_criteria: string[];
+  epic_id: string;
+  governance_references: Array<{ section_id: string; rationale: string }>;
+  user_story_ids: string[];
+}
+
+/**
+ * Story artifact interface
+ */
+interface StoryArtifactData {
+  story_id: string;
+  title: string;
+  role: string;
+  capability: string;
+  benefit: string;
+  acceptance_criteria: string[];
+  feature_id?: string;
+  epic_id?: string;
+  governance_reference?: string;
+}
 interface AIPromptArtifact {
   prompt_id: string;
   story_id: string;
@@ -17,10 +57,10 @@ interface AIPromptArtifact {
 
 interface MuseArtifacts {
   artifacts?: {
-    governance_markdown?: any[];
-    epics?: any[];
-    features?: any[];
-    stories?: any[];
+    governance_markdown?: Record<string, unknown>[];
+    epics?: EpicArtifactData[];
+    features?: FeatureArtifactData[];
+    stories?: StoryArtifactData[];
     prompts?: AIPromptArtifact[];
   };
 }
@@ -81,47 +121,52 @@ export class ArtifactPersistence {
 
     // Add epics (avoid duplicates by epic_id)
     for (const epic of epics) {
-      const existing = data.artifacts.epics.findIndex((e: any) => e.epic_id === epic.epic_id);
-      const epicArtifact = {
+      const epicArtifact: EpicArtifactData = {
         epic_id: epic.epic_id,
         title: epic.title,
         objective: epic.objective,
         success_criteria: epic.success_criteria,
-        governance_references: epic.governance_references,
+        governance_references: epic.governance_references.map(ref => ({
+          section_id: ref,
+          rationale: '' // TODO: Add rationale if available in source data
+        })),
         derived_from: documentId,
         generated_at: new Date().toISOString(),
       };
 
-      if (existing >= 0) {
-        data.artifacts.epics[existing] = epicArtifact;
+      const existingIndex = data.artifacts.epics!.findIndex(e => e.epic_id === epic.epic_id);
+      if (existingIndex >= 0) {
+        data.artifacts.epics![existingIndex] = epicArtifact;
       } else {
-        data.artifacts.epics.push(epicArtifact);
+        data.artifacts.epics!.push(epicArtifact);
       }
     }
 
     // Add features (avoid duplicates by feature_id)
     for (const feature of features) {
-      const existing = data.artifacts.features.findIndex((f: any) => f.feature_id === feature.feature_id);
-      const featureArtifact = {
+      const featureArtifact: FeatureArtifactData = {
         feature_id: feature.feature_id,
         title: feature.title,
         description: feature.description,
         acceptance_criteria: feature.acceptance_criteria,
         epic_id: feature.epic_id,
-        governance_references: feature.governance_references,
+        governance_references: feature.governance_references.map(ref => ({
+          section_id: ref,
+          rationale: '' // TODO: Add rationale if available in source data
+        })),
         user_story_ids: stories.filter(s => s.derived_from_feature === feature.feature_id).map(s => s.story_id),
       };
 
-      if (existing >= 0) {
-        data.artifacts.features[existing] = featureArtifact;
+      const existingIndex = data.artifacts.features!.findIndex(f => f.feature_id === feature.feature_id);
+      if (existingIndex >= 0) {
+        data.artifacts.features![existingIndex] = featureArtifact;
       } else {
-        data.artifacts.features.push(featureArtifact);
+        data.artifacts.features!.push(featureArtifact);
       }
     }
 
     // Add stories (avoid duplicates by story_id)
     for (const story of stories) {
-      const existing = data.artifacts.stories.findIndex((s: any) => s.story_id === story.story_id);
       const storyArtifact = {
         story_id: story.story_id,
         title: story.title,
@@ -134,10 +179,11 @@ export class ArtifactPersistence {
         governance_reference: story.governance_references.join(', '),
       };
 
-      if (existing >= 0) {
-        data.artifacts.stories[existing] = storyArtifact;
+      const existingIndex = data.artifacts.stories!.findIndex(s => s.story_id === story.story_id);
+      if (existingIndex >= 0) {
+        data.artifacts.stories![existingIndex] = storyArtifact;
       } else {
-        data.artifacts.stories.push(storyArtifact);
+        data.artifacts.stories!.push(storyArtifact);
       }
     }
 

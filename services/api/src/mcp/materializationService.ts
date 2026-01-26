@@ -2,6 +2,62 @@ import fs from 'fs';
 import path from 'path';
 import { EpicDerivationWorkflow } from '../governance/EpicDerivationWorkflow';
 
+/**
+ * Epic artifact interface for materialization
+ */
+interface EpicArtifact {
+  epic_id: string;
+  title: string;
+  objective: string;
+  success_criteria: string[];
+  governance_references: Array<{ section_id: string; rationale: string }>;
+  derived_from?: string;
+  generated_at?: string;
+}
+
+/**
+ * Feature artifact interface for materialization
+ */
+interface FeatureArtifact {
+  feature_id: string;
+  title: string;
+  epic_id: string;
+  description: string;
+  acceptance_criteria: string[];
+  user_story_ids?: string[];
+  governance_references: Array<{ section_id: string; rationale: string }>;
+}
+
+/**
+ * Story artifact interface for materialization
+ */
+interface StoryArtifact {
+  story_id: string;
+  title: string;
+  feature_id?: string;
+  epic_id?: string;
+  role: string;
+  capability: string;
+  benefit: string;
+  acceptance_criteria: string[];
+  governance_reference?: string;
+}
+
+/**
+ * Prompt artifact interface for materialization
+ */
+interface PromptArtifact {
+  prompt_id: string;
+  story_id: string;
+  feature_id?: string;
+  epic_id?: string;
+  role: string;
+  task: string;
+  content?: string;
+  template: string;
+  generated_at?: string;
+}
+
 export interface MaterializationResult {
   success: boolean;
   filesCreated: string[];
@@ -32,7 +88,7 @@ export class MaterializationService {
     }
   }
 
-  private formatEpicMarkdown(epic: any): string {
+  private formatEpicMarkdown(epic: EpicArtifact): string {
     return `# Epic: ${epic.title}
 
 **Epic ID:** ${epic.epic_id}
@@ -44,7 +100,7 @@ ${epic.objective}
 ${Array.isArray(epic.success_criteria) ? epic.success_criteria.map((c: string) => `- ${c}`).join('\n') : epic.success_criteria}
 
 ## Governance References
-${Array.isArray(epic.governance_references) ? epic.governance_references.map((ref: any) => `- ${ref.section_id}: ${ref.rationale}`).join('\n') : 'None'}
+${Array.isArray(epic.governance_references) ? epic.governance_references.map((ref: { section_id: string; rationale: string }) => `- ${ref.section_id}: ${ref.rationale}`).join('\n') : 'None'}
 
 ---
 *Generated from governance document: ${epic.derived_from || 'Unknown'}*
@@ -52,7 +108,7 @@ ${Array.isArray(epic.governance_references) ? epic.governance_references.map((re
 `;
   }
 
-  private formatFeatureMarkdown(feature: any): string {
+  private formatFeatureMarkdown(feature: FeatureArtifact): string {
     return `# Feature: ${feature.title}
 
 **Feature ID:** ${feature.feature_id}  
@@ -68,14 +124,14 @@ ${Array.isArray(feature.acceptance_criteria) ? feature.acceptance_criteria.map((
 ${Array.isArray(feature.user_story_ids) ? feature.user_story_ids.map((id: string) => `- [${id}](../stories/${id}.md)`).join('\n') : 'None'}
 
 ## Governance References
-${Array.isArray(feature.governance_references) ? feature.governance_references.map((ref: any) => `- ${ref.section_id}: ${ref.rationale}`).join('\n') : 'None'}
+${Array.isArray(feature.governance_references) ? feature.governance_references.map((ref: { section_id: string; rationale: string }) => `- ${ref.section_id}: ${ref.rationale}`).join('\n') : 'None'}
 
 ---
 *Generated at: ${new Date().toISOString()}*
 `;
   }
 
-  private formatStoryMarkdown(story: any): string {
+  private formatStoryMarkdown(story: StoryArtifact): string {
     return `# User Story: ${story.title}
 
 **Story ID:** ${story.story_id}  
@@ -98,7 +154,7 @@ ${story.governance_reference || 'None'}
 `;
   }
 
-  private formatPromptMarkdown(prompt: any): string {
+  private formatPromptMarkdown(prompt: PromptArtifact): string {
     return `# AI Prompt: ${prompt.prompt_id}
 
 **Story ID:** ${prompt.story_id}  
@@ -146,10 +202,10 @@ ${prompt.template}
         return result;
       }
 
-      const epics = (museData.artifacts as any).epics || [];
-      const features = (museData.artifacts as any).features || [];
-      const stories = (museData.artifacts as any).stories || [];
-      const prompts = (museData.artifacts as any).prompts || [];
+  const epics: EpicArtifact[] = (museData.artifacts as Record<string, EpicArtifact[]>).epics || [];
+  const features: FeatureArtifact[] = (museData.artifacts as Record<string, FeatureArtifact[]>).features || [];
+  const stories: StoryArtifact[] = (museData.artifacts as Record<string, StoryArtifact[]>).stories || [];
+  const prompts: PromptArtifact[] = (museData.artifacts as Record<string, PromptArtifact[]>).prompts || [];
 
       // Create directory structure
       const docsDir = path.join(this.repoRoot, 'docs');
