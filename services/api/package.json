@@ -17,6 +17,7 @@
     "express-rate-limit": "^8.2.1",
     "gray-matter": "^4.0.3",
     "multer": "^2.0.2",
+    "node-fetch": "^3.3.2",
     "pdf-parse": "^2.4.5",
     "yaml": "^2.3.4"
   },
@@ -29,8 +30,15 @@
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
     "eslint": "^8.57.1",
+    "estree-walker": "^3.0.3",
+    "execa": "^8.0.1",
     "ts-node-dev": "2.0.0",
     "typescript": "5.2.2",
     "vitest": "^1.6.0"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-darwin-arm64": "^4.30.1",
+    "@rollup/rollup-darwin-x64": "^4.30.1",
+    "@rollup/rollup-linux-x64-gnu": "^4.30.1"
   }
 }

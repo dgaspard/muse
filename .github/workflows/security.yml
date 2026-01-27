@@ -29,7 +29,12 @@ jobs:
         uses: actions/dependency-review-action@v4
         with:
           fail-on-severity: critical
-          allow-licenses: 'MIT,Apache-2.0,BSD-3-Clause,BSD-2-Clause'
+          allow-licenses: 'MIT,Apache-2.0,BSD-3-Clause,BSD-2-Clause,CC-BY-4.0,ISC,0BSD'
+          allow-dependencies-licenses: 'pkg:npm/@aws-sdk/crc64-nvme'
+          # CC-BY-4.0: caniuse-lite (data package from Next.js, browserslist)
+          # ISC: common permissive license for npm packages
+          # 0BSD: AWS SDK packages use this license
+          # AWS SDK packages are Apache-2.0 but may have detection issues
 
   codeql:
     name: CodeQL
