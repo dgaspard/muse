@@ -34,6 +34,9 @@ import { materializeFeatureHandler } from './materialize-endpoint'
 
 const app = express()
 
+// Trust proxy for Azure Container Apps / reverse proxy environments
+app.set('trust proxy', 1)
+
 // Initialize converter registry for Markdown generation
 const converterRegistry = new ConverterRegistry()
 
