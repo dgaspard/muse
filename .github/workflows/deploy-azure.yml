@@ -60,7 +60,7 @@ jobs:
       matrix:
         service:
           - name: api
-            context: ./services/api
+            context: .
             dockerfile: ./services/api/Dockerfile
           - name: worker
             context: ./services/workers

@@ -660,10 +660,11 @@ app.post('/stories/:storyId/generate-prompt', async (req: Request, res: Response
 
     // Read prompt template
     // Resolve prompt template path within prompts/Epic_001_* directory
+    // In Docker: /app/prompts, Local: ../../prompts from services/api/src
     const promptTemplatePath = path.join(
-      process.cwd(),
-      '..',
-      '..',
+      fs.existsSync(path.join(process.cwd(), 'prompts'))
+        ? process.cwd() // Docker: prompts are in /app/prompts
+        : path.join(process.cwd(), '..', '..'), // Local: go up to repo root
       'prompts',
       'Epic_001_Create_Epics_Features_Stories_AIPrompts',
       'Prompt-muse-User-Story-Implementation-PR.md'
