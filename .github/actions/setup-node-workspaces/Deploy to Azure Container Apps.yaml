@@ -39,7 +39,6 @@ jobs:
         id: deploy
         uses: azure/arm-deploy@v1
         with:
-          scope: resourcegroup
           resourceGroupName: ${{ env.AZURE_RESOURCE_GROUP }}
           template: ./infra/bicep/main.bicep
           parameters: environment=${{ env.ENVIRONMENT }} location=eastus owner=muse-team
@@ -120,8 +119,6 @@ jobs:
         run: |
           API_URL=$(az containerapp show --name muse-${{ env.ENVIRONMENT }}-api --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query properties.configuration.ingress.fqdn -o tsv)
           WEB_URL=$(az containerapp show --name muse-${{ env.ENVIRONMENT }}-web --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query properties.configuration.ingress.fqdn -o tsv)
-          WORKER_URL=$(az containerapp show --name muse-${{ env.ENVIRONMENT }}-worker --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query properties.configuration.ingress.fqdn -o tsv)
           
           echo "::notice title=API URL::https://${API_URL}"
           echo "::notice title=Web URL::https://${WEB_URL}"
-          echo "::notice title=Worker URL::https://${WORKER_URL}"
