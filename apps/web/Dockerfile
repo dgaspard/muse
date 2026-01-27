@@ -15,9 +15,7 @@ RUN npm run build
 FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-# Preserve API_ENDPOINT from build stage (needed for Next.js rewrites at runtime)
-ARG API_ENDPOINT
-ENV API_ENDPOINT=${API_ENDPOINT}
+# API_ENDPOINT will be provided by Azure Container Apps at runtime
 COPY --from=builder /app .
 EXPOSE 3000
 CMD ["npm", "start"]
