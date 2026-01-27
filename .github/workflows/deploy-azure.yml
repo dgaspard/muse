@@ -87,7 +87,13 @@ jobs:
           FULL_IMAGE=${{ needs.deploy-infrastructure.outputs.acr-login-server }}/muse-${{ matrix.service.name }}:${IMAGE_TAG}
           LATEST_IMAGE=${{ needs.deploy-infrastructure.outputs.acr-login-server }}/muse-${{ matrix.service.name }}:latest
           
-          docker build -t ${FULL_IMAGE} -t ${LATEST_IMAGE} -f ${{ matrix.service.dockerfile }} ${{ matrix.service.context }}
+          # Add build args for web service to configure API endpoint at build time
+          BUILD_ARGS=""
+          if [ "${{ matrix.service.name }}" = "web" ]; then
+            BUILD_ARGS="--build-arg API_ENDPOINT=${{ needs.deploy-infrastructure.outputs.api-url }}"
+          fi
+          
+          docker build ${BUILD_ARGS} -t ${FULL_IMAGE} -t ${LATEST_IMAGE} -f ${{ matrix.service.dockerfile }} ${{ matrix.service.context }}
           docker push ${FULL_IMAGE}
           docker push ${LATEST_IMAGE}
 
