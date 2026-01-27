@@ -28,6 +28,7 @@ jobs:
     outputs:
       acr-name: ${{ steps.deploy.outputs.containerRegistryName }}
       acr-login-server: ${{ steps.deploy.outputs.containerRegistryLoginServer }}
+      api-url: ${{ steps.deploy.outputs.apiUrl }}
     
     steps:
       - name: Checkout repository
@@ -90,9 +91,11 @@ jobs:
           # Add build args for web service to configure API endpoint at build time
           BUILD_ARGS=""
           if [ "${{ matrix.service.name }}" = "web" ]; then
+            echo "Building web service with API_ENDPOINT=${{ needs.deploy-infrastructure.outputs.api-url }}"
             BUILD_ARGS="--build-arg API_ENDPOINT=${{ needs.deploy-infrastructure.outputs.api-url }}"
           fi
           
+          echo "Running: docker build ${BUILD_ARGS} -t ${FULL_IMAGE} -t ${LATEST_IMAGE} -f ${{ matrix.service.dockerfile }} ${{ matrix.service.context }}"
           docker build ${BUILD_ARGS} -t ${FULL_IMAGE} -t ${LATEST_IMAGE} -f ${{ matrix.service.dockerfile }} ${{ matrix.service.context }}
           docker push ${FULL_IMAGE}
           docker push ${LATEST_IMAGE}
