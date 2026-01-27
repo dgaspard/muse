@@ -60,8 +60,8 @@ services:
 
   api:
     build:
-      context: .
-      dockerfile: ./services/api/Dockerfile
+      context: ./services/api
+      dockerfile: Dockerfile
     env_file: .env
     environment:
       - MINIO_ENDPOINT=http://minio:9000
@@ -90,6 +90,7 @@ services:
   workers:
     build:
       context: ./services/workers
+      dockerfile: Dockerfile
     env_file: .env
     ports:
       - "${WORKER_PORT:-4100}:4100"

@@ -1,0 +1,124 @@
+name: Deploy to Azure Container Apps
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+env:
+  AZURE_RESOURCE_GROUP: muse-${{ github.event.inputs.environment || 'dev' }}-rg
+  ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
+
+jobs:
+  deploy-infrastructure:
+    runs-on: ubuntu-latest
+    outputs:
+      acr-name: ${{ steps.deploy.outputs.containerRegistryName }}
+      acr-login-server: ${{ steps.deploy.outputs.containerRegistryLoginServer }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy Bicep infrastructure
+        id: deploy
+        uses: azure/arm-deploy@v1
+        with:
+          resourceGroupName: ${{ env.AZURE_RESOURCE_GROUP }}
+          template: ./infra/bicep/main.bicep
+          parameters: environment=${{ env.ENVIRONMENT }} location=eastus owner=muse-team
+          deploymentName: muse-infra-${{ github.run_number }}
+
+  build-and-push:
+    needs: deploy-infrastructure
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        service:
+          - name: api
+            context: ./services/api
+            dockerfile: ./services/api/Dockerfile
+          - name: worker
+            context: ./services/workers
+            dockerfile: ./services/workers/Dockerfile
+          - name: web
+            context: ./apps/web
+            dockerfile: ./apps/web/Dockerfile
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login to ACR
+        run: |
+          az acr login --name ${{ needs.deploy-infrastructure.outputs.acr-name }}
+
+      - name: Build and push image
+        run: |
+          IMAGE_TAG=${{ github.sha }}
+          FULL_IMAGE=${{ needs.deploy-infrastructure.outputs.acr-login-server }}/muse-${{ matrix.service.name }}:${IMAGE_TAG}
+          LATEST_IMAGE=${{ needs.deploy-infrastructure.outputs.acr-login-server }}/muse-${{ matrix.service.name }}:latest
+          
+          docker build -t ${FULL_IMAGE} -t ${LATEST_IMAGE} -f ${{ matrix.service.dockerfile }} ${{ matrix.service.context }}
+          docker push ${FULL_IMAGE}
+          docker push ${LATEST_IMAGE}
+
+  deploy-containers:
+    needs: [deploy-infrastructure, build-and-push]
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Update Container Apps
+        run: |
+          # Update API
+          az containerapp update \
+            --name muse-${{ env.ENVIRONMENT }}-api \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --image ${{ needs.deploy-infrastructure.outputs.acr-login-server }}/muse-api:${{ github.sha }}
+
+          # Update Worker
+          az containerapp update \
+            --name muse-${{ env.ENVIRONMENT }}-worker \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --image ${{ needs.deploy-infrastructure.outputs.acr-login-server }}/muse-worker:${{ github.sha }}
+
+          # Update Web
+          az containerapp update \
+            --name muse-${{ env.ENVIRONMENT }}-web \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --image ${{ needs.deploy-infrastructure.outputs.acr-login-server }}/muse-web:${{ github.sha }}
+
+      - name: Get deployment URLs
+        id: urls
+        run: |
+          API_URL=$(az containerapp show --name muse-${{ env.ENVIRONMENT }}-api --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query properties.configuration.ingress.fqdn -o tsv)
+          WEB_URL=$(az containerapp show --name muse-${{ env.ENVIRONMENT }}-web --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query properties.configuration.ingress.fqdn -o tsv)
+          
+          echo "::notice title=API URL::https://${API_URL}"
+          echo "::notice title=Web URL::https://${WEB_URL}"
