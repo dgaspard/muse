@@ -107,8 +107,8 @@ services:
 
   web:
     build:
-      context: .
-      dockerfile: ./apps/web/Dockerfile
+      context: ./apps/web
+      dockerfile: Dockerfile
       args:
         API_ENDPOINT: http://api:4000
     env_file: .env
