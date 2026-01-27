@@ -29,6 +29,7 @@
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
     "eslint": "^8.57.1",
+    "estree-walker": "^3.0.3",
     "execa": "^8.0.1",
     "ts-node-dev": "2.0.0",
     "typescript": "5.2.2",
