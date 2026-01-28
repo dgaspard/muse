@@ -228,9 +228,9 @@ original_filename: ${metadata.original_filename}
       }
       
       // Detect lines that start with numbers or bullets as list items
-      if (/^[\d]+[\.)]\s/.test(line) || /^[•\-\*]\s/.test(line)) {
+      if (/^[\d]+[.)]\s/.test(line) || /^[•\-*]\s/.test(line)) {
         // Format as list item
-        const listItem = line.replace(/^[\d]+[\.)]\s/, '- ').replace(/^[•\*]\s/, '- ')
+        const listItem = line.replace(/^[\d]+[.)]\s/, '- ').replace(/^[•*]\s/, '- ')
         processedLines.push(listItem)
         continue
       }
@@ -247,7 +247,7 @@ original_filename: ${metadata.original_filename}
       
       // Add blank line after paragraphs (if next line is not a list continuation)
       const nextLine = lines[i + 1]
-      if (nextLine && !nextLine.trim().startsWith('-') && !(/^[\d]+[\.)]\s/.test(nextLine))) {
+      if (nextLine && !nextLine.trim().startsWith('-') && !(/^[\d]+[.)]\s/.test(nextLine))) {
         processedLines.push('')
       }
     }
