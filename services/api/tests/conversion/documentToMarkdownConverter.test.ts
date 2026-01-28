@@ -220,7 +220,8 @@ describe('BasicPdfToMarkdownConverter', () => {
         originalFilename: 'original.pdf',
       })
 
-      expect(result.suggestedFilename).toBe(`${docId}.md`)
+      // Expects friendly name format: {slug-from-original-filename}-{documentId}.md
+      expect(result.suggestedFilename).toBe(`original-${docId}.md`)
       expect(result.suggestedFilename).toMatch(/\.md$/)
     })
 
