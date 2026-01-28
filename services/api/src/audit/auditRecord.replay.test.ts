@@ -1,7 +1,5 @@
 // Replay validation test for audit records
-import { InMemoryAuditRecordStore } from './storage/auditRecordStore'
 import { AuditRecord } from './auditRecord'
-import { sha256 } from 'crypto-hash' // You may need to install a suitable hash lib
 
 describe('AuditRecord Replay Validation', () => {
   it('should deterministically replay and match artifact IDs and output hash', async () => {
@@ -30,7 +28,7 @@ describe('AuditRecord Replay Validation', () => {
 
     // Simulate replay: recompute artifact IDs and output hash from inputs
     // (In real system, this would invoke normalization, schema, and ID logic)
-    const canonicalInput = JSON.stringify({
+    const _canonicalInput = JSON.stringify({
       governance_document_id: audit.inputs.governance_document_id,
       governance_checksum: audit.inputs.governance_checksum,
       normalization_version: audit.inputs.normalization_version,
