@@ -45,7 +45,7 @@ router.get('/list_derived_prompts', async (_req, res) => {
   try {
     const workflow = new EpicDerivationWorkflow();
     const data = workflow['loadMuseYaml']() as MuseData;
-    const prompts = Array.isArray(data.artifacts?.prompts)
+    const prompts = data?.artifacts && Array.isArray(data.artifacts.prompts)
       ? (data.artifacts.prompts as Prompt[])
       : [];
     const result = prompts
@@ -54,7 +54,7 @@ router.get('/list_derived_prompts', async (_req, res) => {
         story_id: p.story_id,
         content: p.content,
       }))
-      .sort((a: Prompt, b: Prompt) => a.prompt_id.localeCompare(b.prompt_id));
+      .sort((a, b) => a.prompt_id.localeCompare(b.prompt_id));
     res.json({ prompts: result });
   } catch (err) {
     res.status(500).json({ error: 'Failed to list derived prompts', details: String(err) });
@@ -66,7 +66,7 @@ router.get('/list_derived_user_stories', async (_req, res) => {
   try {
     const workflow = new EpicDerivationWorkflow();
     const data = workflow['loadMuseYaml']() as MuseData;
-    const stories = Array.isArray(data.artifacts?.stories)
+    const stories = data?.artifacts && Array.isArray(data.artifacts.stories)
       ? (data.artifacts.stories as Story[])
       : [];
     const result = stories
@@ -76,7 +76,7 @@ router.get('/list_derived_user_stories', async (_req, res) => {
         epic_id: s.epic_id,
         governance_reference: s.governance_reference,
       }))
-      .sort((a: Story, b: Story) => a.story_id.localeCompare(b.story_id));
+      .sort((a, b) => a.story_id.localeCompare(b.story_id));
     res.json({ stories: result });
   } catch (err) {
     res.status(500).json({ error: 'Failed to list derived user stories', details: String(err) });
@@ -88,7 +88,7 @@ router.get('/list_derived_features', async (_req, res) => {
   try {
     const workflow = new EpicDerivationWorkflow();
     const data = workflow['loadMuseYaml']() as MuseData;
-    const features = Array.isArray(data.artifacts?.features)
+    const features = data?.artifacts && Array.isArray(data.artifacts.features)
       ? (data.artifacts.features as Feature[])
       : [];
     const result = features
@@ -97,7 +97,7 @@ router.get('/list_derived_features', async (_req, res) => {
         epic_id: f.epic_id,
         user_story_ids: f.user_story_ids || [],
       }))
-      .sort((a: Feature, b: Feature) => a.feature_id.localeCompare(b.feature_id));
+      .sort((a, b) => a.feature_id.localeCompare(b.feature_id));
     res.json({ features: result });
   } catch (err) {
     res.status(500).json({ error: 'Failed to list derived features', details: String(err) });
@@ -111,7 +111,7 @@ router.get('/list_derived_epics', async (_req, res) => {
     const workflow = new EpicDerivationWorkflow();
     // Load all epics from muse.yaml
     const data = workflow['loadMuseYaml']() as MuseData;
-    const epics = Array.isArray(data.artifacts?.epics)
+    const epics = data?.artifacts && Array.isArray(data.artifacts.epics)
       ? (data.artifacts.epics as Epic[])
       : [];
     const result = epics
@@ -121,7 +121,7 @@ router.get('/list_derived_epics', async (_req, res) => {
         governance_reference: e.derived_from,
         generated_at: e.generated_at,
       }))
-      .sort((a: Epic, b: Epic) => a.epic_id.localeCompare(b.epic_id)); // Deterministic ordering
+      .sort((a, b) => a.epic_id.localeCompare(b.epic_id)); // Deterministic ordering
     res.json({ epics: result });
   } catch (err) {
     res.status(500).json({ error: 'Failed to list derived epics', details: String(err) });
