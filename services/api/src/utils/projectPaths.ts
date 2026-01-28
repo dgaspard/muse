@@ -5,19 +5,46 @@
  * /docs/projects/{project-id}/
  *   governance/           - Original governance documents
  *   epics/
- *     {epic-id}/
+ *     {epic-name-epic-id}/
  *       epic.yaml         - Epic metadata
  *       features/
- *         {feature-id}/
+ *         {feature-name-feature-id}/
  *           feature.yaml  - Feature metadata
  *           userstories/
- *             {story-id}/
+ *             {story-name-story-id}/
  *               story.yaml      - User story metadata
  *               aiprompts/
- *                 {prompt-id}.md - AI prompt files
+ *                 {prompt-name-prompt-id}.md - AI prompt files
  */
 
 import path from 'path'
+
+/**
+ * Create a safe slug from a name for use in paths
+ * Removes special characters, converts spaces to hyphens
+ */
+function createSlug(name: string, maxLength: number = 60): string {
+  if (!name || typeof name !== 'string') {
+    return 'untitled'
+  }
+  
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '') // Remove special chars except spaces and hyphens
+    .replace(/\s+/g, '-')          // Convert spaces to hyphens
+    .replace(/-+/g, '-')           // Collapse multiple hyphens
+    .replace(/^-+|-+$/g, '')       // Remove leading/trailing hyphens
+    .substring(0, maxLength)
+}
+
+/**
+ * Create folder name with format: {slug-name-id}
+ */
+function createFolderName(name: string, id: string): string {
+  const slug = createSlug(name)
+  return `${slug}-${id}`
+}
 
 export interface ProjectPaths {
   projectRoot: string
@@ -58,9 +85,15 @@ export function getProjectPaths(repoRoot: string, projectId: string): ProjectPat
 /**
  * Get paths for an epic within a project
  */
-export function getEpicPaths(repoRoot: string, projectId: string, epicId: string): EpicPaths {
+export function getEpicPaths(
+  repoRoot: string, 
+  projectId: string, 
+  epicId: string,
+  epicName?: string
+): EpicPaths {
   const { epics } = getProjectPaths(repoRoot, projectId)
-  const epicRoot = path.join(epics, epicId)
+  const folderName = epicName ? createFolderName(epicName, epicId) : epicId
+  const epicRoot = path.join(epics, folderName)
   return {
     epicRoot,
     epicFile: path.join(epicRoot, 'epic.yaml'),
@@ -75,10 +108,13 @@ export function getFeaturePaths(
   repoRoot: string,
   projectId: string,
   epicId: string,
-  featureId: string
+  featureId: string,
+  epicName?: string,
+  featureName?: string
 ): FeaturePaths {
-  const { features } = getEpicPaths(repoRoot, projectId, epicId)
-  const featureRoot = path.join(features, featureId)
+  const { features } = getEpicPaths(repoRoot, projectId, epicId, epicName)
+  const folderName = featureName ? createFolderName(featureName, featureId) : featureId
+  const featureRoot = path.join(features, folderName)
   return {
     featureRoot,
     featureFile: path.join(featureRoot, 'feature.yaml'),
@@ -94,10 +130,14 @@ export function getStoryPaths(
   projectId: string,
   epicId: string,
   featureId: string,
-  storyId: string
+  storyId: string,
+  epicName?: string,
+  featureName?: string,
+  storyTitle?: string
 ): StoryPaths {
-  const { userstories } = getFeaturePaths(repoRoot, projectId, epicId, featureId)
-  const storyRoot = path.join(userstories, storyId)
+  const { userstories } = getFeaturePaths(repoRoot, projectId, epicId, featureId, epicName, featureName)
+  const folderName = storyTitle ? createFolderName(storyTitle, storyId) : storyId
+  const storyRoot = path.join(userstories, folderName)
   return {
     storyRoot,
     storyFile: path.join(storyRoot, 'story.yaml'),
@@ -114,10 +154,15 @@ export function getPromptPath(
   epicId: string,
   featureId: string,
   storyId: string,
-  promptId: string
+  promptId: string,
+  epicName?: string,
+  featureName?: string,
+  storyTitle?: string,
+  promptRole?: string
 ): string {
-  const { aiprompts } = getStoryPaths(repoRoot, projectId, epicId, featureId, storyId)
-  return path.join(aiprompts, `${promptId}.md`)
+  const { aiprompts } = getStoryPaths(repoRoot, projectId, epicId, featureId, storyId, epicName, featureName, storyTitle)
+  const fileName = promptRole ? `${createSlug(promptRole)}-${promptId}.md` : `${promptId}.md`
+  return path.join(aiprompts, fileName)
 }
 
 /**
@@ -128,16 +173,4 @@ export interface ArtifactIds {
   epicId: string
   featureId?: string
   storyId?: string
-}
-
-/**
- * Create slug from title for human-readable filenames
- * (Keeping this here for potential future use with alternate naming)
- */
-export function createSlug(text: string, maxLength: number = 50): string {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .substring(0, maxLength)
 }

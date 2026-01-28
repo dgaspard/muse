@@ -121,10 +121,10 @@ export const materializeFeatureHandler = async (req: Request<unknown, unknown, M
     // Get repo root (assume we're in /app/dist/materialize-endpoint.js)
     const repoRoot = path.resolve(__dirname, '..')
 
-    // Create hierarchical directory structure using new path utilities
+    // Create hierarchical directory structure using new path utilities with names
     const projectPaths = getProjectPaths(repoRoot, projectId)
-    const epicPaths = getEpicPaths(repoRoot, projectId, epicId)
-    const featurePaths = getFeaturePaths(repoRoot, projectId, epicId, featureId)
+    const epicPaths = getEpicPaths(repoRoot, projectId, epicId, epic.title)
+    const featurePaths = getFeaturePaths(repoRoot, projectId, epicId, featureId, epic.title, feature.title)
 
     // Ensure all base directories exist
     await Promise.all([
@@ -172,7 +172,16 @@ created_at: "${new Date().toISOString()}"
     // 3. Write each user story YAML to /docs/projects/{projectId}/epics/{epicId}/features/{featureId}/userstories/{storyId}/story.yaml
     if (stories && Array.isArray(stories) && stories.length > 0) {
       for (const story of stories) {
-        const storyPaths = getStoryPaths(repoRoot, projectId, epicId, featureId, story.story_id)
+        const storyPaths = getStoryPaths(
+          repoRoot, 
+          projectId, 
+          epicId, 
+          featureId, 
+          story.story_id,
+          epic.title,
+          feature.title,
+          story.title
+        )
         await fs.promises.mkdir(storyPaths.storyRoot, { recursive: true })
 
         const storyYaml = `id: ${story.story_id}
@@ -203,7 +212,21 @@ created_at: "${story.created_at || new Date().toISOString()}"
           continue
         }
 
-        const promptPath = getPromptPath(repoRoot, projectId, epicId, featureId, storyId, prompt.prompt_id)
+        // Find the corresponding story for its title
+        const story = stories?.find(s => s.story_id === storyId)
+        
+        const promptPath = getPromptPath(
+          repoRoot, 
+          projectId, 
+          epicId, 
+          featureId, 
+          storyId, 
+          prompt.prompt_id,
+          epic.title,
+          feature.title,
+          story?.title,
+          prompt.role
+        )
         const promptDir = path.dirname(promptPath)
         await fs.promises.mkdir(promptDir, { recursive: true })
 

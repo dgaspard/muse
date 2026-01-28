@@ -214,7 +214,7 @@ ${prompt.template}
       // Materialize epics to new hierarchical structure
       for (const epic of epics) {
         try {
-          const epicPaths = getEpicPaths(this.repoRoot, projectId, epic.epic_id);
+          const epicPaths = getEpicPaths(this.repoRoot, projectId, epic.epic_id, epic.title);
           this.ensureDirectory(epicPaths.epicRoot);
           
           const content = this.formatEpicMarkdown(epic);
@@ -226,10 +226,20 @@ ${prompt.template}
         }
       }
 
-      // Materialize features to epics/{epic-id}/features/{feature-id}/
+      // Materialize features to epics/{epic-name-epic-id}/features/{feature-name-feature-id}/
       for (const feature of features) {
         try {
-          const featurePaths = getFeaturePaths(this.repoRoot, projectId, feature.epic_id, feature.feature_id);
+          // Find parent epic for name
+          const parentEpic = epics.find(e => e.epic_id === feature.epic_id);
+          
+          const featurePaths = getFeaturePaths(
+            this.repoRoot, 
+            projectId, 
+            feature.epic_id, 
+            feature.feature_id,
+            parentEpic?.title,
+            feature.title
+          );
           this.ensureDirectory(featurePaths.featureRoot);
           
           const content = this.formatFeatureMarkdown(feature);
@@ -241,10 +251,23 @@ ${prompt.template}
         }
       }
 
-      // Materialize stories to epics/{epic-id}/features/{feature-id}/userstories/{story-id}/
+      // Materialize stories to epics/{epic-name-epic-id}/features/{feature-name-feature-id}/userstories/{story-title-story-id}/
       for (const story of stories) {
         try {
-          const storyPaths = getStoryPaths(this.repoRoot, projectId, story.epic_id, story.feature_id, story.story_id);
+          // Find parent feature and epic for names
+          const parentFeature = features.find(f => f.feature_id === story.feature_id);
+          const parentEpic = epics.find(e => e.epic_id === story.epic_id);
+          
+          const storyPaths = getStoryPaths(
+            this.repoRoot, 
+            projectId, 
+            story.epic_id, 
+            story.feature_id, 
+            story.story_id,
+            parentEpic?.title,
+            parentFeature?.title,
+            story.title
+          );
           this.ensureDirectory(storyPaths.storyRoot);
           
           const content = this.formatStoryMarkdown(story);
@@ -256,10 +279,26 @@ ${prompt.template}
         }
       }
 
-      // Materialize prompts to epics/{epic-id}/features/{feature-id}/userstories/{story-id}/aiprompts/{prompt-id}.md
+      // Materialize prompts to epics/{epic-name-epic-id}/features/{feature-name-feature-id}/userstories/{story-title-story-id}/aiprompts/{role-prompt-id}.md
       for (const prompt of prompts) {
         try {
-          const promptPath = getPromptPath(this.repoRoot, projectId, prompt.epic_id, prompt.feature_id, prompt.story_id, prompt.prompt_id);
+          // Find parent story, feature, and epic for names
+          const parentStory = stories.find(s => s.story_id === prompt.story_id);
+          const parentFeature = features.find(f => f.feature_id === prompt.feature_id);
+          const parentEpic = epics.find(e => e.epic_id === prompt.epic_id);
+          
+          const promptPath = getPromptPath(
+            this.repoRoot, 
+            projectId, 
+            prompt.epic_id, 
+            prompt.feature_id, 
+            prompt.story_id, 
+            prompt.prompt_id,
+            parentEpic?.title,
+            parentFeature?.title,
+            parentStory?.title,
+            prompt.role
+          );
           this.ensureDirectory(path.dirname(promptPath));
           
           const content = this.formatPromptMarkdown(prompt);
