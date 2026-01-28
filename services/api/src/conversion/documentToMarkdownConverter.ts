@@ -113,13 +113,34 @@ export class BasicPdfToMarkdownConverter implements DocumentToMarkdownConverter 
 
     const markdownContent = this.formatAsMarkdown(text, frontMatter)
 
-    const suggestedFilename = `${metadata.documentId}.md`
+    // Create human-readable filename from original filename
+    const originalName = metadata.originalFilename.replace(/\.[^/.]+$/, '') // Remove extension
+    const slug = this.createSlug(originalName)
+    const suggestedFilename = `${slug}-${metadata.documentId}.md`
 
     return {
       content: markdownContent,
       metadata: frontMatter,
       suggestedFilename,
     }
+  }
+
+  /**
+   * Create a safe slug from a filename for use in paths
+   */
+  private createSlug(name: string, maxLength: number = 60): string {
+    if (!name || typeof name !== 'string') {
+      return 'governance'
+    }
+    
+    return name
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s-]/g, '') // Remove special chars except spaces and hyphens
+      .replace(/\s+/g, '-')          // Convert spaces to hyphens
+      .replace(/-+/g, '-')           // Collapse multiple hyphens
+      .replace(/^-+|-+$/g, '')       // Remove leading/trailing hyphens
+      .substring(0, maxLength)
   }
 
   supports(mimeType: string): boolean {
@@ -172,6 +193,7 @@ export class BasicPdfToMarkdownConverter implements DocumentToMarkdownConverter 
 
   /**
    * Format extracted text as Markdown with YAML front matter.
+   * Applies proper markdown formatting to improve readability and pass linting.
    */
   private formatAsMarkdown(text: string, metadata: MarkdownMetadata): string {
     const yamlFrontMatter = `---
@@ -184,15 +206,72 @@ original_filename: ${metadata.original_filename}
 
 `
 
-    // Simple paragraph-aware formatting:
-    // Split on double newlines and preserve structure
-    const paragraphs = text
-      .split(/\n\n+/)
-      .map((p) => p.trim())
-      .filter((p) => p.length > 0)
-      .join('\n\n')
-
-    return yamlFrontMatter + paragraphs
+    // Process text to create proper markdown structure
+    const lines = text.split('\n').map(line => line.trim())
+    const processedLines: string[] = []
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+      
+      // Skip empty lines (we'll add proper spacing later)
+      if (!line) {
+        continue
+      }
+      
+      // Detect and format headings
+      // Check for ALL CAPS lines that are likely headings
+      if (line === line.toUpperCase() && line.length > 3 && line.length < 100) {
+        // Make it a proper heading
+        processedLines.push(`## ${line}`)
+        processedLines.push('')
+        continue
+      }
+      
+      // Detect lines that start with numbers or bullets as list items
+      if (/^[\d]+[\.)]\s/.test(line) || /^[•\-\*]\s/.test(line)) {
+        // Format as list item
+        const listItem = line.replace(/^[\d]+[\.)]\s/, '- ').replace(/^[•\*]\s/, '- ')
+        processedLines.push(listItem)
+        continue
+      }
+      
+      // Detect lines that look like section headers (Title Case, not too long)
+      if (this.isTitleCase(line) && line.length < 80 && !line.endsWith('.')) {
+        processedLines.push(`### ${line}`)
+        processedLines.push('')
+        continue
+      }
+      
+      // Regular paragraph text
+      processedLines.push(line)
+      
+      // Add blank line after paragraphs (if next line is not a list continuation)
+      const nextLine = lines[i + 1]
+      if (nextLine && !nextLine.trim().startsWith('-') && !(/^[\d]+[\.)]\s/.test(nextLine))) {
+        processedLines.push('')
+      }
+    }
+    
+    // Join and clean up excessive blank lines
+    let formattedText = processedLines.join('\n')
+    formattedText = formattedText.replace(/\n{3,}/g, '\n\n') // Max 2 newlines
+    
+    return yamlFrontMatter + formattedText + '\n'
+  }
+  
+  /**
+   * Check if a string is in Title Case (most words capitalized)
+   */
+  private isTitleCase(text: string): boolean {
+    const words = text.split(/\s+/)
+    if (words.length < 2) return false
+    
+    const capitalizedWords = words.filter(word => 
+      word.length > 0 && word[0] === word[0].toUpperCase()
+    )
+    
+    // At least 60% of words should be capitalized for title case
+    return capitalizedWords.length / words.length >= 0.6
   }
 }
 
