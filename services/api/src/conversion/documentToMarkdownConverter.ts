@@ -113,10 +113,8 @@ export class BasicPdfToMarkdownConverter implements DocumentToMarkdownConverter 
 
     const markdownContent = this.formatAsMarkdown(text, frontMatter)
 
-    // Create human-readable filename from original filename
-    const originalName = metadata.originalFilename.replace(/\.[^/.]+$/, '') // Remove extension
-    const slug = this.createSlug(originalName)
-    const suggestedFilename = `${slug}-${metadata.documentId}.md`
+    // Use document ID as the filename
+    const suggestedFilename = `${metadata.documentId}.md`
 
     return {
       content: markdownContent,
