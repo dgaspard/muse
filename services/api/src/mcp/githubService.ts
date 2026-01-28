@@ -145,7 +145,9 @@ export class GitHubService {
       }
 
       // Create commit
-      const output = execSync(`git -C ${this.repoRoot} commit -m "${commitMessage.replace(/"/g, '\\"')}"`, {
+      // Properly escape backslashes first, then quotes to prevent injection
+      const escapedMessage = commitMessage.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+      const output = execSync(`git -C ${this.repoRoot} commit -m "${escapedMessage}"`, {
         stdio: 'pipe',
         encoding: 'utf-8',
       })
@@ -182,11 +184,14 @@ export class GitHubService {
       }
 
       // Build gh pr create command
+      // Properly escape backslashes first, then quotes to prevent injection
+      const escapedTitle = options.title.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+      const escapedBody = options.body.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
       const args = [
         `--base=${options.baseBranch}`,
         `--head=${options.headBranch}`,
-        `-t "${options.title.replace(/"/g, '\\"')}"`,
-        `-b "${options.body.replace(/"/g, '\\"')}"`,
+        `-t "${escapedTitle}"`,
+        `-b "${escapedBody}"`,
       ]
 
       if (options.labels && options.labels.length > 0) {
