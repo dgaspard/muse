@@ -230,7 +230,7 @@ More policy content.
       // Expected to fail at Epic derivation, but governance markdown should be written
     }
 
-    const expectedPath = path.join(tempDir, 'docs', 'governance', 'test-governance.md')
+    const expectedPath = path.join(tempDir, 'docs', 'projects', 'test-project', 'governance', 'test-governance.md')
     const exists = fs.existsSync(expectedPath)
     expect(exists).toBe(true)
 

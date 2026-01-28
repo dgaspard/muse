@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { EpicDerivationWorkflow } from '../governance/EpicDerivationWorkflow';
+import { getEpicPaths, getFeaturePaths, getStoryPaths, getPromptPath } from '../utils/projectPaths';
 
 /**
  * Epic artifact interface for materialization
@@ -34,8 +35,8 @@ interface FeatureArtifact {
 interface StoryArtifact {
   story_id: string;
   title: string;
-  feature_id?: string;
-  epic_id?: string;
+  feature_id: string; // Required for hierarchical structure
+  epic_id: string; // Required for hierarchical structure
   role: string;
   capability: string;
   benefit: string;
@@ -49,8 +50,8 @@ interface StoryArtifact {
 interface PromptArtifact {
   prompt_id: string;
   story_id: string;
-  feature_id?: string;
-  epic_id?: string;
+  feature_id: string; // Required for hierarchical structure
+  epic_id: string; // Required for hierarchical structure
   role: string;
   task: string;
   content?: string;
@@ -207,68 +208,63 @@ ${prompt.template}
   const stories: StoryArtifact[] = (museData.artifacts as Record<string, StoryArtifact[]>).stories || [];
   const prompts: PromptArtifact[] = (museData.artifacts as Record<string, PromptArtifact[]>).prompts || [];
 
-      // Create directory structure
-      const docsDir = path.join(this.repoRoot, 'docs');
-      const epicsDir = path.join(docsDir, 'epics');
-      const featuresDir = path.join(docsDir, 'features');
-      const storiesDir = path.join(docsDir, 'stories');
-      const promptsDir = path.join(docsDir, 'prompts');
+      // Get projectId from muse.yaml or default
+      const projectId = (museData as { project_id?: string }).project_id || 'default-project';
 
-      this.ensureDirectory(epicsDir);
-      this.ensureDirectory(featuresDir);
-      this.ensureDirectory(storiesDir);
-      this.ensureDirectory(promptsDir);
-
-      // Materialize epics
+      // Materialize epics to new hierarchical structure
       for (const epic of epics) {
         try {
-          const filename = `${epic.epic_id}.md`;
-          const filepath = path.join(epicsDir, filename);
+          const epicPaths = getEpicPaths(this.repoRoot, projectId, epic.epic_id);
+          this.ensureDirectory(epicPaths.epicRoot);
+          
           const content = this.formatEpicMarkdown(epic);
-          fs.writeFileSync(filepath, content, 'utf-8');
-          result.filesCreated.push(path.relative(this.repoRoot, filepath));
+          fs.writeFileSync(epicPaths.epicFile, content, 'utf-8');
+          result.filesCreated.push(path.relative(this.repoRoot, epicPaths.epicFile));
           result.summary.epics++;
         } catch (err) {
           result.errors.push(`Failed to write epic ${epic.epic_id}: ${(err as Error).message}`);
         }
       }
 
-      // Materialize features
+      // Materialize features to epics/{epic-id}/features/{feature-id}/
       for (const feature of features) {
         try {
-          const filename = `${feature.feature_id}.md`;
-          const filepath = path.join(featuresDir, filename);
+          const featurePaths = getFeaturePaths(this.repoRoot, projectId, feature.epic_id, feature.feature_id);
+          this.ensureDirectory(featurePaths.featureRoot);
+          
           const content = this.formatFeatureMarkdown(feature);
-          fs.writeFileSync(filepath, content, 'utf-8');
-          result.filesCreated.push(path.relative(this.repoRoot, filepath));
+          fs.writeFileSync(featurePaths.featureFile, content, 'utf-8');
+          result.filesCreated.push(path.relative(this.repoRoot, featurePaths.featureFile));
           result.summary.features++;
         } catch (err) {
           result.errors.push(`Failed to write feature ${feature.feature_id}: ${(err as Error).message}`);
         }
       }
 
-      // Materialize stories
+      // Materialize stories to epics/{epic-id}/features/{feature-id}/userstories/{story-id}/
       for (const story of stories) {
         try {
-          const filename = `${story.story_id}.md`;
-          const filepath = path.join(storiesDir, filename);
+          const storyPaths = getStoryPaths(this.repoRoot, projectId, story.epic_id, story.feature_id, story.story_id);
+          this.ensureDirectory(storyPaths.storyRoot);
+          
           const content = this.formatStoryMarkdown(story);
-          fs.writeFileSync(filepath, content, 'utf-8');
-          result.filesCreated.push(path.relative(this.repoRoot, filepath));
+          fs.writeFileSync(storyPaths.storyFile, content, 'utf-8');
+          result.filesCreated.push(path.relative(this.repoRoot, storyPaths.storyFile));
           result.summary.stories++;
         } catch (err) {
           result.errors.push(`Failed to write story ${story.story_id}: ${(err as Error).message}`);
         }
       }
 
-      // Materialize prompts
+      // Materialize prompts to epics/{epic-id}/features/{feature-id}/userstories/{story-id}/aiprompts/{prompt-id}.md
       for (const prompt of prompts) {
         try {
-          const filename = `${prompt.prompt_id}.md`;
-          const filepath = path.join(promptsDir, filename);
+          const promptPath = getPromptPath(this.repoRoot, projectId, prompt.epic_id, prompt.feature_id, prompt.story_id, prompt.prompt_id);
+          this.ensureDirectory(path.dirname(promptPath));
+          
           const content = this.formatPromptMarkdown(prompt);
-          fs.writeFileSync(filepath, content, 'utf-8');
-          result.filesCreated.push(path.relative(this.repoRoot, filepath));
+          fs.writeFileSync(promptPath, content, 'utf-8');
+          result.filesCreated.push(path.relative(this.repoRoot, promptPath));
           result.summary.prompts++;
         } catch (err) {
           result.errors.push(`Failed to write prompt ${prompt.prompt_id}: ${(err as Error).message}`);

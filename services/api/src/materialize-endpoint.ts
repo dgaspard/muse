@@ -10,31 +10,6 @@ import {
 } from './utils/projectPaths'
 
 /**
- * Safely sanitize a string for use in filenames and YAML content
- * Prevents ReDoS by using simple, bounded operations instead of complex regex
- */
-function sanitizeString(input: string, maxLength: number = 200): string {
-  if (typeof input !== 'string') {
-    return ''
-  }
-  // Limit length first to prevent excessive processing
-  const truncated = input.substring(0, maxLength)
-  // Use simple character-by-character filtering instead of regex
-  let result = ''
-  for (let i = 0; i < truncated.length; i++) {
-    const char = truncated[i]
-    // Only allow safe characters
-    if ((char >= 'a' && char <= 'z') || 
-        (char >= 'A' && char <= 'Z') || 
-        (char >= '0' && char <= '9') || 
-        char === ' ' || char === '-' || char === '_') {
-      result += char
-    }
-  }
-  return result
-}
-
-/**
  * Escape quotes safely without regex
  */
 function escapeQuotes(input: string): string {
@@ -43,41 +18,6 @@ function escapeQuotes(input: string): string {
   }
   // Use split/join which is safer than regex
   return input.split('"').join('\\"')
-}
-
-/**
- * Create a safe slug for filenames
- * Completely regex-free to prevent any ReDoS vulnerabilities
- */
-function createSlug(input: string, maxLength: number = 50): string {
-  const sanitized = sanitizeString(input, 100)
-  const lower = sanitized.toLowerCase()
-  // Replace spaces with hyphens and remove duplicate hyphens
-  let slug = ''
-  let lastWasHyphen = false
-  for (let i = 0; i < lower.length; i++) {
-    const char = lower[i]
-    if (char === ' ' || char === '-' || char === '_') {
-      if (!lastWasHyphen && slug.length > 0) {
-        slug += '-'
-        lastWasHyphen = true
-      }
-    } else {
-      slug += char
-      lastWasHyphen = false
-    }
-  }
-  // Remove leading/trailing hyphens without regex
-  let startIndex = 0
-  let endIndex = slug.length
-  while (startIndex < endIndex && slug[startIndex] === '-') {
-    startIndex++
-  }
-  while (endIndex > startIndex && slug[endIndex - 1] === '-') {
-    endIndex--
-  }
-  slug = slug.substring(startIndex, endIndex)
-  return slug.substring(0, maxLength)
 }
 
 /**

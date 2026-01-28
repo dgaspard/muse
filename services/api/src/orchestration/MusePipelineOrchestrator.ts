@@ -14,6 +14,7 @@ import { SectionSummaryJob, SectionSummary } from '../semantic/SectionSummaryJob
 import { EpicDerivationAgent } from '../semantic/EpicDerivationAgent'
 import { FeatureDerivationJob } from '../semantic/FeatureDerivationJob'
 import { RateLimiter, retryWithBackoff } from '../semantic/RateLimiter'
+import { getProjectPaths } from '../utils/projectPaths'
 
 /**
  * Epic data structure returned by the pipeline
@@ -140,7 +141,8 @@ export class MusePipelineOrchestrator {
     })
 
     // Write governance markdown to file
-    const governanceMarkdownPath = await this.writeGovernanceMarkdown(markdownOutput)
+    const projectId = input.projectId || 'default-project';
+    const governanceMarkdownPath = await this.writeGovernanceMarkdown(markdownOutput, projectId)
 
     // Step 3: Validate governance Markdown completeness (MUSE-QA-002)
     // This is a GATING STEP - agents do not run if validation fails
@@ -437,9 +439,10 @@ export class MusePipelineOrchestrator {
 
   /**
    * Write governance markdown to file system
+   * Now writes to /docs/projects/{projectId}/governance/
    */
-  private async writeGovernanceMarkdown(markdownOutput: MarkdownOutput): Promise<string> {
-    const governanceDir = path.join(this.repoRoot, 'docs', 'governance')
+  private async writeGovernanceMarkdown(markdownOutput: MarkdownOutput, projectId: string = 'default-project'): Promise<string> {
+    const { governance: governanceDir } = getProjectPaths(this.repoRoot, projectId)
     if (!fs.existsSync(governanceDir)) {
       fs.mkdirSync(governanceDir, { recursive: true })
     }
