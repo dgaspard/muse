@@ -496,6 +496,11 @@ ${story.governance_references.map(r => `- ${r}`).join('\n')}`
         }
       })
 
+      console.log('[Materialize] Sending request with projectId:', projectId)
+      console.log('[Materialize] Feature:', feature.feature_id)
+      console.log('[Materialize] Stories count:', stories.length)
+      console.log('[Materialize] Prompts count:', prompts.length)
+
       const response = await fetch(
         `/api/features/${feature.feature_id}/materialize`,
         {
@@ -504,6 +509,7 @@ ${story.governance_references.map(r => `- ${r}`).join('\n')}`
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
+            projectId,
             feature,
             epic,
             stories,
@@ -512,14 +518,18 @@ ${story.governance_references.map(r => `- ${r}`).join('\n')}`
         }
       )
 
+      console.log('[Materialize] Response status:', response.status)
+
       if (!response.ok) {
         const data = await response.json()
+        console.error('[Materialize] Error response:', data)
         throw new Error(
           data.error || `HTTP ${response.status}: Failed to materialize artifacts`
         )
       }
 
       const data = await response.json()
+      console.log('[Materialize] Success:', data)
       setBacklogMessage({
         type: 'success',
         text: `Artifacts materialized to /docs`,
@@ -533,6 +543,7 @@ ${story.governance_references.map(r => `- ${r}`).join('\n')}`
         setAddingToBacklog(updatedDone)
       }, 3000)
     } catch (err) {
+      console.error('[Materialize] Caught error:', err)
       const errorMsg = err instanceof Error ? err.message : 'Unknown error'
       setBacklogMessage({ type: 'error', text: errorMsg })
       const updatedError = new Set(addingToBacklog)
