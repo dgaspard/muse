@@ -10,6 +10,14 @@ param owner string = 'muse-team'
 @description('Deployment timestamp')
 param deploymentTimestamp string = utcNow('u')
 
+@secure()
+@description('MinIO root user')
+param minioRootUser string = 'minioadmin'
+
+@secure()
+@description('MinIO root password')
+param minioRootPassword string = 'minioadmin'
+
 // Derived values
 var resourceNamePrefix = 'muse-${environment}'
 var logAnalyticsWorkspaceName = '${resourceNamePrefix}-log'
@@ -87,11 +95,11 @@ resource minioContainerApp 'Microsoft.App/containerApps@2023-05-01' = {
       secrets: [
         {
           name: 'minio-root-user'
-          value: 'minioadmin'
+          value: minioRootUser
         }
         {
           name: 'minio-root-password'
-          value: 'minioadmin'
+          value: minioRootPassword
         }
       ]
     }
@@ -183,11 +191,11 @@ resource apiContainerApp 'Microsoft.App/containerApps@2023-05-01' = {
             }
             {
               name: 'MINIO_ACCESS_KEY'
-              value: 'minioadmin'
+              value: minioRootUser
             }
             {
               name: 'MINIO_SECRET_KEY'
-              value: 'minioadmin'
+              value: minioRootPassword
             }
           ]
         }
