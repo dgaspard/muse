@@ -65,14 +65,22 @@ function createSlug(name: string, maxLength: number = 60): string {
     return 'untitled'
   }
   
-  return name
+  let result = name
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9\s-]/g, '') // Remove special chars except spaces and hyphens
     .replace(/\s+/g, '-')          // Convert spaces to hyphens
-    .replace(/-{2,}/g, '-')        // Collapse multiple hyphens (use {2,} to avoid ReDoS)
-    .replace(/^-+|-+$/g, '')       // Remove leading/trailing hyphens
-    .substring(0, maxLength)
+    .replace(/-{2,}/g, '-')        // Collapse multiple hyphens
+  
+  // Remove leading/trailing hyphens without ReDoS risk
+  while (result.startsWith('-')) {
+    result = result.slice(1)
+  }
+  while (result.endsWith('-')) {
+    result = result.slice(0, -1)
+  }
+  
+  return result.substring(0, maxLength)
 }
 
 /**
