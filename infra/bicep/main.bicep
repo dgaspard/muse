@@ -69,6 +69,68 @@ resource containerAppsEnvironment 'Microsoft.App/managedEnvironments@2023-05-01'
   }
 }
 
+// Container App for MinIO (S3-compatible storage)
+resource minioContainerApp 'Microsoft.App/containerApps@2023-05-01' = {
+  name: '${resourceNamePrefix}-minio'
+  location: location
+  tags: commonTags
+  properties: {
+    managedEnvironmentId: containerAppsEnvironment.id
+    configuration: {
+      ingress: {
+        external: true
+        targetPort: 9000
+        transport: 'auto'
+        allowInsecure: false
+      }
+      registries: []
+      secrets: [
+        {
+          name: 'minio-root-user'
+          value: 'minioadmin'
+        }
+        {
+          name: 'minio-root-password'
+          value: 'minioadmin'
+        }
+      ]
+    }
+    template: {
+      containers: [
+        {
+          name: 'minio'
+          image: 'minio/minio:latest'
+          command: [
+            'minio'
+            'server'
+            '/data'
+            '--console-address'
+            ':9001'
+          ]
+          resources: {
+            cpu: json('0.5')
+            memory: '1Gi'
+          }
+          env: [
+            {
+              name: 'MINIO_ROOT_USER'
+              secretRef: 'minio-root-user'
+            }
+            {
+              name: 'MINIO_ROOT_PASSWORD'
+              secretRef: 'minio-root-password'
+            }
+          ]
+        }
+      ]
+      scale: {
+        minReplicas: 1
+        maxReplicas: 1
+      }
+    }
+  }
+}
+
 // Container App for API service
 resource apiContainerApp 'Microsoft.App/containerApps@2023-05-01' = {
   name: '${resourceNamePrefix}-api'
@@ -114,6 +176,18 @@ resource apiContainerApp 'Microsoft.App/containerApps@2023-05-01' = {
             {
               name: 'API_PORT'
               value: '4000'
+            }
+            {
+              name: 'MINIO_ENDPOINT'
+              value: 'https://${minioContainerApp.properties.configuration.ingress.fqdn}'
+            }
+            {
+              name: 'MINIO_ACCESS_KEY'
+              value: 'minioadmin'
+            }
+            {
+              name: 'MINIO_SECRET_KEY'
+              value: 'minioadmin'
             }
           ]
         }
@@ -255,3 +329,4 @@ output containerRegistryLoginServer string = containerRegistry.properties.loginS
 output apiUrl string = 'https://${apiContainerApp.properties.configuration.ingress.fqdn}'
 output workerUrl string = 'https://${workerContainerApp.properties.configuration.ingress.fqdn}'
 output webUrl string = 'https://${webContainerApp.properties.configuration.ingress.fqdn}'
+output minioUrl string = 'https://${minioContainerApp.properties.configuration.ingress.fqdn}'
