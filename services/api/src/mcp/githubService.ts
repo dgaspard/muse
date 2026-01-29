@@ -44,7 +44,16 @@ export class GitHubService {
   private repoRoot: string
 
   constructor(repoRoot: string = process.cwd()) {
-    this.repoRoot = repoRoot
+    // Validate and resolve the repo root to prevent path injection
+    this.repoRoot = path.resolve(repoRoot)
+  }
+
+  /**
+   * Safely escape a path for use in shell commands
+   */
+  private escapeShellPath(pathStr: string): string {
+    // Use single quotes to prevent expansion, escape any single quotes in the path
+    return `'${pathStr.replace(/'/g, "'\\''")}'`
   }
 
   /**
@@ -61,13 +70,14 @@ export class GitHubService {
       }
 
       // Check if branch already exists
+      const escapedRepoRoot = this.escapeShellPath(this.repoRoot)
       try {
-        execSync(`git -C ${this.repoRoot} rev-parse --verify ${branchName}`, { stdio: 'pipe' })
+        execSync(`git -C ${escapedRepoRoot} rev-parse --verify ${branchName}`, { stdio: 'pipe' })
         // Branch exists, check it out
-        execSync(`git -C ${this.repoRoot} checkout ${branchName}`, { stdio: 'pipe' })
+        execSync(`git -C ${escapedRepoRoot} checkout ${branchName}`, { stdio: 'pipe' })
       } catch {
         // Branch doesn't exist, create it
-        execSync(`git -C ${this.repoRoot} checkout -b ${branchName}`, { stdio: 'pipe' })
+        execSync(`git -C ${escapedRepoRoot} checkout -b ${branchName}`, { stdio: 'pipe' })
       }
 
       return {
@@ -111,7 +121,8 @@ export class GitHubService {
       }
 
       // Stage files
-      execSync(`git -C ${this.repoRoot} add ${validFiles.map(f => `"${f}"`).join(' ')}`, { stdio: 'pipe' })
+      const escapedRepoRoot = this.escapeShellPath(this.repoRoot)
+      execSync(`git -C ${escapedRepoRoot} add ${validFiles.map(f => `"${f}"`).join(' ')}`, { stdio: 'pipe' })
 
       return {
         success: true,
@@ -147,7 +158,8 @@ export class GitHubService {
       // Create commit
       // Properly escape backslashes first, then quotes to prevent injection
       const escapedMessage = commitMessage.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
-      const output = execSync(`git -C ${this.repoRoot} commit -m "${escapedMessage}"`, {
+      const escapedRepoRoot = this.escapeShellPath(this.repoRoot)
+      const output = execSync(`git -C ${escapedRepoRoot} commit -m "${escapedMessage}"`, {
         stdio: 'pipe',
         encoding: 'utf-8',
       })
@@ -203,7 +215,8 @@ export class GitHubService {
       }
 
       const command = `gh pr create ${args.join(' ')}`
-      const output = execSync(`cd ${this.repoRoot} && ${command}`, {
+      const escapedRepoRoot = this.escapeShellPath(this.repoRoot)
+      const output = execSync(`cd ${escapedRepoRoot} && ${command}`, {
         stdio: 'pipe',
         encoding: 'utf-8',
       })
@@ -228,7 +241,8 @@ export class GitHubService {
    */
   getCurrentBranch(): string | null {
     try {
-      return execSync(`git -C ${this.repoRoot} rev-parse --abbrev-ref HEAD`, {
+      const escapedRepoRoot = this.escapeShellPath(this.repoRoot)
+      return execSync(`git -C ${escapedRepoRoot} rev-parse --abbrev-ref HEAD`, {
         stdio: 'pipe',
         encoding: 'utf-8',
       }).trim()
@@ -242,7 +256,8 @@ export class GitHubService {
    */
   getStatus(): { staged: string[]; unstaged: string[] } {
     try {
-      const output = execSync(`git -C ${this.repoRoot} status --porcelain`, {
+      const escapedRepoRoot = this.escapeShellPath(this.repoRoot)
+      const output = execSync(`git -C ${escapedRepoRoot} status --porcelain`, {
         stdio: 'pipe',
         encoding: 'utf-8',
       })

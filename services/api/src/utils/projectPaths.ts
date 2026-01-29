@@ -70,7 +70,7 @@ function createSlug(name: string, maxLength: number = 60): string {
     .trim()
     .replace(/[^a-z0-9\s-]/g, '') // Remove special chars except spaces and hyphens
     .replace(/\s+/g, '-')          // Convert spaces to hyphens
-    .replace(/-+/g, '-')           // Collapse multiple hyphens
+    .replace(/-{2,}/g, '-')        // Collapse multiple hyphens (use {2,} to avoid ReDoS)
     .replace(/^-+|-+$/g, '')       // Remove leading/trailing hyphens
     .substring(0, maxLength)
 }
