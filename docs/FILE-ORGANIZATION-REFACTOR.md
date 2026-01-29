@@ -44,18 +44,19 @@ Refactoring MUSE artifact storage from flat structure to hierarchical project-ba
 - [x] Created `utils/projectPaths.ts` helper module
 - [x] Updated `materialize-endpoint.ts` to use new structure
 - [x] Added `projectId` requirement to materialize API
+- [x] Updated `MusePipelineOrchestrator.ts` to use project-based paths
+- [x] Updated MCP `materializationService.ts` to use hierarchical structure
+- [x] Updated `index.ts` API routes to pass projectId through pipeline
+- [x] Updated orchestrator test to expect new directory structure
 
 ### 🚧 In Progress
-- [ ] Update `MusePipelineOrchestrator.ts`
-- [ ] Update MCP `materializationService.ts`
-- [ ] Update `index.ts` API routes
-- [ ] Update test files
-- [ ] Update documentation references
+- [ ] Run full test suite to identify remaining path references
 
 ### 📝 TODO
 - [ ] Migration script for existing artifacts
 - [ ] Update frontend to display new hierarchy
 - [ ] Update governance documents
+- [ ] Update remaining test files if needed
 
 ## API Changes
 

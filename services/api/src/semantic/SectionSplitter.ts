@@ -32,13 +32,15 @@ export class SectionSplitter {
     normalized = normalized.replace(/^.+\.{3,}.+$/gm, '')
 
     // Remove page number patterns ("7-8", "1 of 112", "-- 1 --")
-    normalized = normalized.replace(/^\d+ of \d+\s*--?\s*$/gm, '')
-    normalized = normalized.replace(/^--?\s*\d+\s*--?$/gm, '')
-    normalized = normalized.replace(/^\s*\d+-\d+\s*$/gm, '')
+    // Fixed: Use atomic quantifiers to prevent ReDoS
+    normalized = normalized.replace(/^\d+ of \d+[ \t]*(?:--)?[ \t]*$/gm, '')
+    normalized = normalized.replace(/^(?:--)?[ \t]*\d+[ \t]*(?:--)?$/gm, '')
+    normalized = normalized.replace(/^[ \t]*\d+-\d+[ \t]*$/gm, '')
 
     // Remove isolated page markers and footers
-    normalized = normalized.replace(/^\s*Page \d+.*$/gm, '')
-    normalized = normalized.replace(/^\s*-+\s*$/gm, '')
+    normalized = normalized.replace(/^[ \t]*Page \d+.*$/gm, '')
+    // Fixed: Use possessive quantifier pattern to prevent ReDoS with many dashes
+    normalized = normalized.replace(/^[ \t]*-{2,}[ \t]*$/gm, '')
 
     // Remove empty numbered headings (e.g., "3.2.1" alone on a line)
     normalized = normalized.replace(/^\s*\d+(\.\d+)*\s*$/gm, '')
