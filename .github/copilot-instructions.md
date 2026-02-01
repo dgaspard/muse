@@ -18,7 +18,8 @@ Big picture
   - `apps/web` — Next.js frontend (link to API health links)
   - `services/api` — Node (TypeScript) API (Express) — starter routes in `src/index.ts`
   - `services/workers` — Node worker process (simulated heartbeat + health endpoint)
-- Data & infra in compose: Postgres, Redis, MinIO (local dev only).
+- Data & infra in compose: Postgres, Redis (local dev only).
+- Document storage: filesystem-based by default (see `services/api/src/storage/documentStoreFactory.ts`).
 
 Project-specific conventions
 - Keep services explicit and small — prefer readable, commented code over clever abstractions.
@@ -41,7 +42,6 @@ Smoke tests
   - The script checks `/health` for API, worker, verifies the web UI returns HTTP 200, and validates backend dependencies:
     - Postgres readiness via `docker compose exec postgres pg_isready`
     - Redis reachability via `docker compose exec redis redis-cli PING`
-    - MinIO readiness via `http://localhost:9000/minio/health/ready`
   - These checks are intentionally lightweight and implemented using tools available in the official service images (pg_isready, redis-cli).
 
 PR guidance

@@ -12,7 +12,7 @@ npm-debug.log
 # Docker
 .env.*.local
 
-# Local runtime storage (databases, MinIO data, etc.)
+# Local runtime storage (databases, documents, Redis data, etc.)
 /storage/
 traceability-report.json
 traceability-report.txt

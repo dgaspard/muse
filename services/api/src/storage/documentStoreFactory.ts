@@ -15,7 +15,7 @@ import path from 'path'
  *   - DOCUMENT_STORE_DIR or defaults to ./storage/documents
  */
 export function getDocumentStore(): DocumentStore {
-  const storeType = (process.env.DOCUMENT_STORE_DRIVER || 's3').toLowerCase()
+  const storeType = (process.env.DOCUMENT_STORE_DRIVER || 'filesystem').toLowerCase()
 
   switch (storeType) {
     case 's3':
