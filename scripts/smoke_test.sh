@@ -12,7 +12,7 @@ set -euo pipefail
 
 # Enhanced smoke test for Muse prototype services.
 # - Expects services to be reachable on localhost using ports defined in .env
-# - Verifies service health endpoints AND backend dependencies (Postgres, Redis, MinIO)
+# - Verifies service health endpoints AND backend dependencies (Postgres, Redis)
 # - Exits non-zero if any check fails
 
 check_api() {
@@ -88,16 +88,6 @@ if docker compose exec -T redis redis-cli PING 2>/dev/null | grep -q PONG; then
 else
   echo "FAIL: redis"
   docker compose logs redis --no-log-prefix --tail 50 || true
-  exit 1
-fi
-
-# MinIO: check the ready endpoint
-echo "Checking MinIO at http://localhost:9000/minio/health/ready"
-if curl -sS --fail --max-time 5 http://localhost:9000/minio/health/ready >/dev/null; then
-  echo "OK: minio"
-else
-  echo "FAIL: minio"
-  docker compose logs minio --no-log-prefix --tail 50 || true
   exit 1
 fi
 

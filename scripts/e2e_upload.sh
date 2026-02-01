@@ -11,8 +11,8 @@ TIMEOUT=${TIMEOUT:-60}
 echo "Preparing test file: $UPLOAD_FILE"
 echo "ci-e2e" > "$UPLOAD_FILE"
 
-echo "Starting minimal stack (minio, api, web)"
-docker compose up -d --build minio api web
+echo "Starting minimal stack (api, web)"
+docker compose up -d --build api web
 
 echo "Waiting for API health..."
 start=
@@ -61,7 +61,6 @@ if ! echo "$HTTP_STATUS" | grep -q "HTTP_STATUS:200"; then
   echo "Upload failed (non-200): $HTTP_STATUS" >&2
   docker compose logs web --no-log-prefix --tail 200 || true
   docker compose logs api --no-log-prefix --tail 200 || true
-  docker compose logs minio --no-log-prefix --tail 200 || true
   docker compose down -v || true
   exit 2
 fi
@@ -71,7 +70,6 @@ if ! grep -q '"ok"\s*:\s*true' "$TMP_RESP"; then
   echo "Upload returned 200 but response did not include \"ok\": true" >&2
   docker compose logs web --no-log-prefix --tail 200 || true
   docker compose logs api --no-log-prefix --tail 200 || true
-  docker compose logs minio --no-log-prefix --tail 200 || true
   docker compose down -v || true
   exit 3
 fi
