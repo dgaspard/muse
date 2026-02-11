@@ -34,6 +34,8 @@ Completed work, bug fixes, and merge histories.
 
 Code quality, linting, testing standards, and compliance.
 
+- [Testing Strategy](./quality/testing-strategy.md) — Comprehensive testing guide for all test types
+- [Test Requirements Checklist](./quality/test-requirements-checklist.md) — Quick reference for test coverage
 - [Markdown Linting](./quality/markdown-linting.md) — Linting configuration and best practices
 
 ### 💡 [Examples](./examples/)
