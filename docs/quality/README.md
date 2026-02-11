@@ -4,6 +4,7 @@
 
 ## Contents
 
+- [**Testing Strategy**](./testing-strategy.md) - Comprehensive testing guide covering unit, integration, E2E, security, and compliance tests
 - [**Markdown Linting**](./markdown-linting.md) - Markdown linting configuration, rules, CI/CD integration, and linting best practices
 
 ## Standards & Guidelines
